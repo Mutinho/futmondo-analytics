@@ -1,0 +1,14 @@
+# Nixpacks configuration for Railway Frontend Service
+# This file tells Railway how to build and run the frontend
+
+[phases.setup]
+nixPkgs = ["nodejs-18_x"]
+
+[phases.install]
+cmds = [
+  "npm ci --omit=dev"
+]
+
+[start]
+cmd = "npm start"
+

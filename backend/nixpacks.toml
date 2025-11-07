@@ -1,0 +1,14 @@
+# Nixpacks configuration for Railway Backend Service
+# This file tells Railway how to build and run the backend
+
+[phases.setup]
+nixPkgs = ["python311"]
+
+[phases.install]
+cmds = [
+  "pip install -r requirements.txt"
+]
+
+[start]
+cmd = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+
