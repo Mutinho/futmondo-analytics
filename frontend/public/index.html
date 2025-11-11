@@ -25,6 +25,7 @@
         }
 
         .header {
+            position: relative;
             text-align: center;
             color: white;
             margin-bottom: 30px;
@@ -424,31 +425,43 @@
 
         .login-form {
             display: flex;
-            flex-direction: column;
-            gap: 16px;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0, 0, 0, 0.45);
+            padding: 6px 10px;
+            border-radius: 999px;
+            backdrop-filter: blur(4px);
         }
 
         .login-form label {
-            font-weight: 600;
-            color: #1b1f23;
+            display: none;
         }
 
         .login-form input {
-            padding: 12px 14px;
-            border-radius: 8px;
-            border: 1px solid rgba(0, 0, 0, 0.2);
-            font-size: 1rem;
+            width: 120px;
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: none;
+            font-size: 0.85rem;
+            background: rgba(255, 255, 255, 0.9);
+            color: #1b1f23;
+        }
+
+        .login-form input:focus {
+            outline: 2px solid #90EE90;
+            background: #ffffff;
         }
 
         .login-form button {
-            margin-top: 4px;
+            margin-top: 0;
         }
 
         .login-error {
             display: none;
-            margin-top: 8px;
-            color: #c0392b;
+            font-size: 0.85rem;
+            color: #ffb347;
             font-weight: 600;
+            text-align: right;
         }
 
         .user-controls {
@@ -456,9 +469,16 @@
             top: 0;
             right: 0;
             display: flex;
-            align-items: center;
-            gap: 10px;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
             color: white;
+        }
+
+        .user-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         #user-badge {
@@ -761,9 +781,16 @@
                 <h1>🏆 Futmondo</h1>
                 <p>Evolución de Puntos y Posiciones por Jornada</p>
                 <div class="user-controls" id="user-controls">
-                    <span id="user-badge">Modo invitado</span>
-                    <button id="login-button" class="primary-button small">Iniciar sesión</button>
-                    <button id="logout-button" class="secondary-button small" style="display: none;">Cerrar sesión</button>
+                    <div class="user-status">
+                        <span id="user-badge">Modo invitado</span>
+                        <button id="logout-button" class="secondary-button small" style="display: none;">Cerrar sesión</button>
+                    </div>
+                    <form id="login-form" class="login-form">
+                        <input type="text" id="login-username" placeholder="Usuario" autocomplete="username">
+                        <input type="password" id="login-password" placeholder="Contraseña" autocomplete="current-password">
+                        <button type="submit" id="login-button" class="primary-button small">Entrar</button>
+                    </form>
+                    <div id="login-error" class="login-error"></div>
                 </div>
             </div>
 

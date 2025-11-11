@@ -727,6 +727,12 @@ class DataManagerV2:
             
             now = datetime.now()
             
+            def _safe_int(value):
+                try:
+                    return int(value)
+                except (TypeError, ValueError):
+                    return 0
+
             for team in teams:
                 team_id = (
                     team.get("id")
@@ -734,7 +740,8 @@ class DataManagerV2:
                     or (team.get("team") or {}).get("id")
                 )
                 position = team.get("position", 0)
-                round_points = team.get("points", 0) or team.get("roundPoints", 0)
+                raw_total_points = team.get("points")
+                round_points_only = team.get("roundPoints")
 
                 if not team_id:
                     continue
@@ -755,12 +762,20 @@ class DataManagerV2:
                             else prev_row.get('points', 0)
                         )
 
-                if round_points <= prev_points_total:
-                    points_this_matchday = round_points
-                    points = prev_points_total + round_points
+                if round_points_only is not None:
+                    points_this_matchday = _safe_int(round_points_only)
+                    points = prev_points_total + points_this_matchday
+                elif raw_total_points is not None:
+                    total_points_int = _safe_int(raw_total_points)
+                    if total_points_int >= prev_points_total:
+                        points = total_points_int
+                        points_this_matchday = total_points_int - prev_points_total
+                    else:
+                        points_this_matchday = total_points_int
+                        points = prev_points_total + points_this_matchday
                 else:
-                    points = round_points
-                    points_this_matchday = points - prev_points_total
+                    points_this_matchday = 0
+                    points = prev_points_total
 
                 self.save_team_standing(
                     championship_id=championship_id,

@@ -110,25 +110,63 @@ function persistAuthState() {
 }
 
 function updateUserControls() {
+    const loginForm = document.getElementById('login-form');
     const loginButton = document.getElementById('login-button');
     const logoutButton = document.getElementById('logout-button');
     const badge = document.getElementById('user-badge');
+    const usernameInput = document.getElementById('login-username');
+    const passwordInput = document.getElementById('login-password');
+    const loginError = document.getElementById('login-error');
 
-    if (!badge || !loginButton || !logoutButton) {
+    if (!badge || !logoutButton || !loginForm) {
         return;
     }
 
     if (!authState.isAuthenticated) {
         badge.textContent = 'Modo invitado';
-        loginButton.style.display = 'inline-flex';
+        loginForm.style.display = 'flex';
+        loginForm.reset();
+        if (loginButton) {
+            loginButton.style.display = 'inline-flex';
+            loginButton.disabled = false;
+        }
         logoutButton.style.display = 'none';
+        if (usernameInput) {
+            usernameInput.disabled = false;
+            usernameInput.focus();
+        }
+        if (passwordInput) {
+            passwordInput.disabled = false;
+        }
+        if (loginError) {
+            loginError.textContent = '';
+            loginError.style.display = 'none';
+        }
         return;
     }
 
     const roleLabel = authState.role === 'premium' ? 'Premium' : 'Invitado';
     const usernameLabel = authState.username || 'Usuario';
     badge.textContent = `${usernameLabel} · ${roleLabel}`;
-    loginButton.style.display = 'none';
+
+    loginForm.style.display = 'none';
+    if (loginButton) {
+        loginButton.style.display = 'none';
+        loginButton.disabled = false;
+    }
+    if (usernameInput) {
+        usernameInput.value = '';
+        usernameInput.disabled = true;
+    }
+    if (passwordInput) {
+        passwordInput.value = '';
+        passwordInput.disabled = true;
+    }
+    if (loginError) {
+        loginError.textContent = '';
+        loginError.style.display = 'none';
+    }
+
     logoutButton.style.display = 'inline-flex';
 }
 
@@ -2853,18 +2891,47 @@ async function startAppIfNeeded() {
 async function handleLoginSubmit(event) {
     event?.preventDefault?.();
     const loginButton = document.getElementById('login-button');
+    const usernameInput = document.getElementById('login-username');
+    const passwordInput = document.getElementById('login-password');
+    const loginError = document.getElementById('login-error');
+    const loginForm = document.getElementById('login-form');
+
+    if (loginError) {
+        loginError.textContent = '';
+        loginError.style.display = 'none';
+    }
+
+    const username = usernameInput?.value?.trim() || '';
+    const password = passwordInput?.value || '';
+
+    if (!username || !password) {
+        const message = 'Introduce usuario y contraseña.';
+        if (loginError) {
+            loginError.textContent = message;
+            loginError.style.display = 'block';
+        } else {
+            showAccessMessage(message, 'global', 4000);
+        }
+        return;
+    }
 
     if (loginButton) {
         loginButton.disabled = true;
     }
+    if (usernameInput) {
+        usernameInput.disabled = true;
+    }
+    if (passwordInput) {
+        passwordInput.disabled = true;
+    }
 
+    let loginSucceeded = false;
     try {
-        const username = prompt('Usuario:');
-        const password = username ? prompt('Contraseña:') : null;
-        if (!username || !password) {
-            return;
+        const result = await attemptLogin(username, password);
+        loginSucceeded = true;
+        if (loginForm) {
+            loginForm.reset();
         }
-        const result = await attemptLogin(username.trim(), password);
         resetAppState();
         setAuthState({
             isAuthenticated: true,
@@ -2880,10 +2947,27 @@ async function handleLoginSubmit(event) {
         showAccessMessage(`Sesión iniciada como ${result.username}.`);
         hideAccessMessage('analytics');
     } catch (error) {
-        showAccessMessage(error.message || 'Credenciales incorrectas', 'global', 5000);
+        const message = error.message || 'Credenciales incorrectas';
+        if (loginError) {
+            loginError.textContent = message;
+            loginError.style.display = 'block';
+        }
+        showAccessMessage(message, 'global', 5000);
     } finally {
         if (loginButton) {
             loginButton.disabled = false;
+        }
+        if (!authState.isAuthenticated) {
+            if (usernameInput) {
+                usernameInput.disabled = false;
+                if (!loginSucceeded) {
+                    usernameInput.focus();
+                }
+            }
+            if (passwordInput) {
+                passwordInput.disabled = false;
+                passwordInput.value = '';
+            }
         }
     }
 }
@@ -2912,9 +2996,9 @@ function setupAuthEventHandlers() {
         return;
     }
 
-    const loginButton = document.getElementById('login-button');
-    if (loginButton) {
-        loginButton.addEventListener('click', handleLoginSubmit);
+    const loginForm = document.getElementById('login-form');
+    if (loginForm) {
+        loginForm.addEventListener('submit', handleLoginSubmit);
     }
 
     const logoutButton = document.getElementById('logout-button');
