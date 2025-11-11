@@ -7,3 +7,7 @@ docker-compose down
 
 echo "✅ Servicios detenidos"
 
+
+
+
+

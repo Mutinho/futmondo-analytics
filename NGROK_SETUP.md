@@ -141,3 +141,7 @@ Asegúrate de que:
 
 **¿Necesitas ayuda?** Consulta los logs con `./docker-logs.sh frontend` o revisa la [documentación de ngrok](https://ngrok.com/docs).
 
+
+
+
+

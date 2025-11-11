@@ -19,10 +19,12 @@ from app.api.v1.endpoints.initialize import router as initialize_router
 from app.api.v1.endpoints.reset_db import router as reset_db_router
 from app.api.v1.endpoints.statistics import router as statistics_router
 from app.api.v1.endpoints.news import router as news_router
+from app.api.v1.endpoints.auth import router as auth_router
 from app.api.v1.endpoints.player_finances import router as player_finances_router
 from app.api.v1.endpoints.user_stats import router as user_stats_router
 from app.api.v1.endpoints.clausulable_players import router as clausulable_players_router
 from app.api.v1.endpoints.sync import router as sync_router
+from app.api.v1.endpoints.analytics import router as analytics_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -82,6 +84,8 @@ app.include_router(player_finances_router, prefix="/api/v1/player-finances", tag
 app.include_router(user_stats_router, prefix="/api/v1/user-stats", tags=["user-stats"])
 app.include_router(clausulable_players_router, prefix="/api/v1/clausulable-players", tags=["clausulable-players"])
 app.include_router(sync_router, prefix="/api/v1/sync", tags=["sync"])
+app.include_router(analytics_router, prefix="/api/v1/analytics", tags=["analytics"])
+app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
 
 # Also serve routes without /api prefix (to avoid redirect loops)
 # Include the same router with the old prefix

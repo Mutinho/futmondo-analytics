@@ -325,7 +325,7 @@ class PhotoService:
             '''
         else:
             sql = "INSERT OR IGNORE INTO players (player_id, name, last_updated) VALUES (?, ?, ?)"
-            sql = self.db.adapt_params(sql)
+        sql = self.db.adapt_params(sql)
         
         cursor.execute(sql, (player_id, player_name, now))
     

@@ -60,3 +60,7 @@ ngrok http 3000
 - Asegúrate de que el frontend esté en puerto 3000
 - Verifica que ngrok esté instalado: `ngrok version`
 
+
+
+
+

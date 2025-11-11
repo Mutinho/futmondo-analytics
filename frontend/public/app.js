@@ -6,6 +6,31 @@ const API_URL = '/api/v1/matchdays';
 const FINANCES_API_URL = '/api/v1/player-finances/';  // Add trailing slash to avoid 307 redirects
 const USER_STATS_API_URL = '/api/v1/user-stats/';  // Add trailing slash to avoid 307 redirects
 const CLAUSULABLE_PLAYERS_API_URL = '/api/v1/clausulable-players/';  // Add trailing slash to avoid 307 redirects
+const ANALYTICS_BASE_URL = '/api/v1/analytics';
+const ANALYTICS_ENDPOINTS = {
+    trends: `${ANALYTICS_BASE_URL}/championship/trends`,
+    customClassification: `${ANALYTICS_BASE_URL}/championship/custom-classification`,
+    heatmap: `${ANALYTICS_BASE_URL}/championship/heatmap`,
+    playerForm: `${ANALYTICS_BASE_URL}/players/form`,
+    playerValue: `${ANALYTICS_BASE_URL}/players/value-trend`,
+    userConsistency: `${ANALYTICS_BASE_URL}/users/consistency`,
+    userMarketActivity: `${ANALYTICS_BASE_URL}/users/market-activity`,
+    watchlist: `${ANALYTICS_BASE_URL}/market/watchlist`,
+    clauseNetwork: `${ANALYTICS_BASE_URL}/clauses/network`,
+    streaks: `${ANALYTICS_BASE_URL}/opportunities/streaks`,
+    projections: `${ANALYTICS_BASE_URL}/projections/matchday`
+};
+const AUTH_BASE_URL = '/api/v1/auth';
+const AUTH_ENDPOINTS = {
+    login: `${AUTH_BASE_URL}/login`,
+    session: `${AUTH_BASE_URL}/session`,
+    logout: `${AUTH_BASE_URL}/logout`
+};
+const AUTH_STORAGE_KEY = 'futmondoAuth';
+const HIDDEN_PREMIUM_TABS = new Set(['finances']);
+const LOCKED_PREMIUM_TABS = new Set(['clausulable']);
+const PREMIUM_TABS = new Set([...HIDDEN_PREMIUM_TABS, ...LOCKED_PREMIUM_TABS]);
+const PREMIUM_ANALYTICS_SECTIONS = new Set(['players', 'users', 'market', 'opportunities', 'projections']);
 
 // Chart.js global defaults
 Chart.defaults.font.family = "'Segoe UI', Roboto, sans-serif";
@@ -19,6 +44,340 @@ let evolutionData = null;
 let uniquePlayersChart = null;
 let clausesChart = null;
 let transactionsChart = null;
+let analyticsMomentumChart = null;
+let analyticsConsistencyChart = null;
+let appInitialized = false;
+let globalAccessMessageTimer = null;
+
+function createDefaultAnalyticsLoadedState() {
+    return {
+        overview: false,
+        custom: false,
+        players: false,
+        users: false,
+        market: false,
+        opportunities: false,
+        projections: false
+    };
+}
+
+const analyticsState = {
+    loaded: createDefaultAnalyticsLoadedState(),
+    caches: {}
+};
+let analyticsTeamMap = {};
+
+function createDefaultCustomClassificationState() {
+    return {
+        window: 5,
+        pendingWindow: 5,
+        excluded: new Set(),
+        draftExcluded: new Set()
+    };
+}
+
+let customClassificationState = createDefaultCustomClassificationState();
+let customControlsInitialized = false;
+function createDefaultAuthState() {
+    return {
+        isAuthenticated: false,
+        username: null,
+        role: 'guest',
+        token: null,
+        expiresAt: null
+    };
+}
+
+let authState = createDefaultAuthState();
+let authEventsBound = false;
+
+function persistAuthState() {
+    if (authState.isAuthenticated && authState.token) {
+        const payload = {
+            username: authState.username,
+            role: authState.role,
+            token: authState.token,
+            expires_at: authState.expiresAt
+        };
+        try {
+            localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(payload));
+        } catch (error) {
+            console.warn('No se pudo guardar la sesión localmente:', error);
+        }
+    } else {
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+    }
+}
+
+function updateUserControls() {
+    const loginButton = document.getElementById('login-button');
+    const logoutButton = document.getElementById('logout-button');
+    const badge = document.getElementById('user-badge');
+
+    if (!badge || !loginButton || !logoutButton) {
+        return;
+    }
+
+    if (!authState.isAuthenticated) {
+        badge.textContent = 'Modo invitado';
+        loginButton.style.display = 'inline-flex';
+        logoutButton.style.display = 'none';
+        return;
+    }
+
+    const roleLabel = authState.role === 'premium' ? 'Premium' : 'Invitado';
+    const usernameLabel = authState.username || 'Usuario';
+    badge.textContent = `${usernameLabel} · ${roleLabel}`;
+    loginButton.style.display = 'none';
+    logoutButton.style.display = 'inline-flex';
+}
+
+function resetCharts() {
+    if (pointsChart) {
+        pointsChart.destroy();
+        pointsChart = null;
+    }
+    if (positionsChart) {
+        positionsChart.destroy();
+        positionsChart = null;
+    }
+    if (uniquePlayersChart) {
+        uniquePlayersChart.destroy();
+        uniquePlayersChart = null;
+    }
+    if (clausesChart) {
+        clausesChart.destroy();
+        clausesChart = null;
+    }
+    if (transactionsChart) {
+        transactionsChart.destroy();
+        transactionsChart = null;
+    }
+    if (analyticsMomentumChart) {
+        analyticsMomentumChart.destroy();
+        analyticsMomentumChart = null;
+    }
+    if (analyticsConsistencyChart) {
+        analyticsConsistencyChart.destroy();
+        analyticsConsistencyChart = null;
+    }
+}
+
+function resetAnalyticsState() {
+    analyticsState.loaded = createDefaultAnalyticsLoadedState();
+    analyticsState.caches = {};
+    analyticsTeamMap = {};
+    customClassificationState = createDefaultCustomClassificationState();
+    customControlsInitialized = false;
+}
+
+function hideAccessMessage(scope = 'global') {
+    const elementId = scope === 'analytics' ? 'analytics-access-message' : 'global-access-message';
+    const element = document.getElementById(elementId);
+    if (scope === 'global' && globalAccessMessageTimer) {
+        clearTimeout(globalAccessMessageTimer);
+        globalAccessMessageTimer = null;
+    }
+    if (element) {
+        element.textContent = '';
+        element.style.display = 'none';
+    }
+}
+
+function showAccessMessage(message, scope = 'global', timeout = 3500) {
+    const elementId = scope === 'analytics' ? 'analytics-access-message' : 'global-access-message';
+    const element = document.getElementById(elementId);
+    if (!element) {
+        return;
+    }
+    element.textContent = message;
+    element.style.display = 'block';
+
+    if (scope === 'global') {
+        if (globalAccessMessageTimer) {
+            clearTimeout(globalAccessMessageTimer);
+        }
+        globalAccessMessageTimer = setTimeout(() => {
+            element.style.display = 'none';
+            globalAccessMessageTimer = null;
+        }, timeout);
+    }
+}
+
+function resetAppState() {
+    resetCharts();
+    resetAnalyticsState();
+    evolutionData = null;
+    hideAccessMessage('global');
+    hideAccessMessage('analytics');
+    appInitialized = false;
+
+    const content = document.getElementById('content');
+    if (content) {
+        content.style.display = 'none';
+    }
+    const loading = document.getElementById('loading');
+    if (loading) {
+        loading.style.display = 'block';
+    }
+}
+
+function applyRoleRestrictions() {
+    HIDDEN_PREMIUM_TABS.forEach(tabName => {
+        const button = document.getElementById(`${tabName}-tab-button`);
+        const tab = document.getElementById(`${tabName}-tab`);
+        const shouldDisplay = authState.isAuthenticated;
+        if (button) {
+            button.style.display = shouldDisplay ? '' : 'none';
+        }
+        if (tab) {
+            tab.style.display = shouldDisplay ? '' : 'none';
+        }
+    });
+
+    LOCKED_PREMIUM_TABS.forEach(tabName => {
+        const button = document.getElementById(`${tabName}-tab-button`);
+        const tab = document.getElementById(`${tabName}-tab`);
+        if (button) {
+            button.style.display = '';
+        }
+        if (tab) {
+            tab.style.display = '';
+        }
+        if (!authState.isAuthenticated) {
+            lockPremiumTab(tabName);
+        } else {
+            unlockPremiumTab(tabName);
+        }
+    });
+
+    if (!authState.isAuthenticated) {
+        hideAccessMessage('analytics');
+        showTab('evolution');
+        return;
+    }
+
+    hideAccessMessage('analytics');
+}
+
+function setAuthState(partialState) {
+    authState = {
+        ...authState,
+        ...partialState
+    };
+    persistAuthState();
+    updateUserControls();
+    applyRoleRestrictions();
+}
+
+function clearAuthState() {
+    authState = createDefaultAuthState();
+    persistAuthState();
+    updateUserControls();
+    applyRoleRestrictions();
+}
+
+function canAccessTab(tabName) {
+    if (!authState.isAuthenticated && HIDDEN_PREMIUM_TABS.has(tabName)) {
+        return false;
+    }
+    return true;
+}
+
+function canAccessAnalyticsSection(sectionName) {
+    if (!authState.isAuthenticated) {
+        return !PREMIUM_ANALYTICS_SECTIONS.has(sectionName);
+    }
+    if (authState.role === 'premium') {
+        return true;
+    }
+    return !PREMIUM_ANALYTICS_SECTIONS.has(sectionName);
+}
+
+function lockAnalyticsSection(sectionName, message = 'Contenido reservado para clientes premium') {
+    const baseId = `analytics-${sectionName}`;
+    const loading = document.getElementById(`${baseId}-loading`);
+    const error = document.getElementById(`${baseId}-error`);
+    const content = document.getElementById(`${baseId}-content`);
+
+    if (loading) {
+        loading.style.display = 'none';
+    }
+    if (content) {
+        content.style.display = 'none';
+    }
+    if (error) {
+        error.textContent = message;
+        error.style.display = 'block';
+    } else {
+        showAccessMessage(message, 'analytics', 4000);
+    }
+    analyticsState.loaded[sectionName] = false;
+}
+
+function lockPremiumTab(tabName, message = 'Contenido reservado para clientes premium') {
+    if (tabName === 'clausulable') {
+        const loading = document.getElementById('clausulable-loading');
+        const error = document.getElementById('clausulable-error');
+        const container = document.getElementById('clausulable-table-container');
+
+        if (loading) {
+            loading.style.display = 'none';
+        }
+        if (container) {
+            container.style.display = 'none';
+        }
+        if (error) {
+            error.textContent = message;
+            error.style.display = 'block';
+        } else {
+            showAccessMessage(message);
+        }
+    }
+}
+
+function unlockPremiumTab(tabName) {
+    if (tabName === 'clausulable') {
+        const loading = document.getElementById('clausulable-loading');
+        const error = document.getElementById('clausulable-error');
+        const container = document.getElementById('clausulable-table-container');
+
+        if (error) {
+            error.style.display = 'none';
+            error.textContent = '';
+        }
+        if (container) {
+            container.style.display = 'none';
+        }
+        if (loading) {
+            loading.style.display = 'none';
+        }
+    }
+}
+
+function showLoginView() {
+    const loginButton = document.getElementById('login-button');
+    const logoutButton = document.getElementById('logout-button');
+
+    if (loginButton) {
+        loginButton.disabled = false;
+    }
+    if (logoutButton) {
+        logoutButton.disabled = false;
+    }
+}
+
+function hideLoginView() {
+    const loginButton = document.getElementById('login-button');
+    const logoutButton = document.getElementById('logout-button');
+
+    if (loginButton) {
+        loginButton.disabled = false;
+    }
+    if (logoutButton) {
+        logoutButton.disabled = false;
+    }
+}
 
 /**
  * Show error message
@@ -90,6 +449,41 @@ async function loadEvolutionData() {
     } catch (error) {
         console.error('Error loading data:', error);
         showError(`Error cargando datos: ${error.message}`);
+        throw error;
+    }
+}
+
+/**
+ * Fetch data from analytics endpoints with optional query parameters
+ */
+async function fetchAnalyticsData(endpoint, params = {}) {
+    try {
+        const url = new URL(endpoint, window.location.origin);
+        Object.entries(params).forEach(([key, value]) => {
+            if (value === undefined || value === null) {
+                return;
+            }
+            if (Array.isArray(value)) {
+                url.searchParams.delete(key);
+                value.forEach(item => {
+                    if (item !== undefined && item !== null && item !== '') {
+                        url.searchParams.append(key, item);
+                    }
+                });
+            } else {
+                url.searchParams.set(key, value);
+            }
+        });
+
+        const response = await fetch(url.pathname + url.search);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('Analytics fetch error:', error);
         throw error;
     }
 }
@@ -864,42 +1258,47 @@ async function init() {
  * Show specific tab
  */
 function showTab(tabName) {
-    // Hide all tabs
+    if (!canAccessTab(tabName)) {
+        showAccessMessage('Contenido reservado para clientes premium');
+        return;
+    }
+
+    hideAccessMessage('global');
+
     document.querySelectorAll('.tab-content').forEach(tab => {
         tab.classList.remove('active');
     });
-    
-    // Remove active class from all buttons
+
     document.querySelectorAll('.tab-button').forEach(btn => {
         btn.classList.remove('active');
     });
-    
-    // Show selected tab
+
     const tabElement = document.getElementById(`${tabName}-tab`);
     if (tabElement) {
         tabElement.classList.add('active');
     }
-    
-    // Add active class to button
+
     const buttons = document.querySelectorAll('.tab-button');
     buttons.forEach(btn => {
         const btnText = btn.textContent.toLowerCase();
         if ((tabName === 'evolution' && btnText.includes('evolución')) ||
             (tabName === 'finances' && btnText.includes('finanzas')) ||
             (tabName === 'stats' && btnText.includes('estadísticas')) ||
-            (tabName === 'clausulable' && btnText.includes('clausulables'))) {
+            (tabName === 'clausulable' && btnText.includes('clausulables')) ||
+            (tabName === 'analytics' && btnText.includes('analytics'))) {
             btn.classList.add('active');
         }
     });
-    
-        // Load data when tab is shown
-        if (tabName === 'finances') {
-            loadFinancesData();
-        } else if (tabName === 'stats') {
-            loadUserStatsData();
-        } else if (tabName === 'clausulable') {
-            loadClausulablePlayersData();
-        }
+
+    if (tabName === 'finances') {
+        loadFinancesData();
+    } else if (tabName === 'stats') {
+        loadUserStatsData();
+    } else if (tabName === 'clausulable') {
+        loadClausulablePlayersData();
+    } else if (tabName === 'analytics') {
+        showAnalyticsSection('overview');
+    }
 }
 
 /**
@@ -914,10 +1313,25 @@ function formatMoney(value) {
     }).format(value);
 }
 
+function formatNumber(value, decimals = 2) {
+    if (value === null || value === undefined || Number.isNaN(Number(value))) {
+        return '-';
+    }
+    return Number(value).toLocaleString('es-ES', {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals
+    });
+}
+
 /**
  * Load finances data from API
  */
 async function loadFinancesData() {
+    if (!canAccessTab('finances')) {
+        showAccessMessage('Contenido reservado para clientes premium');
+        return;
+    }
+
     const loadingDiv = document.getElementById('finances-loading');
     const errorDiv = document.getElementById('finances-error');
     const tableContainer = document.getElementById('finances-table-container');
@@ -1290,9 +1704,29 @@ async function loadClausulablePlayersData() {
     const errorDiv = document.getElementById('clausulable-error');
     const tableContainer = document.getElementById('clausulable-table-container');
     const tableBody = document.getElementById('clausulable-table-body');
+
+    if (!authState.isAuthenticated) {
+        if (loadingDiv) {
+            loadingDiv.style.display = 'none';
+        }
+        if (tableContainer) {
+            tableContainer.style.display = 'none';
+        }
+        if (errorDiv) {
+            errorDiv.textContent = 'Contenido reservado para clientes premium';
+            errorDiv.style.display = 'block';
+        } else {
+            showAccessMessage('Contenido reservado para clientes premium');
+        }
+        return;
+    }
+
+    if (errorDiv) {
+        errorDiv.style.display = 'none';
+        errorDiv.textContent = '';
+    }
     
     loadingDiv.style.display = 'block';
-    errorDiv.style.display = 'none';
     tableContainer.style.display = 'none';
     
     try {
@@ -1434,9 +1868,1111 @@ function setupClausulableTableSorting() {
     });
 }
 
+function populateTable(tableId, headers, rows) {
+    const table = document.getElementById(tableId);
+    if (!table) {
+        return;
+    }
+    const thead = table.querySelector('thead') || table.createTHead();
+    const tbody = table.querySelector('tbody') || table.createTBody();
+
+    thead.innerHTML = '';
+    const headerRow = document.createElement('tr');
+    headers.forEach(header => {
+        const th = document.createElement('th');
+        th.textContent = header;
+        headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+
+    tbody.innerHTML = '';
+    rows.forEach(row => {
+        const tr = document.createElement('tr');
+        row.forEach(cell => {
+            const td = document.createElement('td');
+            if (cell && typeof cell === 'object' && !Array.isArray(cell)) {
+                if (cell.html) {
+                    td.innerHTML = cell.html;
+                } else if (cell.text !== undefined && cell.text !== null) {
+                    td.textContent = cell.text;
+                } else {
+                    td.textContent = '';
+                }
+                if (cell.className) {
+                    td.className = cell.className;
+                }
+                if (cell.style) {
+                    Object.entries(cell.style).forEach(([prop, value]) => {
+                        td.style[prop] = value;
+                    });
+                }
+            } else {
+                td.textContent = cell ?? '';
+            }
+            tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+    });
+}
+
+function trendBadge(value, decimals = 2) {
+    if (value === null || value === undefined || Number.isNaN(Number(value))) {
+        return { text: '-' };
+    }
+    const formatted = formatNumber(Math.abs(value), decimals);
+    if (value > 0) {
+        return { html: `<span class="analytics-pill badge-easy">▲ ${formatted}</span>` };
+    }
+    if (value < 0) {
+        return { html: `<span class="analytics-pill badge-hard">▼ ${formatted}</span>` };
+    }
+    return { html: `<span class="analytics-pill badge-medium">● ${formatted}</span>` };
+}
+
+function showAnalyticsSection(sectionName) {
+    const targetSectionId = `analytics-${sectionName}-section`;
+
+    document.querySelectorAll('.analytics-tab-button').forEach(button => {
+        const target = button.dataset.section;
+        button.classList.toggle('active', target === sectionName);
+    });
+
+    document.querySelectorAll('.analytics-section').forEach(section => {
+        section.classList.toggle('active', section.id === targetSectionId);
+    });
+
+    if (!canAccessAnalyticsSection(sectionName)) {
+        lockAnalyticsSection(sectionName);
+        showAccessMessage('Contenido reservado para clientes premium', 'analytics');
+        return;
+    }
+
+    hideAccessMessage('analytics');
+
+    if (!analyticsState.loaded[sectionName]) {
+        if (sectionName === 'overview') {
+            loadAnalyticsOverview();
+        } else if (sectionName === 'custom') {
+            loadAnalyticsCustom();
+        } else if (sectionName === 'players') {
+            loadAnalyticsPlayers();
+        } else if (sectionName === 'users') {
+            loadAnalyticsUsers();
+        } else if (sectionName === 'market') {
+            loadAnalyticsMarket();
+        } else if (sectionName === 'opportunities') {
+            loadAnalyticsOpportunities();
+        } else if (sectionName === 'projections') {
+            loadAnalyticsProjections();
+        }
+    }
+}
+
+async function loadAnalyticsOverview() {
+    const loading = document.getElementById('analytics-overview-loading');
+    const error = document.getElementById('analytics-overview-error');
+    const content = document.getElementById('analytics-overview-content');
+
+    loading.style.display = 'block';
+    error.style.display = 'none';
+    content.style.display = 'none';
+
+    try {
+        const [trends, heatmap] = await Promise.all([
+            fetchAnalyticsData(ANALYTICS_ENDPOINTS.trends, { window: 5 }),
+            fetchAnalyticsData(ANALYTICS_ENDPOINTS.heatmap)
+        ]);
+
+        analyticsState.caches.trends = trends;
+        analyticsState.caches.heatmap = heatmap;
+        analyticsTeamMap = {};
+        if (trends && Array.isArray(trends.teams)) {
+            trends.teams.forEach(team => {
+                analyticsTeamMap[team.team_id] = team.team_name;
+            });
+        }
+
+        renderMomentumChart(trends);
+        renderTrendsTable(trends);
+        renderHeatmapTable(heatmap, trends);
+
+        analyticsState.loaded.overview = true;
+        loading.style.display = 'none';
+        content.style.display = 'block';
+    } catch (err) {
+        console.error('Overview analytics error:', err);
+        loading.style.display = 'none';
+        error.textContent = `No se pudo cargar la visión general: ${err.message}`;
+        error.style.display = 'block';
+    }
+}
+
+function getCurrentCustomData() {
+    return analyticsState.caches.custom || {
+        available_matchdays: [],
+        included_matchdays: [],
+        excluded_matchdays: [],
+        classification: [],
+        window: customClassificationState.window
+    };
+}
+
+function clampWindow(value) {
+    const parsed = Number(value);
+    if (Number.isNaN(parsed) || parsed < 1) {
+        return 1;
+    }
+    if (parsed > 38) {
+        return 38;
+    }
+    return Math.floor(parsed);
+}
+
+function highlightCustomQuickButtons(value) {
+    document.querySelectorAll('#analytics-custom-content .control-button').forEach(button => {
+        const target = Number(button.dataset.window);
+        button.classList.toggle('active', target === Number(value));
+    });
+}
+
+function updateCustomSummaryDisplay(data) {
+    const summary = document.getElementById('analyticsCustomSummary');
+    if (!summary) {
+        return;
+    }
+
+    const available = data && Array.isArray(data.available_matchdays) ? data.available_matchdays : [];
+    const pendingWindow = clampWindow(customClassificationState.pendingWindow || customClassificationState.window || 5);
+    const excludedDraft = Array.from(customClassificationState.draftExcluded).sort((a, b) => a - b);
+    const includedDraft = available.filter(matchday => !customClassificationState.draftExcluded.has(matchday));
+    const excludedApplied = Array.from(customClassificationState.excluded).sort((a, b) => a - b);
+
+    const hasPendingWindowChange = pendingWindow !== clampWindow(customClassificationState.window || pendingWindow);
+    const hasPendingExclusions = excludedDraft.length !== excludedApplied.length ||
+        excludedDraft.some((value, index) => value !== excludedApplied[index]);
+
+    const includedText = includedDraft.length
+        ? includedDraft.map(matchday => `J${matchday}`).join(', ')
+        : '—';
+    const excludedText = excludedDraft.length
+        ? excludedDraft.map(matchday => `J${matchday}`).join(', ')
+        : '—';
+
+    summary.innerHTML = `
+        <span><strong>Ventana seleccionada:</strong> Últimas ${pendingWindow} jornadas</span>
+        <span><strong>Jornadas incluidas:</strong> ${includedText}</span>
+        <span><strong>Jornadas excluidas:</strong> ${excludedText}</span>
+        ${(hasPendingWindowChange || hasPendingExclusions) ? '<span class="pending-note">Cambios pendientes, pulsa "Aplicar filtros".</span>' : ''}
+    `;
+}
+
+function renderCustomClassificationControls(data) {
+    const windowInput = document.getElementById('analyticsCustomWindow');
+    if (windowInput) {
+        windowInput.value = clampWindow(customClassificationState.pendingWindow);
+    }
+    highlightCustomQuickButtons(customClassificationState.pendingWindow);
+
+    const container = document.getElementById('analyticsCustomMatchdays');
+    if (!container) {
+        return;
+    }
+
+    const available = data && Array.isArray(data.available_matchdays) ? data.available_matchdays : [];
+    container.innerHTML = '';
+
+    if (!available.length) {
+        container.innerHTML = '<span class="pending-note">Sin jornadas disponibles.</span>';
+        updateCustomSummaryDisplay(data);
+        return;
+    }
+
+    available.forEach(matchday => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'matchday-chip';
+        button.dataset.matchday = matchday;
+        button.textContent = `J${matchday}`;
+
+        if (customClassificationState.draftExcluded.has(matchday)) {
+            button.classList.add('active');
+        }
+
+        button.addEventListener('click', () => {
+            if (customClassificationState.draftExcluded.has(matchday)) {
+                customClassificationState.draftExcluded.delete(matchday);
+            } else {
+                customClassificationState.draftExcluded.add(matchday);
+            }
+            button.classList.toggle('active');
+            updateCustomSummaryDisplay(data);
+        });
+
+        container.appendChild(button);
+    });
+
+    updateCustomSummaryDisplay(data);
+}
+
+function renderCustomClassificationTable(data) {
+    const tableId = 'analyticsCustomClassificationTable';
+    const emptyNotice = document.getElementById('analytics-custom-empty');
+    const classification = data && Array.isArray(data.classification) ? data.classification : [];
+
+    if (!classification.length) {
+        populateTable(tableId, ['Pos', 'Equipo', 'Manager', 'PJ', 'PTS', 'Media', 'Tendencia', 'Volatilidad', 'Máx', 'Mín', 'Detalle por jornada'], []);
+        if (emptyNotice) {
+            emptyNotice.style.display = 'block';
+        }
+        return;
+    }
+
+    if (emptyNotice) {
+        emptyNotice.style.display = 'none';
+    }
+
+    const rows = classification.map(entry => {
+        const matchdayDetails = Array.isArray(entry.matchdays) ? entry.matchdays : [];
+        const detailHtml = matchdayDetails.length
+            ? matchdayDetails
+                .map(item => `<span class="matchday-line">J${item.matchday}: ${formatNumber(item.points || 0, 0)} pts</span>`)
+                .join('<br>')
+            : '-';
+
+        return [
+            entry.rank || 0,
+            entry.team_name || entry.team_id || '—',
+            entry.username || '—',
+            formatNumber(entry.matches_count || 0, 0),
+            formatNumber(entry.total_points || 0, 0),
+            formatNumber(entry.average_points || 0, 2),
+            trendBadge(entry.trend || 0, 2),
+            formatNumber(entry.volatility || 0, 2),
+            formatNumber(entry.max_points || 0, 0),
+            formatNumber(entry.min_points || 0, 0),
+            { html: detailHtml, className: 'matchday-detail-cell' }
+        ];
+    });
+
+    populateTable(tableId, ['Pos', 'Equipo', 'Manager', 'PJ', 'PTS', 'Media', 'Tendencia', 'Volatilidad', 'Máx', 'Mín', 'Detalle por jornada'], rows);
+}
+
+async function refreshCustomClassification(showLoading = true) {
+    const loading = document.getElementById('analytics-custom-loading');
+    const error = document.getElementById('analytics-custom-error');
+    const content = document.getElementById('analytics-custom-content');
+
+    if (showLoading && loading) {
+        loading.style.display = 'block';
+        error.style.display = 'none';
+        content.style.display = 'none';
+    }
+
+    try {
+        customClassificationState.window = clampWindow(customClassificationState.window);
+        customClassificationState.pendingWindow = clampWindow(customClassificationState.pendingWindow);
+        customClassificationState.excluded = new Set(customClassificationState.draftExcluded);
+
+        const params = {
+            window: customClassificationState.window
+        };
+        if (customClassificationState.excluded.size > 0) {
+            params.exclude_matchday = Array.from(customClassificationState.excluded).sort((a, b) => a - b);
+        }
+
+        const data = await fetchAnalyticsData(ANALYTICS_ENDPOINTS.customClassification, params);
+        analyticsState.caches.custom = data;
+
+        const available = Array.isArray(data.available_matchdays) ? data.available_matchdays.map(Number) : [];
+        const excludedFromResponse = Array.isArray(data.excluded_matchdays) ? data.excluded_matchdays.map(Number) : [];
+        const validExcluded = excludedFromResponse.filter(matchday => available.includes(matchday));
+
+        customClassificationState.window = clampWindow(data.window || customClassificationState.window);
+        customClassificationState.pendingWindow = customClassificationState.window;
+        customClassificationState.excluded = new Set(validExcluded);
+        customClassificationState.draftExcluded = new Set(validExcluded);
+
+        renderCustomClassificationControls(data);
+        renderCustomClassificationTable(data);
+
+        if (loading) {
+            loading.style.display = 'none';
+        }
+        if (error) {
+            error.style.display = 'none';
+        }
+        if (content) {
+            content.style.display = 'block';
+        }
+    } catch (err) {
+        console.error('Custom classification fetch error:', err);
+        if (loading) {
+            loading.style.display = 'none';
+        }
+        if (content && showLoading) {
+            content.style.display = 'none';
+        }
+        if (error) {
+            error.textContent = `No se pudo cargar la clasificación personalizada: ${err.message}`;
+            error.style.display = 'block';
+        }
+        throw err;
+    }
+}
+
+function initCustomClassificationControls() {
+    if (customControlsInitialized) {
+        return;
+    }
+
+    const windowInput = document.getElementById('analyticsCustomWindow');
+    const applyButton = document.getElementById('analyticsCustomApply');
+    const resetButton = document.getElementById('analyticsCustomReset');
+
+    if (windowInput) {
+        windowInput.addEventListener('input', () => {
+            customClassificationState.pendingWindow = clampWindow(windowInput.value || customClassificationState.window);
+            highlightCustomQuickButtons(customClassificationState.pendingWindow);
+            updateCustomSummaryDisplay(getCurrentCustomData());
+        });
+    }
+
+    document.querySelectorAll('#analytics-custom-content .control-button').forEach(button => {
+        button.addEventListener('click', () => {
+            const newWindow = clampWindow(button.dataset.window || customClassificationState.window);
+            customClassificationState.pendingWindow = newWindow;
+            if (windowInput) {
+                windowInput.value = newWindow;
+            }
+            highlightCustomQuickButtons(newWindow);
+            updateCustomSummaryDisplay(getCurrentCustomData());
+        });
+    });
+
+    if (applyButton) {
+        applyButton.addEventListener('click', () => {
+            if (windowInput) {
+                customClassificationState.pendingWindow = clampWindow(windowInput.value || customClassificationState.window);
+            }
+            customClassificationState.window = customClassificationState.pendingWindow;
+            refreshCustomClassification(true).catch(() => {});
+        });
+    }
+
+    if (resetButton) {
+        resetButton.addEventListener('click', () => {
+            customClassificationState.draftExcluded.clear();
+            customClassificationState.excluded.clear();
+            customClassificationState.pendingWindow = customClassificationState.window;
+            if (windowInput) {
+                windowInput.value = customClassificationState.window;
+            }
+            highlightCustomQuickButtons(customClassificationState.pendingWindow);
+            updateCustomSummaryDisplay(getCurrentCustomData());
+            refreshCustomClassification(true).catch(() => {});
+        });
+    }
+
+    customControlsInitialized = true;
+}
+
+async function loadAnalyticsCustom() {
+    const loading = document.getElementById('analytics-custom-loading');
+    const error = document.getElementById('analytics-custom-error');
+    const content = document.getElementById('analytics-custom-content');
+
+    if (loading) {
+        loading.style.display = 'block';
+    }
+    if (error) {
+        error.style.display = 'none';
+    }
+    if (content) {
+        content.style.display = 'none';
+    }
+
+    if (!customControlsInitialized) {
+        initCustomClassificationControls();
+    }
+
+    try {
+        customClassificationState.pendingWindow = clampWindow(customClassificationState.window);
+        await refreshCustomClassification(false);
+        analyticsState.loaded.custom = true;
+        if (loading) {
+            loading.style.display = 'none';
+        }
+        if (error) {
+            error.style.display = 'none';
+        }
+        if (content) {
+            content.style.display = 'block';
+        }
+    } catch (err) {
+        if (loading) {
+            loading.style.display = 'none';
+        }
+        if (error) {
+            error.textContent = `No se pudo cargar la clasificación personalizada: ${err.message}`;
+            error.style.display = 'block';
+        }
+    }
+}
+
+function renderMomentumChart(trends) {
+    const ctx = document.getElementById('analyticsMomentumChart');
+    if (!ctx || !trends || !Array.isArray(trends.teams)) {
+        return;
+    }
+
+    const sortedTeams = [...trends.teams]
+        .sort((a, b) => (b.momentum || 0) - (a.momentum || 0))
+        .slice(0, 10);
+
+    const labels = sortedTeams.map(team => team.team_name);
+    const data = sortedTeams.map(team => Number((team.momentum || 0).toFixed(3)));
+
+    if (analyticsMomentumChart) {
+        analyticsMomentumChart.destroy();
+    }
+
+    analyticsMomentumChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Momentum promedio',
+                data,
+                backgroundColor: '#32CD32',
+                borderColor: '#000000',
+                borderWidth: 2,
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: value => formatNumber(value, 2)
+                    }
+                }
+            }
+        }
+    });
+}
+
+function renderHeatmapTable(heatmapData, trends) {
+    const matchdays = heatmapData && Array.isArray(heatmapData.matchdays) ? heatmapData.matchdays : [];
+    const teams = trends && Array.isArray(trends.teams) ? trends.teams : [];
+
+    if (!matchdays.length || !teams.length) {
+        populateTable('analyticsHeatmapTable', ['Jornada'], []);
+        return;
+    }
+
+    const sortedTeams = [...teams].sort((a, b) => (b.total_points || 0) - (a.total_points || 0));
+    const displayTeams = sortedTeams.slice(0, Math.min(8, sortedTeams.length));
+    const headers = ['Jornada', ...displayTeams.map(team => team.team_name)];
+
+    let maxValue = 0;
+    matchdays.forEach(entry => {
+        displayTeams.forEach(team => {
+            const value = entry.scores ? entry.scores[team.team_id] : undefined;
+            if (value !== undefined && value !== null) {
+                maxValue = Math.max(maxValue, Math.abs(value));
+            }
+        });
+    });
+
+    const rows = matchdays.map(entry => {
+        const row = [{ text: `J${entry.matchday}` }];
+        displayTeams.forEach(team => {
+            const value = entry.scores ? entry.scores[team.team_id] : null;
+            if (value === null || value === undefined) {
+                row.push({ text: '-' });
+            } else {
+                const intensity = maxValue ? Math.min(1, Math.abs(value) / maxValue) : 0;
+                const isPositive = value >= 0;
+                const backgroundColor = isPositive
+                    ? `rgba(50, 205, 50, ${0.15 + intensity * 0.6})`
+                    : `rgba(220, 53, 69, ${0.15 + intensity * 0.6})`;
+                const textColor = intensity > 0.6 ? '#fff' : '#000';
+                row.push({
+                    text: formatNumber(value, 0),
+                    className: 'heatmap-cell',
+                    style: {
+                        backgroundColor,
+                        color: textColor,
+                        fontWeight: '600'
+                    }
+                });
+            }
+        });
+        return row;
+    });
+
+    populateTable('analyticsHeatmapTable', headers, rows);
+}
+
+function renderTrendsTable(trends) {
+    if (!trends || !Array.isArray(trends.teams)) {
+        populateTable('analyticsTrendsTable', ['Equipo'], []);
+        return;
+    }
+
+    const sortedTeams = [...trends.teams]
+        .sort((a, b) => (b.total_points || 0) - (a.total_points || 0))
+        .slice(0, 15);
+
+    const rows = sortedTeams.map(team => [
+        team.team_name,
+        formatNumber(team.total_points || 0, 0),
+        trendBadge(team.position_delta || 0, 0),
+        formatNumber(team.average_points || 0, 2),
+        trendBadge(team.momentum || 0, 3)
+    ]);
+
+    populateTable('analyticsTrendsTable', ['Equipo', 'Puntos Totales', 'Δ Posición', 'Media Jornada', 'Momentum'], rows);
+}
+
+async function loadAnalyticsPlayers() {
+    if (!canAccessAnalyticsSection('players')) {
+        lockAnalyticsSection('players');
+        return;
+    }
+
+    const loading = document.getElementById('analytics-players-loading');
+    const error = document.getElementById('analytics-players-error');
+    const content = document.getElementById('analytics-players-content');
+
+    loading.style.display = 'block';
+    error.style.display = 'none';
+    content.style.display = 'none';
+
+    try {
+        const [formData, valueData] = await Promise.all([
+            fetchAnalyticsData(ANALYTICS_ENDPOINTS.playerForm, { window: 5 }),
+            fetchAnalyticsData(ANALYTICS_ENDPOINTS.playerValue, { window: 30 })
+        ]);
+
+        renderPlayerFormTable(formData);
+        renderPlayerValueTable(valueData);
+
+        analyticsState.loaded.players = true;
+        loading.style.display = 'none';
+        content.style.display = 'grid';
+    } catch (err) {
+        console.error('Player analytics error:', err);
+        loading.style.display = 'none';
+        error.textContent = `No se pudo cargar el análisis de jugadores: ${err.message}`;
+        error.style.display = 'block';
+    }
+}
+
+function renderPlayerFormTable(formData) {
+    const players = formData && Array.isArray(formData.players)
+        ? [...formData.players].sort((a, b) => (b.average_points || 0) - (a.average_points || 0)).slice(0, 20)
+        : [];
+
+    const rows = players.map((player, index) => [
+        index + 1,
+        player.name || 'Desconocido',
+        player.matches || 0,
+        formatNumber(player.average_points || 0, 2),
+        trendBadge(player.trend || 0, 2),
+        player.last_matchday ? `J${player.last_matchday}` : '-'
+    ]);
+
+    populateTable('analyticsPlayerFormTable', ['Pos', 'Jugador', 'Partidos', 'Promedio', 'Tendencia', 'Última Jornada'], rows);
+}
+
+function renderPlayerValueTable(valueData) {
+    const players = valueData && Array.isArray(valueData.players)
+        ? [...valueData.players].sort((a, b) => (b.variation || 0) - (a.variation || 0)).slice(0, 20)
+        : [];
+
+    const rows = players.map((player, index) => {
+        const variation = player.variation || 0;
+        const variationCell = variation === 0
+            ? { text: formatMoney(0) }
+            : variation > 0
+                ? { html: `<span class="analytics-pill badge-easy">▲ ${formatMoney(variation)}</span>` }
+                : { html: `<span class="analytics-pill badge-hard">▼ ${formatMoney(Math.abs(variation))}</span>` };
+        return [
+            index + 1,
+            player.name || 'Desconocido',
+            formatMoney(player.average_market_price || 0),
+            formatMoney(player.latest_price || 0),
+            variationCell,
+            player.clause_price !== null && player.clause_price !== undefined ? formatMoney(player.clause_price) : '-',
+            player.suggested_clause !== null && player.suggested_clause !== undefined ? formatMoney(player.suggested_clause) : '-',
+            formatNumber(player.average_last_five || 0, 2),
+            formatNumber(player.average_overall || 0, 2)
+        ];
+    });
+
+    populateTable('analyticsPlayerValueTable', ['Pos', 'Jugador', 'Precio Medio', 'Precio Actual', 'Variación', 'Cláusula', 'Sugerida', 'Promedio Últimos 5', 'Promedio Total'], rows);
+}
+
+async function loadAnalyticsUsers() {
+    if (!canAccessAnalyticsSection('users')) {
+        lockAnalyticsSection('users');
+        return;
+    }
+
+    const loading = document.getElementById('analytics-users-loading');
+    const error = document.getElementById('analytics-users-error');
+    const content = document.getElementById('analytics-users-content');
+
+    loading.style.display = 'block';
+    error.style.display = 'none';
+    content.style.display = 'none';
+
+    try {
+        const [consistencyData, marketData] = await Promise.all([
+            fetchAnalyticsData(ANALYTICS_ENDPOINTS.userConsistency, { window: 10 }),
+            fetchAnalyticsData(ANALYTICS_ENDPOINTS.userMarketActivity, { window_days: 30 })
+        ]);
+
+        renderConsistencyChart(consistencyData);
+        renderMarketActivityTable(marketData);
+
+        analyticsState.loaded.users = true;
+        loading.style.display = 'none';
+        content.style.display = 'block';
+    } catch (err) {
+        console.error('User analytics error:', err);
+        loading.style.display = 'none';
+        error.textContent = `No se pudo cargar el análisis de usuarios: ${err.message}`;
+        error.style.display = 'block';
+    }
+}
+
+function renderConsistencyChart(data) {
+    const ctx = document.getElementById('analyticsConsistencyChart');
+    if (!ctx || !data || !Array.isArray(data.teams)) {
+        return;
+    }
+
+    const sortedTeams = [...data.teams]
+        .sort((a, b) => (b.consistency_index || 0) - (a.consistency_index || 0))
+        .slice(0, 12);
+
+    const labels = sortedTeams.map(team => team.team_name);
+    const values = sortedTeams.map(team => Number((team.consistency_index || 0).toFixed(4)));
+
+    if (analyticsConsistencyChart) {
+        analyticsConsistencyChart.destroy();
+    }
+
+    const colors = generateColors(labels.length);
+    analyticsConsistencyChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Índice de consistencia',
+                data: values,
+                backgroundColor: colors,
+                borderColor: '#000000',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 1,
+                    ticks: {
+                        callback: value => formatNumber(value, 2)
+                    }
+                }
+            }
+        }
+    });
+}
+
+function renderMarketActivityTable(marketData) {
+    const teams = marketData && Array.isArray(marketData.teams)
+        ? [...marketData.teams].sort((a, b) => (b.transactions || 0) - (a.transactions || 0))
+        : [];
+
+    const rows = teams.map(team => [
+        team.team_name || 'Desconocido',
+        team.transactions || 0,
+        formatMoney(team.spent || 0),
+        formatMoney(team.received || 0),
+        `${team.clauses_paid || 0} (${formatMoney(team.clause_total_paid || 0)})`,
+        `${team.clauses_received || 0} (${formatMoney(team.clause_total_received || 0)})`
+    ]);
+
+    populateTable('analyticsMarketActivityTable', ['Equipo', 'Transacciones', 'Gastado', 'Recibido', 'Cláusulas Pagadas', 'Cláusulas Recibidas'], rows);
+}
+
+async function loadAnalyticsMarket() {
+    if (!canAccessAnalyticsSection('market')) {
+        lockAnalyticsSection('market');
+        return;
+    }
+
+    const loading = document.getElementById('analytics-market-loading');
+    const error = document.getElementById('analytics-market-error');
+    const content = document.getElementById('analytics-market-content');
+
+    loading.style.display = 'block';
+    error.style.display = 'none';
+    content.style.display = 'none';
+
+    try {
+        const [watchlistData, clauseData] = await Promise.all([
+            fetchAnalyticsData(ANALYTICS_ENDPOINTS.watchlist, { limit: 30 }),
+            fetchAnalyticsData(ANALYTICS_ENDPOINTS.clauseNetwork)
+        ]);
+
+        renderWatchlistTable(watchlistData);
+        renderClauseNetworkTable(clauseData);
+
+        analyticsState.loaded.market = true;
+        loading.style.display = 'none';
+        content.style.display = 'grid';
+    } catch (err) {
+        console.error('Market analytics error:', err);
+        loading.style.display = 'none';
+        error.textContent = `No se pudo cargar el análisis de mercado: ${err.message}`;
+        error.style.display = 'block';
+    }
+}
+
+function renderWatchlistTable(watchlistData) {
+    const players = watchlistData && Array.isArray(watchlistData.players)
+        ? [...watchlistData.players].slice(0, 20)
+        : [];
+
+    const rows = players.map((player, index) => [
+        index + 1,
+        player.player_name || 'Desconocido',
+        player.owner_name || 'Agente libre',
+        formatNumber(player.value_score || 0, 4),
+        player.clause_price !== null && player.clause_price !== undefined ? formatMoney(player.clause_price) : '-',
+        player.suggested_clause !== null && player.suggested_clause !== undefined ? formatMoney(player.suggested_clause) : '-',
+        formatNumber(player.average_last_five || 0, 2),
+        formatNumber(player.average_overall || 0, 2)
+    ]);
+
+    populateTable('analyticsWatchlistTable', ['Pos', 'Jugador', 'Dueño', 'Score', 'Cláusula Actual', 'Cláusula Sugerida', 'Promedio Últimos 5', 'Promedio Total'], rows);
+}
+
+function renderClauseNetworkTable(clauseData) {
+    const edges = clauseData && Array.isArray(clauseData.edges)
+        ? [...clauseData.edges].sort((a, b) => (b.total_amount || 0) - (a.total_amount || 0)).slice(0, 20)
+        : [];
+
+    const rows = edges.map(edge => [
+        edge.source_name || edge.source || '-',
+        edge.target_name || edge.target || '-',
+        edge.count || 0,
+        formatMoney(edge.total_amount || 0)
+    ]);
+
+    populateTable('analyticsClausesNetworkTable', ['Desde', 'Hacia', 'Veces', 'Importe'], rows);
+}
+
+async function loadAnalyticsOpportunities() {
+    if (!canAccessAnalyticsSection('opportunities')) {
+        lockAnalyticsSection('opportunities');
+        return;
+    }
+
+    const loading = document.getElementById('analytics-opportunities-loading');
+    const error = document.getElementById('analytics-opportunities-error');
+    const content = document.getElementById('analytics-opportunities-content');
+
+    loading.style.display = 'block';
+    error.style.display = 'none';
+    content.style.display = 'none';
+
+    try {
+        const data = await fetchAnalyticsData(ANALYTICS_ENDPOINTS.streaks, { min_streak: 3, threshold: 6 });
+        const streaks = data && Array.isArray(data.streaks)
+            ? [...data.streaks].sort((a, b) => (b.streak_length || 0) - (a.streak_length || 0)).slice(0, 25)
+            : [];
+
+        const rows = streaks.map((streak, index) => [
+            index + 1,
+            streak.name || 'Desconocido',
+            streak.streak_length || 0,
+            formatNumber(streak.average_points || 0, 2),
+            (streak.points || []).join(', '),
+            (streak.matchdays || []).map(md => `J${md}`).join(', ')
+        ]);
+
+        populateTable('analyticsStreaksTable', ['Pos', 'Jugador', 'Racha', 'Promedio', 'Puntos', 'Jornadas'], rows);
+
+        analyticsState.loaded.opportunities = true;
+        loading.style.display = 'none';
+        content.style.display = 'block';
+    } catch (err) {
+        console.error('Opportunities analytics error:', err);
+        loading.style.display = 'none';
+        error.textContent = `No se pudo cargar las oportunidades: ${err.message}`;
+        error.style.display = 'block';
+    }
+}
+
+async function loadAnalyticsProjections() {
+    if (!canAccessAnalyticsSection('projections')) {
+        lockAnalyticsSection('projections');
+        return;
+    }
+
+    const loading = document.getElementById('analytics-projections-loading');
+    const error = document.getElementById('analytics-projections-error');
+    const content = document.getElementById('analytics-projections-content');
+
+    loading.style.display = 'block';
+    error.style.display = 'none';
+    content.style.display = 'none';
+
+    try {
+        const data = await fetchAnalyticsData(ANALYTICS_ENDPOINTS.projections);
+        renderProjectionsList(data);
+        analyticsState.loaded.projections = true;
+        loading.style.display = 'none';
+        content.style.display = 'block';
+    } catch (err) {
+        console.error('Projections analytics error:', err);
+        loading.style.display = 'none';
+        error.textContent = `No se pudo cargar las proyecciones: ${err.message}`;
+        error.style.display = 'block';
+    }
+}
+
+function renderProjectionsList(projectionsData) {
+    const container = document.getElementById('analyticsProjectionsList');
+    if (!container) {
+        return;
+    }
+
+    container.innerHTML = '';
+    const matches = projectionsData && Array.isArray(projectionsData.matches) ? projectionsData.matches : [];
+
+    if (!matches.length) {
+        const empty = document.createElement('p');
+        empty.textContent = 'No hay partidos disponibles para proyectar.';
+        container.appendChild(empty);
+        return;
+    }
+
+    matches.forEach(match => {
+        const card = document.createElement('div');
+        card.className = 'projection-card';
+
+        const matchDate = match.match_date ? new Date(match.match_date) : null;
+        const dateText = matchDate ? matchDate.toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' }) : 'Por confirmar';
+
+        const homeBadge = getDifficultyBadge(match.home && match.home.difficulty);
+        const awayBadge = getDifficultyBadge(match.away && match.away.difficulty);
+
+        card.innerHTML = `
+            <h3>J${match.matchday || projectionsData.target_matchday || '-'} · ${dateText}</h3>
+            <div class="teams">
+                <span>${match.home ? match.home.team_name : 'Local'}</span>
+                <span>${match.away ? match.away.team_name : 'Visitante'}</span>
+            </div>
+            <div class="difficulty">
+                <span class="projection-badge ${homeBadge.className}">${homeBadge.label}</span>
+                <span class="projection-badge ${awayBadge.className}">${awayBadge.label}</span>
+            </div>
+        `;
+
+        container.appendChild(card);
+    });
+}
+
+function getDifficultyBadge(value) {
+    if (value === null || value === undefined || Number.isNaN(Number(value))) {
+        return { label: 'Sin datos', className: 'badge-medium' };
+    }
+    const numericValue = Number(value);
+    const formatted = formatNumber(Math.abs(numericValue), 3);
+    if (numericValue <= -0.1) {
+        return { label: `Favorable · ${formatted}`, className: 'badge-easy' };
+    }
+    if (numericValue >= 0.1) {
+        return { label: `Complicado · ${formatted}`, className: 'badge-hard' };
+    }
+    return { label: `Neutral · ${formatted}`, className: 'badge-medium' };
+}
+
+async function attemptLogin(username, password) {
+    const response = await fetch(AUTH_ENDPOINTS.login, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ username, password })
+    });
+
+    if (!response.ok) {
+        let detail = 'Credenciales incorrectas';
+        try {
+            const payload = await response.json();
+            if (payload && payload.detail) {
+                detail = payload.detail;
+            }
+        } catch (error) {
+            // ignore JSON parse errors
+        }
+        throw new Error(detail);
+    }
+
+    return response.json();
+}
+
+async function validateSession(token) {
+    const response = await fetch(`${AUTH_ENDPOINTS.session}?token=${encodeURIComponent(token)}`);
+    if (!response.ok) {
+        throw new Error('Sesión no válida');
+    }
+    return response.json();
+}
+
+async function startAppIfNeeded() {
+    if (appInitialized) {
+        return;
+    }
+    await init();
+    appInitialized = true;
+}
+
+async function handleLoginSubmit(event) {
+    event?.preventDefault?.();
+    const loginButton = document.getElementById('login-button');
+
+    if (loginButton) {
+        loginButton.disabled = true;
+    }
+
+    try {
+        const username = prompt('Usuario:');
+        const password = username ? prompt('Contraseña:') : null;
+        if (!username || !password) {
+            return;
+        }
+        const result = await attemptLogin(username.trim(), password);
+        resetAppState();
+        setAuthState({
+            isAuthenticated: true,
+            username: result.username,
+            role: result.role,
+            token: result.token,
+            expiresAt: result.expires_at
+        });
+        hideLoginView();
+        await startAppIfNeeded();
+        showTab('evolution');
+        showAnalyticsSection('overview');
+        showAccessMessage(`Sesión iniciada como ${result.username}.`);
+        hideAccessMessage('analytics');
+    } catch (error) {
+        showAccessMessage(error.message || 'Credenciales incorrectas', 'global', 5000);
+    } finally {
+        if (loginButton) {
+            loginButton.disabled = false;
+        }
+    }
+}
+
+async function logout() {
+    if (authState.token) {
+        try {
+            await fetch(`${AUTH_ENDPOINTS.logout}?token=${encodeURIComponent(authState.token)}`, {
+                method: 'POST'
+            });
+        } catch (error) {
+            console.warn('No se pudo cerrar la sesión en el servidor:', error);
+        }
+    }
+
+    clearAuthState();
+    resetAppState();
+    showAccessMessage('Has cerrado sesión. Estás en modo invitado.');
+    await startAppIfNeeded();
+    showTab('evolution');
+    showAnalyticsSection('overview');
+}
+
+function setupAuthEventHandlers() {
+    if (authEventsBound) {
+        return;
+    }
+
+    const loginButton = document.getElementById('login-button');
+    if (loginButton) {
+        loginButton.addEventListener('click', handleLoginSubmit);
+    }
+
+    const logoutButton = document.getElementById('logout-button');
+    if (logoutButton) {
+        logoutButton.addEventListener('click', logout);
+    }
+
+    authEventsBound = true;
+}
+
+async function initializeAuth() {
+    setupAuthEventHandlers();
+
+    const stored = localStorage.getItem(AUTH_STORAGE_KEY);
+    if (stored) {
+        try {
+            const parsed = JSON.parse(stored);
+            if (parsed && parsed.token) {
+                try {
+                    const sessionData = await validateSession(parsed.token);
+                    resetAppState();
+                    setAuthState({
+                        isAuthenticated: true,
+                        username: sessionData.username,
+                        role: sessionData.role,
+                        token: parsed.token,
+                        expiresAt: sessionData.expires_at
+                    });
+                    hideLoginView();
+                    await startAppIfNeeded();
+                    showTab('evolution');
+                    showAnalyticsSection('overview');
+                    hideAccessMessage('global');
+                    hideAccessMessage('analytics');
+                    return;
+                } catch (error) {
+                    console.info('Sesión almacenada inválida, solicitando login nuevamente.');
+                    clearAuthState();
+                }
+            }
+        } catch (error) {
+            console.warn('No se pudo analizar la sesión almacenada:', error);
+        }
+    }
+
+    await startAppIfNeeded();
+    applyRoleRestrictions();
+    showTab('evolution');
+    showAnalyticsSection('overview');
+}
+
+function bootstrap() {
+    initializeAuth();
+}
+
 // Initialize when DOM is ready
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', bootstrap);
 } else {
-    init();
+    bootstrap();
 }

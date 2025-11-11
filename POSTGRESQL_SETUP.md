@@ -306,3 +306,7 @@ SELECT * FROM pg_stat_activity WHERE datname = 'futmondo';
 
 **¿Problemas?** Revisa los logs con `./docker-logs.sh postgres` o `./docker-logs.sh pgadmin`.
 
+
+
+
+

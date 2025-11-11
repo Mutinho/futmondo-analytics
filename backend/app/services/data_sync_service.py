@@ -97,21 +97,23 @@ class DataSyncService:
         try:
             # Get last sync metadata
             last_sync = self.dm.get_last_sync_metadata(self.championship_id, "transactions")
-            from_id = last_sync.get("last_sync_id", "") if last_sync else ""
+            previous_last_id = last_sync.get("last_sync_id", "") if last_sync else ""
             
-            logger.info(f"Last sync ID: {from_id or 'None (full sync)'}")
+            logger.info(f"Last sync ID: {previous_last_id or 'None (full sync)'}")
             
             total_synced = 0
             page_count = 0
             seen_ids = set()
-            last_transaction_id = from_id
+            newest_transaction_id = None
+            pagination_from = ""  # Always start from latest
+            reached_previous = False
             
             while True:
                 try:
                     page_count += 1
-                    logger.info(f"Fetching pressroom page {page_count}...")
+                    logger.info(f"Fetching pressroom page {page_count} (from={pagination_from or 'start'})...")
                     
-                    pressroom_data = self.client.get_pressroom_news(self.championship_id, from_id=from_id)
+                    pressroom_data = self.client.get_pressroom_news(self.championship_id, from_id=pagination_from or None)
                     if not pressroom_data:
                         break
                     
@@ -119,27 +121,41 @@ class DataSyncService:
                     if not news_items:
                         break
                     
-                    # Filter transactions (have _player, _buyer, or _seller)
                     transaction_items = []
                     for item in news_items:
+                        transaction_id = item.get("_id")
+                        if not transaction_id:
+                            continue
+                        
+                        if previous_last_id and transaction_id == previous_last_id:
+                            reached_previous = True
+                            break
+                        
                         if item.get("_player") or item.get("_buyer") or item.get("_seller"):
-                            transaction_id = item.get("_id")
-                            if transaction_id and transaction_id not in seen_ids:
+                            if transaction_id not in seen_ids:
                                 seen_ids.add(transaction_id)
                                 transaction_items.append(item)
+                                if not newest_transaction_id:
+                                    newest_transaction_id = transaction_id
                     
-                    if len(transaction_items) == 0:
-                        logger.info("No new transactions, stopping")
+                    if transaction_items:
+                        self.dm.save_pressroom_transactions(self.championship_id, transaction_items)
+                        total_synced += len(transaction_items)
+                    
+                    if reached_previous:
+                        logger.info("Reached previously synced transaction ID; stopping pagination")
                         break
                     
-                    # Save transactions
-                    self.dm.save_pressroom_transactions(self.championship_id, transaction_items)
-                    total_synced += len(transaction_items)
-                    
-                    # Get last transaction ID for next page
                     last_item = news_items[-1]
-                    last_transaction_id = last_item.get("_id", "")
-                    from_id = last_transaction_id
+                    next_from = last_item.get("_id", "")
+                    if not next_from or next_from == pagination_from:
+                        break
+                    pagination_from = next_from
+                    
+                    # If no new transactions were saved on this page, we can stop to avoid endless pagination
+                    if not transaction_items:
+                        logger.info("No new transactions on this page, stopping")
+                        break
                     
                     time.sleep(0.3)  # Rate limiting
                     
@@ -152,7 +168,8 @@ class DataSyncService:
                     break
             
             duration = time.time() - start_time
-            status = "success" if total_synced > 0 or from_id else "no_new_data"
+            status = "success" if total_synced > 0 else "no_new_data"
+            last_transaction_id = newest_transaction_id or previous_last_id
             
             # Update sync metadata
             self.dm.update_sync_metadata(
@@ -702,6 +719,163 @@ class DataSyncService:
                 "duration_seconds": duration
             }
     
+    def sync_round_rankings(self) -> Dict:
+        """Sync team standings (round rankings) incrementally."""
+        start_time = time.time()
+        logger.info("Starting team standings sync...")
+
+        try:
+            last_sync = self.dm.get_last_sync_metadata(self.championship_id, "team_standings")
+            last_matchday = last_sync.get("last_sync_matchday", 0) if last_sync else 0
+            last_matchday = last_matchday or 0
+
+            logger.info(f"Last synced standings matchday: {last_matchday}")
+
+            standings_data = self.client.get_matchday_standings(self.championship_id)
+            sample_team = None
+            sample_userteam_id = None
+            if standings_data:
+                team_list = standings_data.get("teams", standings_data.get("data", []))
+                if team_list:
+                    sample_team = team_list[0]
+            if sample_team:
+                sample_userteam_id = (
+                    sample_team.get("id")
+                    or sample_team.get("teamid")
+                    or (sample_team.get("team") or {}).get("id")
+                    or (sample_team.get("user") or {}).get("id")
+                )
+            if not sample_userteam_id:
+                logger.warning("Could not determine a sample userteam_id for standings sync; proceeding without it.")
+
+            round_id_map: Dict[int, str] = {}
+            if sample_userteam_id:
+                rounds_info = self.client.get_userteam_rounds(self.championship_id, sample_userteam_id) or []
+                for entry in rounds_info:
+                    number = entry.get("number")
+                    round_id = entry.get("id") or entry.get("_id") or entry.get("roundId")
+                    if number is None or not round_id:
+                        continue
+                    try:
+                        round_number_int = int(number)
+                        round_id_map[round_number_int] = round_id
+                    except (TypeError, ValueError):
+                        continue
+
+            rounds_synced = 0
+            total_records = 0
+            consecutive_missing = 0
+            max_rounds = 38
+
+            for matchday in range(last_matchday + 1, max_rounds + 1):
+                round_id = round_id_map.get(matchday)
+                if not round_id and sample_userteam_id:
+                    rounds_info = self.client.get_userteam_rounds(self.championship_id, sample_userteam_id) or []
+                    for entry in rounds_info:
+                        number = entry.get("number")
+                        rid = entry.get("id") or entry.get("_id") or entry.get("roundId")
+                        if number is None or not rid:
+                            continue
+                        try:
+                            round_number_int = int(number)
+                            round_id_map[round_number_int] = rid
+                        except (TypeError, ValueError):
+                            continue
+                    round_id = round_id_map.get(matchday)
+
+                try:
+                    logger.info(
+                        "Fetching standings for matchday %s (round_id=%s)...",
+                        matchday,
+                        round_id
+                    )
+                    ranking_data = self.client.get_round_ranking(
+                        championship_id=self.championship_id,
+                        round_number=matchday,
+                        round_id=round_id,
+                        userteam_id=sample_userteam_id
+                    )
+
+                    teams = []
+                    if isinstance(ranking_data, dict):
+                        teams = (
+                            ranking_data.get("teams")
+                            or ranking_data.get("ranking")
+                            or ranking_data.get("data")
+                            or []
+                        )
+                    elif isinstance(ranking_data, list):
+                        teams = ranking_data
+
+                    if not teams:
+                        consecutive_missing += 1
+                        logger.info(
+                            "No data for matchday %s (consecutive misses: %s)",
+                            matchday,
+                            consecutive_missing
+                        )
+                        if consecutive_missing >= 2:
+                            logger.info("Stopping standings sync due to consecutive empty responses.")
+                            break
+                        continue
+
+                    consecutive_missing = 0
+                    self.dm.save_round_ranking(matchday, self.championship_id, teams)
+                    rounds_synced += 1
+                    total_records += len(teams)
+
+                    time.sleep(0.2)
+                except Exception as round_err:
+                    logger.warning(f"Failed to process standings for matchday {matchday}: {round_err}")
+                    break
+
+            current_latest = self.dm.get_latest_matchday(self.championship_id) or last_matchday
+            duration = time.time() - start_time
+            status = "success" if rounds_synced > 0 else "no_new_data"
+
+            self.dm.update_sync_metadata(
+                championship_id=self.championship_id,
+                data_type="team_standings",
+                last_sync_matchday=current_latest,
+                last_sync_date=datetime.now(),
+                records_synced=total_records,
+                sync_duration_seconds=duration,
+                sync_status=status
+            )
+
+            logger.info(
+                "Team standings sync complete: %s new matchdays (%s rows) in %.2fs",
+                rounds_synced,
+                total_records,
+                duration
+            )
+
+            return {
+                "status": status,
+                "rounds_synced": rounds_synced,
+                "records_synced": total_records,
+                "last_matchday": current_latest,
+                "duration_seconds": duration
+            }
+
+        except Exception as e:
+            duration = time.time() - start_time
+            logger.error(f"Team standings sync failed: {e}", exc_info=True)
+
+            self.dm.update_sync_metadata(
+                championship_id=self.championship_id,
+                data_type="team_standings",
+                sync_status="error",
+                error_message=str(e),
+                sync_duration_seconds=duration
+            )
+
+            return {
+                "status": "error",
+                "error": str(e),
+                "duration_seconds": duration
+            }
+    
     def sync_players_full(self) -> Dict:
         """Sync all players (full update - players can change basic data)
         
@@ -812,6 +986,64 @@ class DataSyncService:
                 "duration_seconds": duration
             }
     
+    def sync_match_odds(self) -> Dict:
+        """Sync match odds for upcoming matches"""
+        start_time = time.time()
+        logger.info("Starting match odds sync...")
+
+        try:
+            odds_data = self.client.get_match_list(self.championship_id)
+            if not odds_data:
+                raise Exception("No match list data returned from API")
+
+            round_info = odds_data.get("round", {}) or {}
+            matches = odds_data.get("matches", []) or []
+            round_id = round_info.get("_id")
+            matchday = round_info.get("number")
+
+            if not matches:
+                logger.info("No matches found for odds sync")
+
+            self.dm.save_match_odds(self.championship_id, matches, round_id=round_id, matchday=matchday)
+
+            duration = time.time() - start_time
+            status = "success"
+
+            self.dm.update_sync_metadata(
+                championship_id=self.championship_id,
+                data_type="match_odds",
+                last_sync_matchday=matchday,
+                last_sync_date=datetime.now(),
+                records_synced=len(matches),
+                sync_duration_seconds=duration,
+                sync_status=status
+            )
+
+            return {
+                "status": status,
+                "records_synced": len(matches),
+                "matchday": matchday,
+                "duration_seconds": duration
+            }
+
+        except Exception as e:
+            duration = time.time() - start_time
+            logger.error(f"Match odds sync failed: {e}", exc_info=True)
+
+            self.dm.update_sync_metadata(
+                championship_id=self.championship_id,
+                data_type="match_odds",
+                sync_status="error",
+                error_message=str(e),
+                sync_duration_seconds=duration
+            )
+
+            return {
+                "status": "error",
+                "error": str(e),
+                "duration_seconds": duration
+            }
+
     def sync_all(self) -> Dict:
         """Run all sync operations
         
@@ -830,7 +1062,9 @@ class DataSyncService:
             "clauses": self.sync_clauses(),
             "punishments_bonuses": self.sync_punishments_bonuses(),
             "dream_teams": self.sync_dream_teams_mvps(),
-            "rosters": self.sync_rosters()
+            "rosters": self.sync_rosters(),
+            "team_standings": self.sync_round_rankings(),
+            "match_odds": self.sync_match_odds()
         }
         
         logger.info("=" * 60)

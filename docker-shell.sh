@@ -17,3 +17,7 @@ echo ""
 
 docker-compose exec "$service" /bin/sh || docker-compose exec "$service" /bin/bash
 
+
+
+
+

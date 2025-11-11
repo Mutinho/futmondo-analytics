@@ -206,6 +206,456 @@
             display: block;
         }
 
+        /* Analytics sub-tabs */
+        .analytics-container {
+            margin-top: 20px;
+        }
+
+        .analytics-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .analytics-tab-button {
+            padding: 10px 18px;
+            border: none;
+            background: rgba(144, 238, 144, 0.8);
+            color: #000;
+            font-weight: 600;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+
+        .analytics-tab-button:hover {
+            background: #32CD32;
+            color: #fff;
+        }
+
+        .analytics-tab-button.active {
+            background: #000000;
+            color: #90EE90;
+            border: 2px solid #90EE90;
+        }
+
+        .analytics-section {
+            display: none;
+        }
+
+        .analytics-section.active {
+            display: block;
+        }
+
+        .analytics-grid {
+            display: grid;
+            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        }
+
+        .table-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        }
+
+        .table-card h2 {
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 1.3rem;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        .analytics-info {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .analytics-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(144, 238, 144, 0.2);
+            color: #000;
+            padding: 10px 16px;
+            border-radius: 999px;
+            font-weight: 600;
+        }
+
+        .heatmap-wrapper {
+            overflow-x: auto;
+        }
+
+        .heatmap-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 500px;
+        }
+
+        .heatmap-table th,
+        .heatmap-table td {
+            padding: 8px 10px;
+            text-align: center;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            font-size: 0.85rem;
+        }
+
+        .heatmap-table th {
+            background: #000000;
+            color: #90EE90;
+            position: sticky;
+            top: 0;
+        }
+
+        .heatmap-cell {
+            position: relative;
+            font-weight: 600;
+        }
+
+        .heatmap-cell span {
+            position: relative;
+            z-index: 2;
+        }
+
+        .heatmap-cell::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1;
+            opacity: 0.7;
+            border-radius: 4px;
+        }
+
+        .projection-list {
+            display: grid;
+            gap: 15px;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        }
+
+        .projection-card {
+            background: white;
+            border-radius: 12px;
+            padding: 18px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+            border-left: 6px solid #90EE90;
+        }
+
+        .projection-card h3 {
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .projection-card .teams {
+            display: flex;
+            justify-content: space-between;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .projection-card .difficulty {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+        }
+
+        .projection-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+
+        .badge-easy {
+            background: rgba(144, 238, 144, 0.3);
+            color: #0f5132;
+        }
+
+        .badge-medium {
+            background: rgba(255, 193, 7, 0.3);
+            color: #664d03;
+        }
+
+        .badge-hard {
+            background: rgba(220, 53, 69, 0.25);
+            color: #842029;
+        }
+
+        .analytics-loading {
+            color: #333;
+        }
+
+        #app-container {
+            display: block;
+        }
+
+        .login-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            padding: 40px 32px;
+            max-width: 420px;
+            width: 100%;
+            box-shadow: 0 15px 45px rgba(0, 0, 0, 0.25);
+        }
+
+        .login-card h1 {
+            margin-bottom: 8px;
+            color: #1b1f23;
+            font-size: 2rem;
+        }
+
+        .login-card p {
+            margin-bottom: 24px;
+            color: #4a4a4a;
+            line-height: 1.4;
+        }
+
+        .login-form {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .login-form label {
+            font-weight: 600;
+            color: #1b1f23;
+        }
+
+        .login-form input {
+            padding: 12px 14px;
+            border-radius: 8px;
+            border: 1px solid rgba(0, 0, 0, 0.2);
+            font-size: 1rem;
+        }
+
+        .login-form button {
+            margin-top: 4px;
+        }
+
+        .login-error {
+            display: none;
+            margin-top: 8px;
+            color: #c0392b;
+            font-weight: 600;
+        }
+
+        .user-controls {
+            position: absolute;
+            top: 0;
+            right: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: white;
+        }
+
+        #user-badge {
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: rgba(0, 0, 0, 0.6);
+            font-weight: 600;
+        }
+
+        .primary-button.small,
+        .secondary-button.small {
+            padding: 6px 12px;
+            font-size: 0.9rem;
+        }
+
+        .access-message {
+            display: none;
+            margin: 0 0 20px 0;
+            padding: 14px 16px;
+            border-left: 4px solid #90EE90;
+            border-radius: 8px;
+            background: rgba(144, 238, 144, 0.18);
+            color: #0f5132;
+            font-weight: 600;
+        }
+
+        .header {
+            position: relative;
+        }
+
+        .custom-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .custom-controls label {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .custom-controls input {
+            width: 80px;
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(0, 0, 0, 0.2);
+            font-size: 1rem;
+        }
+
+        .custom-control-buttons {
+            display: flex;
+            gap: 6px;
+        }
+
+        .control-button,
+        .primary-button,
+        .secondary-button {
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-weight: 600;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .control-button {
+            background: rgba(144, 238, 144, 0.3);
+            color: #0f5132;
+        }
+
+        .control-button:hover,
+        .control-button.active {
+            background: #32CD32;
+            color: #fff;
+        }
+
+        .primary-button {
+            background: #000000;
+            color: #90EE90;
+            border-color: #90EE90;
+        }
+
+        .primary-button:hover {
+            background: #222222;
+        }
+
+        .secondary-button {
+            background: transparent;
+            color: #000;
+            border-color: #90EE90;
+        }
+
+        .secondary-button:hover {
+            background: rgba(144, 238, 144, 0.2);
+        }
+
+        .custom-matchdays {
+            margin-bottom: 12px;
+        }
+
+        .custom-matchdays-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .matchday-chip-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .matchday-chip {
+            padding: 6px 12px;
+            border-radius: 20px;
+            border: 1px solid #90EE90;
+            background: rgba(144, 238, 144, 0.2);
+            color: #000;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 600;
+        }
+
+        .matchday-chip.active {
+            background: #000000;
+            color: #90EE90;
+            border-color: #90EE90;
+        }
+
+        .custom-summary {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-bottom: 12px;
+            font-size: 0.9rem;
+            color: #222;
+        }
+
+        .custom-summary span {
+            display: block;
+        }
+
+        .pending-note {
+            color: #c0392b;
+            font-weight: 600;
+        }
+
+        .empty-hint {
+            background: rgba(144, 238, 144, 0.15);
+            border-left: 4px solid #90EE90;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            color: #0f5132;
+            font-weight: 600;
+        }
+
+        .matchday-detail-cell {
+            font-size: 0.85rem;
+            line-height: 1.4;
+        }
+
+        .matchday-line {
+            display: block;
+            white-space: nowrap;
+        }
+
+        @media (max-width: 768px) {
+            .tabs {
+                flex-wrap: wrap;
+            }
+
+            .analytics-tabs {
+                flex-direction: column;
+            }
+
+            .custom-controls {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .custom-controls input {
+                width: 100%;
+            }
+
+            .custom-control-buttons {
+                width: 100%;
+                justify-content: flex-start;
+            }
+
+            .chart-wrapper {
+                height: 380px;
+            }
+        }
+
         /* Finances Table */
         .finances-container {
             margin-top: 20px;
@@ -305,11 +755,19 @@
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🏆 Futmondo</h1>
-            <p>Evolución de Puntos y Posiciones por Jornada</p>
-        </div>
+    <div id="app-container">
+        <div class="container">
+            <div class="header">
+                <h1>🏆 Futmondo</h1>
+                <p>Evolución de Puntos y Posiciones por Jornada</p>
+                <div class="user-controls" id="user-controls">
+                    <span id="user-badge">Modo invitado</span>
+                    <button id="login-button" class="primary-button small">Iniciar sesión</button>
+                    <button id="logout-button" class="secondary-button small" style="display: none;">Cerrar sesión</button>
+                </div>
+            </div>
+
+            <div id="global-access-message" class="access-message"></div>
 
         <div id="loading" class="loading">
             Cargando datos...
@@ -319,10 +777,11 @@
 
         <div id="content" style="display: none;">
             <div class="tabs">
-                <button class="tab-button active" onclick="showTab('evolution')">📊 Evolución</button>
-                <button class="tab-button" onclick="showTab('finances')">💰 Finanzas Usuarios</button>
-                <button class="tab-button" onclick="showTab('stats')">📈 Estadísticas</button>
-                <button class="tab-button" onclick="showTab('clausulable')">⚽ Jugadores Clausulables</button>
+                <button id="evolution-tab-button" class="tab-button active" onclick="showTab('evolution')">📊 Evolución</button>
+                <button id="finances-tab-button" class="tab-button" onclick="showTab('finances')" style="display: none;">💰 Finanzas Usuarios</button>
+                <button id="stats-tab-button" class="tab-button" onclick="showTab('stats')">📈 Estadísticas</button>
+                <button id="clausulable-tab-button" class="tab-button" onclick="showTab('clausulable')">⚽ Jugadores Clausulables</button>
+                <button id="analytics-tab-button" class="tab-button" onclick="showTab('analytics')">📊 Analytics Avanzado</button>
             </div>
             
             <div id="evolution-tab" class="tab-content active">
@@ -429,7 +888,182 @@
                     </div>
                 </div>
             </div>
+
+            <div id="analytics-tab" class="tab-content">
+                <div class="analytics-container">
+                    <div class="analytics-tabs">
+                        <button class="analytics-tab-button active" data-section="overview" onclick="showAnalyticsSection('overview')">🌐 Visión General</button>
+                        <button class="analytics-tab-button" data-section="custom" onclick="showAnalyticsSection('custom')">🏆 Clasificación Dinámica</button>
+                        <button class="analytics-tab-button" data-section="players" onclick="showAnalyticsSection('players')">🔥 Jugadores</button>
+                        <button class="analytics-tab-button" data-section="users" onclick="showAnalyticsSection('users')">👥 Usuarios</button>
+                        <button class="analytics-tab-button" data-section="market" onclick="showAnalyticsSection('market')">💹 Mercado</button>
+                        <button class="analytics-tab-button" data-section="opportunities" onclick="showAnalyticsSection('opportunities')">⚡ Oportunidades</button>
+                        <button class="analytics-tab-button" data-section="projections" onclick="showAnalyticsSection('projections')">🎯 Proyecciones</button>
+                    </div>
+
+                    <div id="analytics-access-message" class="access-message"></div>
+
+                    <div id="analytics-overview-section" class="analytics-section active">
+                        <div id="analytics-overview-loading" class="loading analytics-loading">Cargando visión general...</div>
+                        <div id="analytics-overview-error" class="error" style="display: none;"></div>
+                        <div id="analytics-overview-content" class="charts-container" style="display: none;">
+                            <div class="chart-card">
+                                <h2>📊 Momentum de Equipos</h2>
+                                <div class="chart-wrapper">
+                                    <canvas id="analyticsMomentumChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="chart-card">
+                                <h2>🔥 Rendimiento por Jornada</h2>
+                                <div class="heatmap-wrapper">
+                                    <table class="heatmap-table" id="analyticsHeatmapTable">
+                                        <thead></thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="table-card">
+                                <h2>📋 Resumen de Tendencias</h2>
+                                <div class="table-wrapper">
+                                    <table class="finances-table analytics-table" id="analyticsTrendsTable">
+                                        <thead></thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="analytics-custom-section" class="analytics-section">
+                        <div id="analytics-custom-loading" class="loading analytics-loading">Calculando clasificación personalizada...</div>
+                        <div id="analytics-custom-error" class="error" style="display: none;"></div>
+                        <div id="analytics-custom-content" class="table-card" style="display: none;">
+                            <h2>🏆 Clasificación Dinámica</h2>
+                            <div class="custom-controls">
+                                <label for="analyticsCustomWindow">Últimas jornadas</label>
+                                <input type="number" id="analyticsCustomWindow" min="1" max="38" value="5" />
+                                <div class="custom-control-buttons">
+                                    <button type="button" class="control-button" data-window="3">3</button>
+                                    <button type="button" class="control-button" data-window="5">5</button>
+                                    <button type="button" class="control-button" data-window="10">10</button>
+                                </div>
+                                <button type="button" id="analyticsCustomApply" class="primary-button">Aplicar filtros</button>
+                                <button type="button" id="analyticsCustomReset" class="secondary-button">Limpiar exclusiones</button>
+                            </div>
+                            <div class="custom-matchdays">
+                                <p class="custom-matchdays-title">Excluir jornadas del cálculo:</p>
+                                <div id="analyticsCustomMatchdays" class="matchday-chip-container"></div>
+                            </div>
+                            <div id="analyticsCustomSummary" class="custom-summary"></div>
+                            <div id="analytics-custom-empty" class="empty-hint" style="display: none;">No hay datos disponibles con la configuración actual.</div>
+                            <div class="table-wrapper">
+                                <table class="finances-table analytics-table" id="analyticsCustomClassificationTable">
+                                    <thead></thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="analytics-players-section" class="analytics-section">
+                        <div id="analytics-players-loading" class="loading analytics-loading">Cargando análisis de jugadores...</div>
+                        <div id="analytics-players-error" class="error" style="display: none;"></div>
+                        <div id="analytics-players-content" class="analytics-grid" style="display: none;">
+                            <div class="table-card">
+                                <h2>🔥 Formulario de Jugadores</h2>
+                                <div class="table-wrapper">
+                                    <table class="finances-table analytics-table" id="analyticsPlayerFormTable">
+                                        <thead></thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="table-card">
+                                <h2>💹 Tendencia de Valor</h2>
+                                <div class="table-wrapper">
+                                    <table class="finances-table analytics-table" id="analyticsPlayerValueTable">
+                                        <thead></thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="analytics-users-section" class="analytics-section">
+                        <div id="analytics-users-loading" class="loading analytics-loading">Cargando análisis de usuarios...</div>
+                        <div id="analytics-users-error" class="error" style="display: none;"></div>
+                        <div id="analytics-users-content" class="charts-container" style="display: none;">
+                            <div class="chart-card">
+                                <h2>🧠 Índice de Consistencia</h2>
+                                <div class="chart-wrapper">
+                                    <canvas id="analyticsConsistencyChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="table-card">
+                                <h2>🔄 Actividad de Mercado</h2>
+                                <div class="table-wrapper">
+                                    <table class="finances-table analytics-table" id="analyticsMarketActivityTable">
+                                        <thead></thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="analytics-market-section" class="analytics-section">
+                        <div id="analytics-market-loading" class="loading analytics-loading">Cargando visión de mercado...</div>
+                        <div id="analytics-market-error" class="error" style="display: none;"></div>
+                        <div id="analytics-market-content" class="analytics-grid" style="display: none;">
+                            <div class="table-card">
+                                <h2>📋 Watchlist de Mercado</h2>
+                                <div class="table-wrapper">
+                                    <table class="finances-table analytics-table" id="analyticsWatchlistTable">
+                                        <thead></thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="table-card">
+                                <h2>🌐 Red de Cláusulas</h2>
+                                <div class="table-wrapper">
+                                    <table class="finances-table analytics-table" id="analyticsClausesNetworkTable">
+                                        <thead></thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="analytics-opportunities-section" class="analytics-section">
+                        <div id="analytics-opportunities-loading" class="loading analytics-loading">Buscando rachas destacadas...</div>
+                        <div id="analytics-opportunities-error" class="error" style="display: none;"></div>
+                        <div id="analytics-opportunities-content" class="table-card" style="display: none;">
+                            <h2>⚡ Rachas de Jugadores</h2>
+                            <div class="table-wrapper">
+                                <table class="finances-table analytics-table" id="analyticsStreaksTable">
+                                    <thead></thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="analytics-projections-section" class="analytics-section">
+                        <div id="analytics-projections-loading" class="loading analytics-loading">Calculando proyecciones...</div>
+                        <div id="analytics-projections-error" class="error" style="display: none;"></div>
+                        <div id="analytics-projections-content" class="table-card" style="display: none;">
+                            <h2>🎯 Proyecciones de la Próxima Jornada</h2>
+                            <div class="projection-list" id="analyticsProjectionsList"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
+    </div>
+
     </div>
 
     <script src="app.js"></script>

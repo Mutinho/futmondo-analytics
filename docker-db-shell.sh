@@ -32,3 +32,7 @@ echo ""
 
 docker-compose exec backend sqlite3 "$db_path"
 
+
+
+
+

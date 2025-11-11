@@ -187,7 +187,7 @@ class FutmondoClient:
                 logger.info(f"Retrieved {len(players)} players")
                 return answer
             # Fallback: if it's a list, wrap it
-            elif isinstance(answer, list):
+            if isinstance(answer, list):
                 logger.info(f"Retrieved {len(answer)} players (list format)")
                 return {"players": answer}
         return None
@@ -441,30 +441,56 @@ class FutmondoClient:
             return response.get("answer", {})
         return None
     
-    def get_round_ranking(self, championship_id: str, round_number: int) -> Optional[Dict]:
-        """Fetch ranking for a specific round/matchday
-        
-        Returns ranking data with teams ordered by accumulated points for that round:
-        - List of teams with position, points, position changes
-        - Statistical data about the ranking
+    def get_round_ranking(
+        self,
+        championship_id: str,
+        round_number: Optional[int] = None,
+        round_id: Optional[str] = None,
+        userteam_id: Optional[str] = None
+    ) -> Optional[Dict]:
+        """Fetch ranking for a specific round/matchday.
+
+        Args:
+            championship_id: Futmondo championship ID.
+            round_number: Numerical matchday (1..38). Optional if round_id provided.
+            round_id: Futmondo round identifier (preferred).
+            userteam_id: Optional user team ID to mimic app requests.
+
+        Returns:
+            Dict containing ranking data (same shape as Futmondo API) or None.
         """
-        logger.debug(f"Fetching ranking for round {round_number}...")
-        
+        identifier = round_id or round_number
+        logger.debug(f"Fetching ranking for round identifier {identifier}...")
+
         request_data = {
             "header": {
                 "token": self.token,
                 "userid": self.user_id
             },
             "query": {
-                "championshipId": championship_id,
-                "round": round_number
+                "championshipId": championship_id
             },
             "answer": {}
         }
-        
+
+        if round_id:
+            # Futmondo app sends both keys; replicate for compatibility.
+            request_data["query"]["roundId"] = round_id
+            request_data["query"]["roundNumber"] = round_id
+        if round_number is not None:
+            request_data["query"]["round"] = round_number
+        if userteam_id:
+            request_data["query"]["userteamId"] = userteam_id
+
         response = self._make_request("/1/ranking/round", request_data)
-        if response:
-            return response.get("answer", {})
+        if not response:
+            return None
+
+        answer = response.get("answer")
+        if isinstance(answer, dict):
+            return answer
+        if isinstance(answer, list):
+            return {"ranking": answer}
         return None
     
     def get_market_players(self, championship_id: str) -> Optional[List]:

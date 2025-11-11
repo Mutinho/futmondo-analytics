@@ -11,7 +11,8 @@ Para desplegar en Railway, consulta la [Guía de Despliegue en Railway](./RAILWA
 2. Crea un proyecto en Railway y conecta el repo
 3. Añade 3 servicios: Backend, Frontend, y PostgreSQL
 4. Configura las variables de entorno según `RAILWAY_DEPLOY.md`
-5. ¡Listo! 🎉
+5. Ejecuta una sincronización inicial (`/api/v1/sync/trigger?sync_type=all`) para poblar estadísticas y cuotas
+6. ¡Listo! 🎉
 
 ## 🏗️ Arquitectura
 
@@ -72,6 +73,11 @@ cp .env.example .env
 # Frontend: http://localhost:3000
 # Backend API: http://localhost:8000
 # API Docs: http://localhost:8000/docs
+
+# (Opcional) Túnel ngrok para el frontend
+# Requiere NGROK_AUTHTOKEN en tu .env y levantar el perfil ngrok:
+# docker compose --profile ngrok up frontend-ngrok
+# ngrok dashboard: http://localhost:4040
 ```
 
 #### Scripts Docker Disponibles:
@@ -232,12 +238,41 @@ Obtiene lista de todos los equipos del campeonato.
 #### `GET /api/v1/matchdays/teams/{team_id}/rounds`
 Obtiene los rounds (puntos por jornada) de un equipo específico.
 
+## 📊 Analytics API
+
+Se han añadido endpoints avanzados para reforzar el scouting y la toma de decisiones. Todos están disponibles bajo el prefijo `/api/v1/analytics`.
+
+- `GET /championship/trends` — Evolución de puntos/posiciones por equipo (parámetro `window` para últimas jornadas).
+- `GET /championship/custom-classification` — Clasificación filtrable por últimas jornadas con exclusión de jornadas concretas.
+- `GET /championship/heatmap` — Heatmap de puntos por jornada.
+- `GET /players/form` — Form de jugadores (media, tendencia) en una ventana móvil.
+- `GET /players/value-trend` — Evolución de precios de mercado frente a cláusulas sugeridas.
+- `GET /users/consistency` — Índice de consistencia y volatilidad de managers.
+- `GET /users/market-activity` — Actividad de mercado (compras/ventas/cláusulas) por equipo.
+- `GET /market/watchlist` — Agentes libres ordenados por relación puntos/cláusula.
+- `GET /clauses/network` — Grafo de cláusulas pagadas/recibidas.
+- `GET /opportunities/streaks` — Rachas activas de jugadores por encima de un umbral de puntos.
+- `GET /projections/matchday` — Dificultad proyectada de la próxima jornada combinando odds y forma.
+
+Cada endpoint acepta `championship_id` como query param (opcional si está configurado en `config.py`).
+
+## 🔐 Acceso a la aplicación
+
+La aplicación arranca en modo invitado, mostrando únicamente el contenido no premium (sin pestaña de Finanzas ni Jugadores Clausulables, y con Analytics limitado a Visión General y Clasificación Dinámica).  
+Para desbloquear todo el contenido pulsa “Iniciar sesión” (arriba a la derecha) e introduce:
+
+- Usuario premium: `patxo`
+- Contraseña: `aporlavictoria2026.`
+
+Al cerrar sesión vuelves automáticamente al modo invitado.
+
 ## 🎨 Características
 
 - ✅ Visualización interactiva de puntos acumulados
 - ✅ Visualización de posiciones jornada a jornada con números en cada punto
 - ✅ Gráficos responsivos con Chart.js
 - ✅ Diseño moderno y atractivo
+- ✅ Clasificación dinámica con filtros de jornadas
 - ✅ API REST limpia y documentada
 - ✅ CORS configurado para desarrollo
 - ✅ Acceso público con ngrok

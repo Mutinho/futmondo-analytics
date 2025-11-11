@@ -38,3 +38,7 @@ echo "   http://localhost:5050"
 echo "   Email: admin@futmondo.com"
 echo "   Password: admin123 (o el configurado en .env)"
 
+
+
+
+

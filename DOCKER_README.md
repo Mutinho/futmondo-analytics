@@ -60,14 +60,16 @@ Una vez iniciados, los servicios estarán disponibles en:
 - **Frontend**: http://localhost:3000
 - **API Documentation (Swagger)**: http://localhost:8000/docs
 - **Health Check**: http://localhost:8000/health
+- **ngrok Dashboard (opcional)**: http://localhost:4040 *(si habilitas el túnel)*
 
 ## 📝 Comandos Útiles
 
 ### Iniciar Servicios
 
 ```bash
-./docker-start.sh           # Usando script
-docker-compose up -d        # Usando Docker Compose
+./docker-start.sh               # Usando script
+docker-compose up -d            # Usando Docker Compose
+docker-compose --profile ngrok up -d frontend-ngrok  # (Opcional) Iniciar túnel ngrok
 ```
 
 ### Detener Servicios
@@ -80,13 +82,16 @@ docker-compose down         # Usando Docker Compose
 ### Ver Logs
 
 ```bash
-./docker-logs.sh            # Todos los servicios
-./docker-logs.sh backend    # Solo backend
-./docker-logs.sh frontend   # Solo frontend
+./docker-logs.sh                  # Todos los servicios
+./docker-logs.sh backend          # Solo backend
+./docker-logs.sh frontend         # Solo frontend
+./docker-logs.sh frontend-ngrok   # Solo ngrok
 
 # O usando Docker Compose
-docker-compose logs -f      # Todos los servicios
+docker-compose logs -f            # Todos los servicios
 docker-compose logs -f backend    # Solo backend
+docker-compose logs -f frontend   # Solo frontend
+docker-compose --profile ngrok logs -f frontend-ngrok   # Solo ngrok
 ```
 
 ### Ver Estado

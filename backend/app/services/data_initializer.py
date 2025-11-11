@@ -13,30 +13,30 @@ logger = logging.getLogger(__name__)
 
 class DataInitializer:
     """Wrapper around DataSyncService for legacy initialization endpoint."""
-
+    
     def __init__(self) -> None:
         self.client = FutmondoClient(email=FUTMONDO_EMAIL, password=FUTMONDO_PASSWORD)
         self.championship_id = CHAMPIONSHIP_ID
         self.sync_service = DataSyncService(futmondo_client=self.client)
-
+    
     def initialize_all_data(self, force_refresh: bool = False) -> Dict[str, Dict]:
         """Run a full synchronization pipeline.
-
+        
         Args:
             force_refresh: Kept for backward compatibility. The new sync pipeline
                 always performs incremental updates, so this flag is ignored but
                 retained to avoid breaking callers.
-
+            
         Returns:
             Dictionary keyed by sync type with status metadata.
         """
-
+        
         if not self.client.is_authenticated():
             logger.info("Logging in...")
             if not self.client.login():
                 logger.error("Failed to authenticate with Futmondo")
                 return {"error": "Authentication failed"}
-
+        
         logger.info("🚀 Starting data initialization via DataSyncService...")
 
         try:

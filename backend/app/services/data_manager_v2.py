@@ -728,15 +728,18 @@ class DataManagerV2:
             now = datetime.now()
             
             for team in teams:
-                team_id = team.get("id", team.get("teamid", ""))
+                team_id = (
+                    team.get("id")
+                    or team.get("teamid")
+                    or (team.get("team") or {}).get("id")
+                )
                 position = team.get("position", 0)
-                points = team.get("points", 0)
-                
+                round_points = team.get("points", 0) or team.get("roundPoints", 0)
+
                 if not team_id:
                     continue
-                
-                # Calculate points_this_matchday from previous matchday
-                points_this_matchday = 0
+
+                prev_points_total = 0
                 if round_number > 1:
                     sql_prev = '''
                         SELECT points FROM team_standings 
@@ -746,10 +749,19 @@ class DataManagerV2:
                     cursor.execute(sql_prev, (championship_id, team_id, round_number - 1))
                     prev_row = cursor.fetchone()
                     if prev_row:
-                        prev_points = prev_row[0] if isinstance(prev_row, tuple) else prev_row.get('points', 0)
-                        points_this_matchday = points - prev_points
-                
-                # Save team standing (use same connection)
+                        prev_points_total = (
+                            prev_row[0]
+                            if isinstance(prev_row, tuple)
+                            else prev_row.get('points', 0)
+                        )
+
+                if round_points <= prev_points_total:
+                    points_this_matchday = round_points
+                    points = prev_points_total + round_points
+                else:
+                    points = round_points
+                    points_this_matchday = points - prev_points_total
+
                 self.save_team_standing(
                     championship_id=championship_id,
                     team_id=team_id,
@@ -915,14 +927,10 @@ class DataManagerV2:
                                 transaction_date = datetime.fromisoformat(created.replace('Z', '+00:00'))
                             else:
                                 transaction_date = datetime.now()
-                        except:
+                        except Exception:
                             transaction_date = datetime.now()
                         
                         # Determine buyer and seller
-                        # If only _buyer exists, seller is Market
-                        # If only _seller exists, buyer is Market
-                        # If both exist, it's a trade between users
-                        
                         if buyer_info and seller_info:
                             # Trade between users
                             buyer_id = buyer_info.get("_id")
@@ -2085,52 +2093,104 @@ class DataManagerV2:
         """Get statistics of unique players aligned by each user/team"""
         with self.db.get_connection() as conn:
             cursor = self.db.get_cursor(conn)
-            
-            if self.db.db_type in ["postgresql", "postgres"]:
-                sql = '''
-                    SELECT 
-                        COALESCE(t.team_id, tr.team_id) as team_id,
-                        COALESCE(t.team_name, tr.team_id) as team_name,
-                        COALESCE(t.user_id, tr.team_id) as user_id,
-                        u.username,
-                        COUNT(DISTINCT tr.player_id) as unique_players_count
-                    FROM team_rosters tr
-                    LEFT JOIN teams t ON tr.team_id = t.team_id
-                    LEFT JOIN users u ON COALESCE(t.user_id, tr.team_id) = u.user_id
-                    WHERE tr.championship_id = %s
-                    GROUP BY COALESCE(t.team_id, tr.team_id), COALESCE(t.team_name, tr.team_id), COALESCE(t.user_id, tr.team_id), u.username
-                    ORDER BY unique_players_count DESC
-                '''
-            else:
-                sql = '''
-                    SELECT 
-                        COALESCE(t.team_id, tr.team_id) as team_id,
-                        COALESCE(t.team_name, tr.team_id) as team_name,
-                        COALESCE(t.user_id, tr.team_id) as user_id,
-                        u.username,
-                        COUNT(DISTINCT tr.player_id) as unique_players_count
-                    FROM team_rosters tr
-                    LEFT JOIN teams t ON tr.team_id = t.team_id
-                    LEFT JOIN users u ON COALESCE(t.user_id, tr.team_id) = u.user_id
-                    WHERE tr.championship_id = ?
-                    GROUP BY COALESCE(t.team_id, tr.team_id), COALESCE(t.team_name, tr.team_id), COALESCE(t.user_id, tr.team_id), u.username
-                    ORDER BY unique_players_count DESC
-                '''
-            
-            cursor.execute(sql, (championship_id,))
+
+            unique_players_sql = '''
+                SELECT 
+                    COALESCE(t.team_id, tr.team_id) as team_id,
+                    COALESCE(t.team_name, tr.team_id) as team_name,
+                    COALESCE(t.user_id, tr.team_id) as user_id,
+                    u.username,
+                    COUNT(DISTINCT tr.player_id) as unique_players_count
+                FROM team_rosters tr
+                LEFT JOIN teams t ON tr.team_id = t.team_id
+                LEFT JOIN users u ON COALESCE(t.user_id, tr.team_id) = u.user_id
+                WHERE tr.championship_id = ?
+                GROUP BY COALESCE(t.team_id, tr.team_id), COALESCE(t.team_name, tr.team_id), COALESCE(t.user_id, tr.team_id), u.username
+            '''
+            unique_players_sql = self.db.adapt_sql(unique_players_sql)
+            unique_players_sql = self.db.adapt_params(unique_players_sql)
+            cursor.execute(unique_players_sql, (championship_id,))
             results = cursor.fetchall()
-            
-            stats = []
+
+            stats = {}
             for row in results:
-                stats.append({
-                    "team_id": row[0],
-                    "team_name": row[1] if row[1] and row[1] != row[0] else None,  # Don't use team_id as name
+                team_id = row[0]
+                stats[team_id] = {
+                    "team_id": team_id,
+                    "team_name": row[1] if row[1] and row[1] != team_id else None,
                     "user_id": row[2],
                     "username": row[3],
-                    "unique_players_count": row[4]
-                })
-            
-            return stats
+                    "unique_players_count": row[4],
+                    "clauses_paid": 0,
+                    "clauses_received": 0,
+                    "total_clauses_paid": 0,
+                    "total_clauses_received": 0,
+                    "transaction_count": 0,
+                    "total_spent": 0,
+                    "total_received": 0,
+                    "transaction_profit": 0
+                }
+
+            clauses_sql = '''
+                SELECT 
+                    COALESCE(payer_team_id, payer_user_id) as payer_id,
+                    COALESCE(receiver_team_id, receiver_user_id) as receiver_id,
+                    COUNT(*) as clause_count,
+                    SUM(amount) as total_amount
+                FROM clauses
+                WHERE championship_id = ?
+                GROUP BY COALESCE(payer_team_id, payer_user_id), COALESCE(receiver_team_id, receiver_user_id)
+            '''
+            clauses_sql = self.db.adapt_sql(clauses_sql)
+            clauses_sql = self.db.adapt_params(clauses_sql)
+            cursor.execute(clauses_sql, (championship_id,))
+            clauses_rows = cursor.fetchall()
+
+            for row in clauses_rows:
+                payer_id, receiver_id, clause_count, total_amount = row
+                if payer_id in stats:
+                    stats[payer_id]["clauses_paid"] += clause_count or 0
+                    stats[payer_id]["total_clauses_paid"] += total_amount or 0
+                if receiver_id in stats:
+                    stats[receiver_id]["clauses_received"] += clause_count or 0
+                    stats[receiver_id]["total_clauses_received"] += total_amount or 0
+
+            transactions_sql = '''
+                SELECT 
+                    buyer_team_id,
+                    seller_team_id,
+                    price
+                FROM transactions
+                WHERE championship_id = ?
+            '''
+            transactions_sql = self.db.adapt_sql(transactions_sql)
+            transactions_sql = self.db.adapt_params(transactions_sql)
+            cursor.execute(transactions_sql, (championship_id,))
+            txn_rows = cursor.fetchall()
+
+            for row in txn_rows:
+                buyer_team_id, seller_team_id, price = row
+                if buyer_team_id in stats:
+                    stats[buyer_team_id]["transaction_count"] += 1
+                    stats[buyer_team_id]["total_spent"] += price or 0
+                    stats[buyer_team_id]["transaction_profit"] -= price or 0
+                if seller_team_id in stats:
+                    stats[seller_team_id]["transaction_count"] += 1
+                    stats[seller_team_id]["total_received"] += price or 0
+                    stats[seller_team_id]["transaction_profit"] += price or 0
+
+            # Normalize team_name and username fallbacks
+            for team_id, entry in stats.items():
+                if not entry["team_name"]:
+                    team_info = self.get_team_by_id(team_id)
+                    if team_info and team_info.get("team_name"):
+                        entry["team_name"] = team_info["team_name"]
+                if not entry.get("username") and entry.get("user_id"):
+                    user_info = self.get_user_by_id(entry["user_id"])
+                    if user_info and user_info.get("username"):
+                        entry["username"] = user_info["username"]
+
+            return list(stats.values())
     
     def get_all_players_with_points(self, championship_id: str) -> List[Dict]:
         """Get all players with their total points"""
@@ -2778,7 +2838,7 @@ class DataManagerV2:
             with self.db.get_connection() as conn:
                 cursor = self.db.get_cursor(conn)
 
-                create_sql = self.db.adapt_sql('''
+                create_stats_sql = self.db.adapt_sql('''
                     CREATE TABLE IF NOT EXISTS player_championship_stats (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         championship_id TEXT NOT NULL,
@@ -2796,10 +2856,38 @@ class DataManagerV2:
                         FOREIGN KEY (championship_id) REFERENCES championships (championship_id)
                     )
                 ''')
-                cursor.execute(create_sql)
+                cursor.execute(create_stats_sql)
 
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_player_champ_stats_champ_player ON player_championship_stats(championship_id, player_id)")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_player_champ_stats_owner ON player_championship_stats(owner_team_id)")
+
+                create_odds_sql = self.db.adapt_sql('''
+                    CREATE TABLE IF NOT EXISTS match_odds (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        championship_id TEXT NOT NULL,
+                        match_id TEXT NOT NULL,
+                        round_id TEXT,
+                        matchday INTEGER,
+                        match_date TIMESTAMP,
+                        home_team_id TEXT,
+                        home_team_name TEXT,
+                        away_team_id TEXT,
+                        away_team_name TEXT,
+                        odds_home REAL,
+                        odds_draw REAL,
+                        odds_away REAL,
+                        best_bookmaker_home TEXT,
+                        best_bookmaker_draw TEXT,
+                        best_bookmaker_away TEXT,
+                        fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE(championship_id, match_id),
+                        FOREIGN KEY (championship_id) REFERENCES championships (championship_id)
+                    )
+                ''')
+                cursor.execute(create_odds_sql)
+
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_match_odds_champ_matchday ON match_odds(championship_id, matchday)")
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_match_odds_round ON match_odds(round_id)")
         except Exception as e:
             logger.warning(f"Could not ensure schema updates: {e}")
 
@@ -2927,3 +3015,441 @@ class DataManagerV2:
                 "average_overall": row[8]
             })
         return results
+
+    def save_match_odds(self, championship_id: str, matches: List[Dict], round_id: str = None, matchday: int = None):
+        """Persist betting odds for upcoming matches"""
+        if not matches:
+            return
+
+        with self.db.get_connection() as conn:
+            cursor = self.db.get_cursor(conn)
+
+            self.ensure_championship_exists(championship_id, conn=conn, cursor=cursor)
+
+            if self.db.db_type in ["postgresql", "postgres"]:
+                sql = '''
+                    INSERT INTO match_odds (
+                        championship_id, match_id, round_id, matchday, match_date,
+                        home_team_id, home_team_name, away_team_id, away_team_name,
+                        odds_home, odds_draw, odds_away,
+                        best_bookmaker_home, best_bookmaker_draw, best_bookmaker_away,
+                        fetched_at
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (championship_id, match_id) DO UPDATE SET
+                        round_id = EXCLUDED.round_id,
+                        matchday = EXCLUDED.matchday,
+                        match_date = EXCLUDED.match_date,
+                        home_team_id = EXCLUDED.home_team_id,
+                        home_team_name = EXCLUDED.home_team_name,
+                        away_team_id = EXCLUDED.away_team_id,
+                        away_team_name = EXCLUDED.away_team_name,
+                        odds_home = EXCLUDED.odds_home,
+                        odds_draw = EXCLUDED.odds_draw,
+                        odds_away = EXCLUDED.odds_away,
+                        best_bookmaker_home = EXCLUDED.best_bookmaker_home,
+                        best_bookmaker_draw = EXCLUDED.best_bookmaker_draw,
+                        best_bookmaker_away = EXCLUDED.best_bookmaker_away,
+                        fetched_at = EXCLUDED.fetched_at
+                '''
+            else:
+                sql = '''
+                    INSERT OR REPLACE INTO match_odds (
+                        championship_id, match_id, round_id, matchday, match_date,
+                        home_team_id, home_team_name, away_team_id, away_team_name,
+                        odds_home, odds_draw, odds_away,
+                        best_bookmaker_home, best_bookmaker_draw, best_bookmaker_away,
+                        fetched_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                '''
+                sql = self.db.adapt_params(sql)
+
+            now = datetime.now()
+
+            for match in matches:
+                match_id = match.get("id") or match.get("_id")
+                if not match_id:
+                    continue
+
+                match_date_str = match.get("date") or match.get("matchDate")
+                match_date = None
+                if match_date_str:
+                    try:
+                        match_date = datetime.fromisoformat(match_date_str.replace("Z", "+00:00"))
+                    except Exception:
+                        match_date = None
+
+                odds_info = match.get("odds", {})
+                sels = odds_info.get("sels", []) if isinstance(odds_info, dict) else []
+
+                odds_home = odds_draw = odds_away = None
+                bookmaker_home = bookmaker_draw = bookmaker_away = None
+
+                for sel in sels:
+                    selection_name = sel.get("sn", "").lower()
+                    odds_list = sel.get("odds", [])
+                    if not odds_list:
+                        continue
+                    best = max(odds_list, key=lambda o: o.get("c", 0) or 0)
+                    price = best.get("c") or best.get("f")
+                    bookmaker = best.get("bid")
+                    if "draw" in selection_name or selection_name in ("empate", "tie"):
+                        odds_draw = price
+                        bookmaker_draw = bookmaker
+                    elif selection_name == match.get("homeTeam", {}).get("name", "").lower() or sel.get("ssn") == "1":
+                        odds_home = price
+                        bookmaker_home = bookmaker
+                    else:
+                        odds_away = price
+                        bookmaker_away = bookmaker
+
+                cursor.execute(sql, (
+                    championship_id,
+                    match_id,
+                    round_id or match.get("roundId"),
+                    matchday,
+                    match_date,
+                    match.get("homeTeam", {}).get("id"),
+                    match.get("homeTeam", {}).get("name"),
+                    match.get("awayTeam", {}).get("id"),
+                    match.get("awayTeam", {}).get("name"),
+                    odds_home,
+                    odds_draw,
+                    odds_away,
+                    bookmaker_home,
+                    bookmaker_draw,
+                    bookmaker_away,
+                    now
+                ))
+
+    def get_match_odds(self, championship_id: str, matchday: Optional[int] = None, upcoming_only: bool = False) -> List[Dict]:
+        """Retrieve stored match odds, optionally filtered by matchday or future date"""
+        with self.db.get_connection() as conn:
+            cursor = self.db.get_cursor(conn)
+
+            base_sql = '''
+                SELECT match_id, round_id, matchday, match_date,
+                       home_team_id, home_team_name,
+                       away_team_id, away_team_name,
+                       odds_home, odds_draw, odds_away,
+                       best_bookmaker_home, best_bookmaker_draw, best_bookmaker_away,
+                       fetched_at
+                FROM match_odds
+                WHERE championship_id = ?
+            '''
+            params: List[Any] = [championship_id]
+
+            if matchday is not None:
+                base_sql += " AND matchday = ?"
+                params.append(matchday)
+
+            if upcoming_only:
+                base_sql += " AND (match_date IS NULL OR match_date >= ? )"
+                params.append(datetime.now())
+
+            base_sql += " ORDER BY match_date"
+            if self.db.db_type in ["postgresql", "postgres"]:
+                base_sql += " NULLS LAST"
+            base_sql = self.db.adapt_params(base_sql)
+
+            cursor.execute(base_sql, tuple(params))
+            rows = cursor.fetchall()
+
+        results = []
+        for row in rows:
+            results.append({
+                "match_id": row[0],
+                "round_id": row[1],
+                "matchday": row[2],
+                "match_date": row[3],
+                "home_team_id": row[4],
+                "home_team_name": row[5],
+                "away_team_id": row[6],
+                "away_team_name": row[7],
+                "odds_home": row[8],
+                "odds_draw": row[9],
+                "odds_away": row[10],
+                "best_bookmaker_home": row[11],
+                "best_bookmaker_draw": row[12],
+                "best_bookmaker_away": row[13],
+                "fetched_at": row[14]
+            })
+        return results
+
+    def get_latest_matchday(self, championship_id: str) -> Optional[int]:
+        """Return the latest matchday available in team_standings"""
+        with self.db.get_connection() as conn:
+            cursor = self.db.get_cursor(conn)
+            sql = "SELECT MAX(matchday) FROM team_standings WHERE championship_id = ?"
+            sql = self.db.adapt_params(sql)
+            cursor.execute(sql, (championship_id,))
+            row = cursor.fetchone()
+            if row and row[0] is not None:
+                return int(row[0])
+        return None
+
+    def get_team_standings_history(self, championship_id: str, window: Optional[int] = None) -> List[Dict]:
+        """Return standings history for each team, optionally limited to last `window` matchdays"""
+        max_matchday = self.get_latest_matchday(championship_id)
+        params: List[Any] = [championship_id]
+        condition = ""
+        if window and max_matchday:
+            min_matchday = max_matchday - window + 1
+            condition = " AND matchday >= ?"
+            params.append(min_matchday)
+
+        with self.db.get_connection() as conn:
+            cursor = self.db.get_cursor(conn)
+            sql = f'''
+                SELECT team_id, matchday, position, points, points_this_matchday, team_value
+                FROM team_standings
+                WHERE championship_id = ?{condition}
+                ORDER BY team_id, matchday
+            '''
+            sql = self.db.adapt_params(sql)
+            cursor.execute(sql, tuple(params))
+            rows = cursor.fetchall()
+
+        history = []
+        for row in rows:
+            history.append({
+                "team_id": row[0],
+                "matchday": row[1],
+                "position": row[2],
+                "points": row[3],
+                "points_this_matchday": row[4],
+                "team_value": row[5]
+            })
+        return history
+
+    def get_player_performance_history(self, championship_id: str, player_ids: Optional[List[str]] = None,
+                                        window: Optional[int] = None) -> List[Dict]:
+        """Return player performance records filtered by players and limited matchdays"""
+        max_matchday = self.get_latest_matchday(championship_id)
+        params: List[Any] = [championship_id]
+        filters = []
+
+        if player_ids:
+            placeholders = ",".join(["?"] * len(player_ids))
+            filters.append(f"player_id IN ({placeholders})")
+            params.extend(player_ids)
+
+        if window and max_matchday:
+            min_matchday = max_matchday - window + 1
+            filters.append("matchday >= ?")
+            params.append(min_matchday)
+
+        filter_clause = " AND " + " AND ".join(filters) if filters else ""
+
+        with self.db.get_connection() as conn:
+            cursor = self.db.get_cursor(conn)
+            sql = f'''
+                SELECT player_id, team_id, matchday, points, value, was_best_player
+                FROM player_performance
+                WHERE championship_id = ?{filter_clause}
+                ORDER BY player_id, matchday
+            '''
+            sql = self.db.adapt_params(sql)
+            cursor.execute(sql, tuple(params))
+            rows = cursor.fetchall()
+
+        performances = []
+        for row in rows:
+            performances.append({
+                "player_id": row[0],
+                "team_id": row[1],
+                "matchday": row[2],
+                "points": row[3],
+                "value": row[4],
+                "was_best_player": bool(row[5]) if row[5] is not None else False
+            })
+        return performances
+
+    def get_transactions_raw(self, championship_id: str, days: Optional[int] = None) -> List[Dict]:
+        """Return raw transactions optionally filtered by recent days"""
+        params: List[Any] = [championship_id]
+        condition = ""
+        if days:
+            condition = " AND transaction_date >= ?"
+            params.append(datetime.now() - timedelta(days=days))
+
+        with self.db.get_connection() as conn:
+            cursor = self.db.get_cursor(conn)
+            sql = f'''
+                SELECT api_transaction_id, player_id, seller_user_id, buyer_user_id,
+                       seller_team_id, buyer_team_id, price, transaction_date, matchday
+                FROM transactions
+                WHERE championship_id = ?{condition}
+            '''
+            sql = self.db.adapt_params(sql)
+            cursor.execute(sql, tuple(params))
+            rows = cursor.fetchall()
+
+        items = []
+        for row in rows:
+            items.append({
+                "transaction_id": row[0],
+                "player_id": row[1],
+                "seller_user_id": row[2],
+                "buyer_user_id": row[3],
+                "seller_team_id": row[4],
+                "buyer_team_id": row[5],
+                "price": row[6],
+                "transaction_date": row[7],
+                "matchday": row[8]
+            })
+        return items
+
+    def get_clauses_raw(self, championship_id: str, days: Optional[int] = None) -> List[Dict]:
+        """Return raw clause payments"""
+        params: List[Any] = [championship_id]
+        condition = ""
+        if days:
+            condition = " AND created_date >= ?"
+            params.append(datetime.now() - timedelta(days=days))
+
+        with self.db.get_connection() as conn:
+            cursor = self.db.get_cursor(conn)
+            sql = f'''
+                SELECT payer_user_id, payer_team_id, receiver_user_id, receiver_team_id,
+                       amount, created_date, player_name
+                FROM clauses
+                WHERE championship_id = ?{condition}
+            '''
+            sql = self.db.adapt_params(sql)
+            cursor.execute(sql, tuple(params))
+            rows = cursor.fetchall()
+
+        clauses = []
+        for row in rows:
+            clauses.append({
+                "payer_user_id": row[0],
+                "payer_team_id": row[1],
+                "receiver_user_id": row[2],
+                "receiver_team_id": row[3],
+                "amount": row[4],
+                "created_date": row[5],
+                "player_name": row[6]
+            })
+        return clauses
+
+    def get_team_by_id(self, team_id: str) -> Optional[Dict]:
+        if not team_id:
+            return None
+
+        with self.db.get_connection() as conn:
+            cursor = self.db.get_cursor(conn)
+            sql = "SELECT team_id, user_id, team_name FROM teams WHERE team_id = ?"
+            sql = self.db.adapt_params(sql)
+            cursor.execute(sql, (team_id,))
+            row = cursor.fetchone()
+
+        if not row:
+            return None
+
+        return {
+            "team_id": row[0],
+            "user_id": row[1],
+            "team_name": row[2]
+        }
+
+    def get_user_by_id(self, user_id: str) -> Optional[Dict]:
+        if not user_id:
+            return None
+
+        with self.db.get_connection() as conn:
+            cursor = self.db.get_cursor(conn)
+            sql = "SELECT user_id, username FROM users WHERE user_id = ?"
+            sql = self.db.adapt_params(sql)
+            cursor.execute(sql, (user_id,))
+            row = cursor.fetchone()
+
+        if not row:
+            return None
+
+        return {
+            "user_id": row[0],
+            "username": row[1]
+        }
+
+    def get_player_by_id(self, player_id: str) -> Optional[Dict]:
+        if not player_id:
+            return None
+
+        with self.db.get_connection() as conn:
+            cursor = self.db.get_cursor(conn)
+            sql = """
+                SELECT player_id, name, role, real_team_name, real_team_id, photo_url
+                FROM players
+                WHERE player_id = ?
+            """
+            sql = self.db.adapt_params(sql)
+            cursor.execute(sql, (player_id,))
+            row = cursor.fetchone()
+
+        if not row:
+            return None
+
+        return {
+            "player_id": row[0],
+            "name": row[1],
+            "role": row[2],
+            "team": row[3],
+            "team_id": row[4],
+            "photo_url": row[5]
+        }
+
+    def get_free_agent_candidates(self, championship_id: str) -> List[Dict]:
+        """Return players without owner based on player_championship_stats"""
+        with self.db.get_connection() as conn:
+            cursor = self.db.get_cursor(conn)
+            sql = '''
+                SELECT pcs.player_id, p.name, pcs.clause_price, pcs.suggested_clause,
+                       pcs.average_last_five, pcs.average_overall
+                FROM player_championship_stats pcs
+                LEFT JOIN players p ON p.player_id = pcs.player_id
+                WHERE pcs.championship_id = ? AND (pcs.owner_team_id IS NULL OR pcs.owner_team_id = '')
+            '''
+            sql = self.db.adapt_params(sql)
+            cursor.execute(sql, (championship_id,))
+            rows = cursor.fetchall()
+
+        players = []
+        for row in rows:
+            players.append({
+                "player_id": row[0],
+                "name": row[1],
+                "clause_price": row[2],
+                "suggested_clause": row[3],
+                "average_last_five": row[4],
+                "average_overall": row[5]
+            })
+        return players
+
+    def get_player_streak_data(self, championship_id: str, min_matchday: Optional[int] = None) -> List[Dict]:
+        """Return player performance ordered by matchday for streak calculations"""
+        params: List[Any] = [championship_id]
+        condition = ""
+        if min_matchday:
+            condition = " AND matchday >= ?"
+            params.append(min_matchday)
+
+        with self.db.get_connection() as conn:
+            cursor = self.db.get_cursor(conn)
+            sql = f'''
+                SELECT player_id, matchday, points
+                FROM player_performance
+                WHERE championship_id = ?{condition}
+                ORDER BY player_id, matchday
+            '''
+            sql = self.db.adapt_params(sql)
+            cursor.execute(sql, tuple(params))
+            rows = cursor.fetchall()
+
+        data = []
+        for row in rows:
+            data.append({
+                "player_id": row[0],
+                "matchday": row[1],
+                "points": row[2]
+            })
+        return data

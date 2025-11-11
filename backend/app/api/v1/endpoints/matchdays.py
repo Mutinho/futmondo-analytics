@@ -173,10 +173,6 @@ async def get_evolution_data(
                     roster = service.team_analyzer.get_team_roster(team_id)
                     if roster:
                         all_rosters[team_id] = roster
-                        
-                        # Download photos for all players in roster - EFFICIENT: batch processing
-                        # Don't download photos here, let it happen on-demand when serving photos
-                        # This avoids blocking the evolution endpoint and reduces DB connections
                         # Photos will be downloaded when first requested via /api/v1/photos/{player_id}
                 except Exception as e:
                     logger.warning(f"Could not get roster for team {team_id}: {e}")
@@ -213,7 +209,9 @@ async def get_evolution_data(
             cumulative_points = 0
             for round_data in sorted_rounds:
                 matchday = round_data.get("number")
-                points = round_data.get("points", 0)
+                points = round_data.get("points")
+                if points is None:
+                    points = 0
                 
                 if matchday:
                     cumulative_points += points
@@ -244,7 +242,9 @@ async def get_evolution_data(
             # CRITICAL: Track matchday index in this team's rounds for better variation
             for round_index, round_data in enumerate(sorted_rounds):
                 matchday = round_data.get("number")
-                points_this_matchday = round_data.get("points", 0)  # Points for THIS matchday
+                points_this_matchday = round_data.get("points")
+                if points_this_matchday is None:
+                    points_this_matchday = 0  # Points for THIS matchday
                 
                 if matchday and roster:
                     # Get best player from roster

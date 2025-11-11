@@ -35,3 +35,7 @@ echo "🛑 Para detener los servicios:"
 echo "   docker-compose down"
 echo ""
 
+
+
+
+

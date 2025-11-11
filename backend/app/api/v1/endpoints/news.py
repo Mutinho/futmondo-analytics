@@ -71,3 +71,7 @@ async def get_matchday_data(
         logger.error(f"Error getting matchday data: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+
+
+
