@@ -5,7 +5,9 @@ Data Sync Service - Handles incremental and full data synchronization
 import logging
 import time
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+
+from app.services.matchday_humor_service import MatchdayHumorService
 from app.services.data_manager_v2 import DataManagerV2
 from app.services.futmondo_client import FutmondoClient
 from app.core.config import (
@@ -568,6 +570,243 @@ class DataSyncService:
                 "error": str(e),
                 "duration_seconds": duration
             }
+
+    def sync_player_performance(self) -> Dict:
+        """Sync player performance by matchday from round lineups."""
+        start_time = time.time()
+        logger.info("Starting player performance sync...")
+
+        try:
+            last_sync = self.dm.get_last_sync_metadata(self.championship_id, "player_performance")
+            last_matchday = last_sync.get("last_sync_matchday", 0) if last_sync else 0
+            last_matchday = last_matchday or 0
+
+            logger.info(f"Last synced player performance matchday: {last_matchday}")
+
+            standings_data = self.client.get_matchday_standings(self.championship_id)
+            teams_data = standings_data.get("teams", standings_data.get("data", [])) if standings_data else []
+
+            team_map: List[Tuple[str, str]] = []
+            for team in teams_data:
+                userteam_id = (
+                    team.get("id")
+                    or team.get("teamid")
+                    or (team.get("team") or {}).get("id")
+                    or (team.get("user") or {}).get("id")
+                )
+                team_id = (
+                    team.get("teamid")
+                    or team.get("teamId")
+                    or (team.get("team") or {}).get("id")
+                    or userteam_id
+                )
+                if userteam_id and team_id:
+                    team_map.append((team_id, userteam_id))
+
+            if not team_map:
+                logger.warning("No teams found for player performance sync.")
+                duration = time.time() - start_time
+
+                self.dm.update_sync_metadata(
+                    championship_id=self.championship_id,
+                    data_type="player_performance",
+                    last_sync_matchday=last_matchday,
+                    last_sync_date=datetime.now(),
+                    records_synced=0,
+                    sync_duration_seconds=duration,
+                    sync_status="no_new_data"
+                )
+
+                return {
+                    "status": "no_new_data",
+                    "records_synced": 0,
+                    "last_sync_matchday": last_matchday,
+                    "duration_seconds": duration
+                }
+
+            sample_userteam_id = team_map[0][1]
+            rounds_info = self.client.get_userteam_rounds(self.championship_id, sample_userteam_id) or []
+            round_id_map: Dict[int, str] = {}
+            for entry in rounds_info:
+                number = entry.get("number")
+                round_id = entry.get("id") or entry.get("_id") or entry.get("roundId")
+                if number is None or not round_id:
+                    continue
+                try:
+                    round_number_int = int(number)
+                    round_id_map[round_number_int] = round_id
+                except (TypeError, ValueError):
+                    continue
+
+            if not round_id_map:
+                logger.warning("Could not determine round mappings for player performance sync.")
+                duration = time.time() - start_time
+
+                self.dm.update_sync_metadata(
+                    championship_id=self.championship_id,
+                    data_type="player_performance",
+                    last_sync_matchday=last_matchday,
+                    last_sync_date=datetime.now(),
+                    records_synced=0,
+                    sync_duration_seconds=duration,
+                    sync_status="no_new_data"
+                )
+
+                return {
+                    "status": "no_new_data",
+                    "records_synced": 0,
+                    "last_sync_matchday": last_matchday,
+                    "duration_seconds": duration
+                }
+
+            max_round = max(round_id_map.keys())
+            processed_matchday = last_matchday
+            total_records = 0
+
+            for matchday in range(last_matchday + 1, max_round + 1):
+                round_id = round_id_map.get(matchday)
+                if not round_id:
+                    logger.debug("No round ID for matchday %s, skipping.", matchday)
+                    continue
+
+                matchday_records = 0
+
+                for team_id, userteam_id in team_map:
+                    try:
+                        roster_data = self.client.get_user_roundlineup(
+                            self.championship_id,
+                            round_id,
+                            userteam_id
+                        )
+                        if not roster_data:
+                            continue
+
+                        roster_players = roster_data.get("players", [])
+                        if not isinstance(roster_players, list):
+                            continue
+
+                        for player in roster_players:
+                            player_dict = player.get("player") if isinstance(player.get("player"), dict) else None
+                            player_id = (
+                                player.get("id")
+                                or player.get("_id")
+                                or (player_dict or {}).get("id")
+                                or (player_dict or {}).get("_id")
+                            )
+                            if not player_id:
+                                continue
+
+                            raw_points = (
+                                player.get("points")
+                                or player.get("score")
+                                or player.get("roundPoints")
+                                or player.get("matchdayPoints")
+                            )
+                            if raw_points is None:
+                                continue
+                            try:
+                                points = int(raw_points)
+                            except (TypeError, ValueError):
+                                logger.debug(
+                                    "Skipping player %s with non-integer points value: %s",
+                                    player_id,
+                                    raw_points
+                                )
+                                continue
+
+                            value = (
+                                player.get("value")
+                                or player.get("marketValue")
+                                or player.get("market_price")
+                                or player.get("price")
+                            )
+                            was_best = bool(
+                                player.get("bestPlayer")
+                                or player.get("isBestPlayer")
+                                or player.get("mvp")
+                                or player.get("isMvp")
+                            )
+
+                            try:
+                                self.dm.save_player_performance(
+                                    championship_id=self.championship_id,
+                                    player_id=player_id,
+                                    team_id=team_id,
+                                    matchday=matchday,
+                                    points=points,
+                                    value=value,
+                                    was_best_player=was_best
+                                )
+                                total_records += 1
+                                matchday_records += 1
+                            except Exception as save_err:
+                                logger.debug(
+                                    "Failed to save player performance for player %s (team %s, matchday %s): %s",
+                                    player_id,
+                                    team_id,
+                                    matchday,
+                                    save_err
+                                )
+                                continue
+
+                        time.sleep(0.05)
+
+                    except Exception as fetch_err:
+                        logger.debug(
+                            "Failed to fetch round lineup for team %s (round %s): %s",
+                            userteam_id,
+                            round_id,
+                            fetch_err
+                        )
+                        continue
+
+                if matchday_records > 0:
+                    processed_matchday = matchday
+
+            duration = time.time() - start_time
+            status = "success" if total_records > 0 else "no_new_data"
+
+            self.dm.update_sync_metadata(
+                championship_id=self.championship_id,
+                data_type="player_performance",
+                last_sync_matchday=processed_matchday,
+                last_sync_date=datetime.now(),
+                records_synced=total_records,
+                sync_duration_seconds=duration,
+                sync_status=status
+            )
+
+            logger.info(
+                "Player performance sync complete: %s records (up to matchday %s) in %.2fs",
+                total_records,
+                processed_matchday,
+                duration
+            )
+
+            return {
+                "status": status,
+                "records_synced": total_records,
+                "last_sync_matchday": processed_matchday,
+                "duration_seconds": duration
+            }
+
+        except Exception as e:
+            duration = time.time() - start_time
+            logger.error(f"Player performance sync failed: {e}", exc_info=True)
+
+            self.dm.update_sync_metadata(
+                championship_id=self.championship_id,
+                data_type="player_performance",
+                sync_status="error",
+                error_message=str(e),
+                sync_duration_seconds=duration
+            )
+
+            return {
+                "status": "error",
+                "error": str(e),
+                "duration_seconds": duration
+            }
     
     def sync_rosters(self) -> Dict:
         """Sync team rosters for new matchdays only
@@ -1044,6 +1283,91 @@ class DataSyncService:
                 "duration_seconds": duration
             }
 
+    def sync_matchday_humor_articles(self, force: bool = False, upto_matchday: Optional[int] = None) -> Dict:
+        """Ensure humorous articles exist for all completed matchdays."""
+        start_time = time.time()
+        logger.info("Starting matchday humor article sync...")
+
+        try:
+            latest_matchday = self.dm.get_latest_matchday(self.championship_id)
+            if not latest_matchday:
+                duration = time.time() - start_time
+                logger.info("No matchdays available yet; skipping humor sync.")
+                return {
+                    "status": "no_data",
+                    "generated": 0,
+                    "skipped": 0,
+                    "duration_seconds": duration
+                }
+
+            if upto_matchday is not None:
+                latest_matchday = min(latest_matchday, upto_matchday)
+
+            try:
+                humor_service = MatchdayHumorService(data_manager=self.dm)
+            except RuntimeError as config_err:
+                duration = time.time() - start_time
+                logger.error(f"Cannot initialize humor service: {config_err}")
+                return {
+                    "status": "error",
+                    "error": str(config_err),
+                    "generated": 0,
+                    "skipped": 0,
+                    "duration_seconds": duration
+                }
+
+            generated = 0
+            skipped = 0
+            failures: List[Dict[str, Any]] = []
+
+            for matchday in range(1, latest_matchday + 1):
+                try:
+                    exists = self.dm.get_matchday_article(self.championship_id, matchday)
+                    if exists and not force:
+                        skipped += 1
+                        continue
+
+                    humor_service.get_or_generate_article(
+                        championship_id=self.championship_id,
+                        matchday=matchday,
+                        force_refresh=force
+                    )
+                    generated += 1
+                    time.sleep(0.2)
+                except Exception as article_err:
+                    logger.error(
+                        "Failed to generate humor article for matchday %s: %s",
+                        matchday,
+                        article_err
+                    )
+                    failures.append({"matchday": matchday, "error": str(article_err)})
+
+            duration = time.time() - start_time
+            status = "success"
+            if failures and generated == 0:
+                status = "error"
+            elif failures:
+                status = "partial_success"
+
+            return {
+                "status": status,
+                "generated": generated,
+                "skipped": skipped,
+                "failures": failures,
+                "duration_seconds": duration
+            }
+
+        except Exception as e:
+            duration = time.time() - start_time
+            logger.error(f"Matchday humor article sync failed: {e}", exc_info=True)
+            return {
+                "status": "error",
+                "error": str(e),
+                "generated": 0,
+                "skipped": 0,
+                "duration_seconds": duration
+            }
+
     def sync_all(self) -> Dict:
         """Run all sync operations
         
@@ -1062,9 +1386,11 @@ class DataSyncService:
             "clauses": self.sync_clauses(),
             "punishments_bonuses": self.sync_punishments_bonuses(),
             "dream_teams": self.sync_dream_teams_mvps(),
+            "player_performance": self.sync_player_performance(),
             "rosters": self.sync_rosters(),
             "team_standings": self.sync_round_rankings(),
-            "match_odds": self.sync_match_odds()
+            "match_odds": self.sync_match_odds(),
+            "humor_articles": self.sync_matchday_humor_articles()
         }
         
         logger.info("=" * 60)

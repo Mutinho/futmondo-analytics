@@ -732,7 +732,7 @@ class DataManagerV2:
                     return int(value)
                 except (TypeError, ValueError):
                     return 0
-
+            
             for team in teams:
                 team_id = (
                     team.get("id")
@@ -742,10 +742,10 @@ class DataManagerV2:
                 position = team.get("position", 0)
                 raw_total_points = team.get("points")
                 round_points_only = team.get("roundPoints")
-
+                
                 if not team_id:
                     continue
-
+                
                 prev_points_total = 0
                 if round_number > 1:
                     sql_prev = '''
@@ -820,54 +820,50 @@ class DataManagerV2:
             try:
                 with self.db.get_connection() as conn:
                     cursor = self.db.get_cursor(conn)
-                    
+
                     MARKET_USER_ID = "market_user"
                     MARKET_TEAM_ID = "market_team"
 
                     # Helper to get or create user ID using the same connection
-                    def get_or_create_user_id_in_transaction(user_id: str, username: str) -> str:
+                    def get_or_create_user_id_in_transaction(user_id: str, username: str) -> Optional[str]:
                         if not user_id:
                             return None
-                        
-                        # Check if user exists by user_id
+
                         sql = "SELECT user_id FROM users WHERE user_id = ?"
                         sql = self.db.adapt_params(sql)
                         cursor.execute(sql, (user_id,))
                         row = cursor.fetchone()
                         if row:
                             return user_id
-                        
-                        # Check by username
+
                         sql = "SELECT user_id FROM users WHERE username = ?"
                         sql = self.db.adapt_params(sql)
                         cursor.execute(sql, (username,))
                         row = cursor.fetchone()
                         if row:
-                            return row[0] if isinstance(row, tuple) else row.get('user_id')
-                        
-                        # Create new user using the same connection
-                        import uuid
+                            return row[0] if isinstance(row, tuple) else row.get("user_id")
+
                         now = datetime.now()
-                        
+
                         if self.db.db_type in ["postgresql", "postgres"]:
-                            sql = '''
+                            sql = """
                                 INSERT INTO users (user_id, username, last_updated)
                                 VALUES (%s, %s, %s)
                                 ON CONFLICT (user_id) DO UPDATE SET
                                     username = EXCLUDED.username,
                                     last_updated = EXCLUDED.last_updated
-                            '''
+                            """
                         else:
-                            sql = '''
+                            sql = """
                                 INSERT OR REPLACE INTO users (user_id, username, last_updated)
                                 VALUES (?, ?, ?)
-                            '''
+                            """
                             sql = self.db.adapt_params(sql)
-                        
+
                         cursor.execute(sql, (user_id, username, now))
                         return user_id
 
-                    def ensure_team(team_id: str, team_name: str, user_id: str) -> Optional[str]:
+                    def ensure_team(team_id: str, team_name: str, user_id: Optional[str]) -> Optional[str]:
                         if not team_id:
                             return None
 
@@ -883,26 +879,26 @@ class DataManagerV2:
 
                         now_local = datetime.now()
                         if self.db.db_type in ["postgresql", "postgres"]:
-                            sql = '''
+                            sql = """
                                 INSERT INTO teams (team_id, user_id, team_name, initial_budget, last_updated)
                                 VALUES (%s, %s, %s, %s, %s)
                                 ON CONFLICT (team_id) DO NOTHING
-                            '''
+                            """
                         else:
-                            sql = '''
+                            sql = """
                                 INSERT OR IGNORE INTO teams (team_id, user_id, team_name, initial_budget, last_updated)
                                 VALUES (?, ?, ?, ?, ?)
-                            '''
+                            """
                             sql = self.db.adapt_params(sql)
 
                         cursor.execute(sql, (team_id, user_id, team_name or team_id, 270000000, now_local))
                         return team_id
-                    
+
                     # Process each transaction
                     for transaction in transactions:
                         player_info = transaction.get("_player", {})
                         player_id = player_info.get("_id") if player_info else None
-                        
+
                         if not player_id:
                             continue
 
@@ -915,124 +911,125 @@ class DataManagerV2:
                         try:
                             player_name = player_info.get("name", "Unknown")
                             real_team_name = player_info.get("team", "")
-                            # Use save_player (handles upsert and schema differences)
-                            self.save_player({
-                                "id": player_id,
-                                "name": player_name,
-                                "role": player_info.get("position", ""),
-                                "teamId": player_info.get("teamId", ""),
-                                "team": real_team_name,
-                                "slug": player_info.get("slug", ""),
-                                "photo": player_info.get("photo", "")
-                            })
-                        except Exception as player_err:
-                            logger.debug(f"Could not ensure player {player_id} exists: {player_err}")
-                        
+                            self.save_player(
+                                {
+                                    "id": player_id,
+                                    "name": player_name,
+                                    "role": player_info.get("position", ""),
+                                    "teamId": player_info.get("teamId", ""),
+                                    "team": real_team_name,
+                                    "slug": player_info.get("slug", ""),
+                                    "photo": player_info.get("photo", ""),
+                                }
+                            )
+                        except Exception as player_err:  # pylint: disable=broad-except
+                            logger.debug("Could not ensure player %s exists: %s", player_id, player_err)
+
                         buyer_info = transaction.get("_buyer")
                         seller_info = transaction.get("_seller")
                         price = transaction.get("price", 0)
                         created = transaction.get("created", "")
-                        matchday = (transaction.get("matchday")
-                                    or transaction.get("roundNumber")
-                                    or transaction.get("round"))
-                        
-                        # Parse date
-                        try:
-                            if created:
-                                transaction_date = datetime.fromisoformat(created.replace('Z', '+00:00'))
-                            else:
+                        matchday = (
+                            transaction.get("matchday")
+                            or transaction.get("roundNumber")
+                            or transaction.get("round")
+                        )
+
+                        if created:
+                            try:
+                                transaction_date = datetime.fromisoformat(created.replace("Z", "+00:00"))
+                            except Exception:  # pylint: disable=broad-except
                                 transaction_date = datetime.now()
-                        except Exception:
+                        else:
                             transaction_date = datetime.now()
-                        
+
                         # Determine buyer and seller
                         if buyer_info and seller_info:
-                            # Trade between users
                             buyer_id = buyer_info.get("_id")
                             buyer_name = buyer_info.get("name", "Unknown")
                             seller_id = seller_info.get("_id")
                             seller_name = seller_info.get("name", "Unknown")
-                            
+
                             buyer_user_id = get_or_create_user_id_in_transaction(buyer_id, buyer_name)
                             seller_user_id = get_or_create_user_id_in_transaction(seller_id, seller_name)
                             buyer_team_id = ensure_team(buyer_id, buyer_name, buyer_user_id)
                             seller_team_id = ensure_team(seller_id, seller_name, seller_user_id)
-                            
+
                         elif buyer_info:
-                            # Purchase from market
                             buyer_id = buyer_info.get("_id")
                             buyer_name = buyer_info.get("name", "Unknown")
-                            
+
                             buyer_user_id = get_or_create_user_id_in_transaction(buyer_id, buyer_name)
                             seller_user_id = get_or_create_user_id_in_transaction(MARKET_USER_ID, "Market")
                             buyer_team_id = ensure_team(buyer_id, buyer_name, buyer_user_id)
                             seller_team_id = ensure_team(MARKET_TEAM_ID, "Mercado", seller_user_id)
-                            
+
                         elif seller_info:
-                            # Sale to market
                             seller_id = seller_info.get("_id")
                             seller_name = seller_info.get("name", "Unknown")
-                            
+
                             buyer_user_id = get_or_create_user_id_in_transaction(MARKET_USER_ID, "Market")
                             seller_user_id = get_or_create_user_id_in_transaction(seller_id, seller_name)
                             buyer_team_id = ensure_team(MARKET_TEAM_ID, "Mercado", buyer_user_id)
                             seller_team_id = ensure_team(seller_id, seller_name, seller_user_id)
                         else:
-                            # Skip if no buyer or seller
                             continue
-                        
-                        # Default team IDs if not set in above branches
+
                         if buyer_info and not buyer_team_id:
-                            buyer_team_id = ensure_team(buyer_info.get("_id"), buyer_info.get("name", ""), buyer_user_id)
+                            buyer_team_id = ensure_team(
+                                buyer_info.get("_id"), buyer_info.get("name", ""), buyer_user_id
+                            )
                         if seller_info and not seller_team_id:
-                            seller_team_id = ensure_team(seller_info.get("_id"), seller_info.get("name", ""), seller_user_id)
+                            seller_team_id = ensure_team(
+                                seller_info.get("_id"), seller_info.get("name", ""), seller_user_id
+                            )
 
                         if not buyer_team_id:
                             buyer_team_id = MARKET_TEAM_ID if buyer_user_id == MARKET_USER_ID else None
                         if not seller_team_id:
                             seller_team_id = MARKET_TEAM_ID if seller_user_id == MARKET_USER_ID else None
 
-                        # Get API transaction ID
                         api_transaction_id = transaction.get("_id", "")
                         if not api_transaction_id:
                             continue
-                        
-                        # Insert transaction with ON CONFLICT for incremental updates
+
                         if self.db.db_type in ["postgresql", "postgres"]:
-                            sql = '''
+                            sql = """
                                 INSERT INTO transactions 
-                                (championship_id, api_transaction_id, player_id, seller_user_id, buyer_user_id,
-                                 seller_team_id, buyer_team_id, price, transaction_date, matchday, recorded_at)
+                                    (championship_id, api_transaction_id, player_id, seller_user_id, buyer_user_id,
+                                     seller_team_id, buyer_team_id, price, transaction_date, matchday, recorded_at)
                                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                                 ON CONFLICT (api_transaction_id) DO NOTHING
-                            '''
+                            """
                         else:
-                            sql = '''
+                            sql = """
                                 INSERT OR IGNORE INTO transactions 
-                                (championship_id, api_transaction_id, player_id, seller_user_id, buyer_user_id,
-                                 seller_team_id, buyer_team_id, price, transaction_date, matchday, recorded_at)
+                                    (championship_id, api_transaction_id, player_id, seller_user_id, buyer_user_id,
+                                     seller_team_id, buyer_team_id, price, transaction_date, matchday, recorded_at)
                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                            '''
+                            """
                             sql = self.db.adapt_params(sql)
-                        
-                        cursor.execute(sql, (
-                            championship_id,
-                            api_transaction_id,
-                            player_id,
-                            seller_user_id,
-                            buyer_user_id,
-                            seller_team_id,
-                            buyer_team_id,
-                            int(price) if price is not None else 0,
-                            transaction_date,
-                            matchday,
-                            datetime.now()
-                        ))
-                    
-                    # Commit all transactions at once
+
+                        cursor.execute(
+                            sql,
+                            (
+                                championship_id,
+                                api_transaction_id,
+                                player_id,
+                                seller_user_id,
+                                buyer_user_id,
+                                seller_team_id,
+                                buyer_team_id,
+                                int(price) if price is not None else 0,
+                                transaction_date,
+                                matchday,
+                                datetime.now(),
+                            ),
+                        )
+
                     conn.commit()
                     return  # Success, exit retry loop
-                    
+
             except Exception as e:
                 if "locked" in str(e).lower() and attempt < max_retries - 1:
                     import time
@@ -1041,6 +1038,92 @@ class DataManagerV2:
                 else:
                     logger.warning(f"Failed to save pressroom transactions: {e}")
                     raise
+
+    def save_matchday_article(
+        self,
+        championship_id: str,
+        matchday: int,
+        article: str,
+        summary: Optional[Dict] = None,
+        generated_at: Optional[datetime] = None
+    ):
+        """Persist generated matchday humor article and optional structured summary."""
+        if not championship_id or matchday is None or article is None:
+            raise ValueError("championship_id, matchday and article are required")
+
+        summary_json = json.dumps(summary) if summary else None
+        generated_at = generated_at or datetime.now()
+
+        with self.db.get_connection() as conn:
+            cursor = self.db.get_cursor(conn)
+
+            # Ensure championship exists to satisfy FK constraint
+            self.ensure_championship_exists(championship_id, conn=conn, cursor=cursor)
+
+            if self.db.db_type in ["postgresql", "postgres"]:
+                sql = '''
+                    INSERT INTO matchday_articles
+                        (championship_id, matchday, article, summary_json, generated_at, updated_at)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (championship_id, matchday) DO UPDATE SET
+                        article = EXCLUDED.article,
+                        summary_json = EXCLUDED.summary_json,
+                        generated_at = EXCLUDED.generated_at,
+                        updated_at = EXCLUDED.updated_at
+                '''
+            else:
+                sql = '''
+                    INSERT OR REPLACE INTO matchday_articles
+                        (championship_id, matchday, article, summary_json, generated_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                '''
+                sql = self.db.adapt_params(sql)
+
+            cursor.execute(
+                sql,
+                (
+                    championship_id,
+                    matchday,
+                    article,
+                    summary_json,
+                    generated_at,
+                    datetime.now(),
+                ),
+            )
+
+    def get_matchday_article(self, championship_id: str, matchday: int) -> Optional[Dict[str, Any]]:
+        """Retrieve stored matchday article and metadata."""
+        with self.db.get_connection() as conn:
+            cursor = self.db.get_cursor(conn)
+
+            sql = '''
+                SELECT article, summary_json, generated_at, updated_at
+                FROM matchday_articles
+                WHERE championship_id = ? AND matchday = ?
+            '''
+            sql = self.db.adapt_params(sql)
+            cursor.execute(sql, (championship_id, matchday))
+            row = cursor.fetchone()
+
+            if not row:
+                return None
+
+            if isinstance(row, tuple):
+                article, summary_json, generated_at, updated_at = row
+            else:
+                article = row.get("article")
+                summary_json = row.get("summary_json")
+                generated_at = row.get("generated_at")
+                updated_at = row.get("updated_at")
+
+            return {
+                "championship_id": championship_id,
+                "matchday": matchday,
+                "article": article,
+                "summary": json.loads(summary_json) if summary_json else None,
+                "generated_at": generated_at,
+                "updated_at": updated_at
+            }
     
     def get_user_id_by_name(self, user_name: str) -> Optional[Dict[str, str]]:
         """Get user_id and team_id by user name (username or team_name)
@@ -2903,6 +2986,22 @@ class DataManagerV2:
 
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_match_odds_champ_matchday ON match_odds(championship_id, matchday)")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_match_odds_round ON match_odds(round_id)")
+
+                create_articles_sql = self.db.adapt_sql('''
+                    CREATE TABLE IF NOT EXISTS matchday_articles (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        championship_id TEXT NOT NULL,
+                        matchday INTEGER NOT NULL,
+                        article TEXT NOT NULL,
+                        summary_json TEXT,
+                        generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE(championship_id, matchday),
+                        FOREIGN KEY (championship_id) REFERENCES championships (championship_id)
+                    )
+                ''')
+                cursor.execute(create_articles_sql)
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_matchday_articles_champ_matchday ON matchday_articles(championship_id, matchday)")
         except Exception as e:
             logger.warning(f"Could not ensure schema updates: {e}")
 

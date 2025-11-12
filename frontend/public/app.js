@@ -20,6 +20,7 @@ const ANALYTICS_ENDPOINTS = {
     streaks: `${ANALYTICS_BASE_URL}/opportunities/streaks`,
     projections: `${ANALYTICS_BASE_URL}/projections/matchday`
 };
+const HUMOR_API_URL = '/api/v1/humor/article';
 const AUTH_BASE_URL = '/api/v1/auth';
 const AUTH_ENDPOINTS = {
     login: `${AUTH_BASE_URL}/login`,
@@ -66,6 +67,17 @@ const analyticsState = {
     caches: {}
 };
 let analyticsTeamMap = {};
+
+function createDefaultHumorState() {
+    return {
+        initialized: false,
+        matchdays: [],
+        cache: new Map(),
+        currentMatchday: null
+    };
+}
+
+let humorState = createDefaultHumorState();
 
 function createDefaultCustomClassificationState() {
     return {
@@ -245,6 +257,7 @@ function showAccessMessage(message, scope = 'global', timeout = 3500) {
 function resetAppState() {
     resetCharts();
     resetAnalyticsState();
+    resetHumorTab();
     evolutionData = null;
     hideAccessMessage('global');
     hideAccessMessage('analytics');
@@ -1272,6 +1285,301 @@ function displayStats(data) {
     });
 }
 
+function resetHumorTab() {
+    humorState = createDefaultHumorState();
+
+    const subtabs = document.getElementById('humor-subtabs');
+    if (subtabs) {
+        subtabs.innerHTML = '';
+    }
+    const loading = document.getElementById('humor-loading');
+    if (loading) {
+        loading.style.display = 'none';
+    }
+    const errorDiv = document.getElementById('humor-error');
+    if (errorDiv) {
+        errorDiv.textContent = '';
+        errorDiv.style.display = 'none';
+    }
+    const content = document.getElementById('humor-content');
+    if (content) {
+        content.style.display = 'none';
+    }
+    const body = document.getElementById('humor-article-body');
+    if (body) {
+        body.innerHTML = '';
+    }
+    const title = document.getElementById('humor-article-title');
+    if (title) {
+        title.textContent = '';
+    }
+    const meta = document.getElementById('humor-generated-at');
+    if (meta) {
+        meta.textContent = '';
+        meta.style.display = 'none';
+    }
+    const summaryList = document.getElementById('humor-summary-list');
+    if (summaryList) {
+        summaryList.innerHTML = '';
+    }
+    const summaryCard = document.getElementById('humor-summary-card');
+    if (summaryCard) {
+        summaryCard.style.display = 'none';
+    }
+    const accessMessage = document.getElementById('humor-access-message');
+    if (accessMessage) {
+        accessMessage.textContent = '';
+        accessMessage.style.display = 'none';
+    }
+    hideHumorEmpty();
+}
+
+function showHumorEmpty(message = 'Aún no hay crónicas disponibles.') {
+    const emptyState = document.getElementById('humor-empty');
+    if (emptyState) {
+        emptyState.textContent = message;
+        emptyState.style.display = 'block';
+    }
+    const content = document.getElementById('humor-content');
+    if (content) {
+        content.style.display = 'none';
+    }
+}
+
+function hideHumorEmpty() {
+    const emptyState = document.getElementById('humor-empty');
+    if (emptyState) {
+        emptyState.style.display = 'none';
+    }
+}
+
+function sanitizeMatchdays(matchdays) {
+    if (!Array.isArray(matchdays)) {
+        return [];
+    }
+    const unique = Array.from(new Set(matchdays.map(md => Number(md))));
+    return unique.filter(Number.isInteger).sort((a, b) => b - a);
+}
+
+function ensureHumorTabInitialized() {
+    if (!evolutionData || !Array.isArray(evolutionData.matchdays)) {
+        return;
+    }
+    const matchdays = sanitizeMatchdays(evolutionData.matchdays);
+    humorState.matchdays = matchdays;
+
+    if (!humorState.initialized) {
+        initializeHumorTab(matchdays);
+    } else {
+        updateHumorMatchdays(matchdays);
+    }
+}
+
+function initializeHumorTab(matchdays) {
+    const container = document.getElementById('humor-subtabs');
+    if (!container) {
+        return;
+    }
+
+    container.innerHTML = '';
+    humorState.initialized = true;
+    humorState.matchdays = Array.isArray(matchdays) ? [...matchdays] : [];
+
+    if (humorState.matchdays.length === 0) {
+        showHumorEmpty('Aún no hay crónicas disponibles.');
+        return;
+    }
+
+    hideHumorEmpty();
+
+    humorState.matchdays.forEach(matchday => {
+        const button = document.createElement('button');
+        button.className = 'humor-subtab-button';
+        button.dataset.matchday = matchday;
+        button.textContent = `J${matchday}`;
+        button.addEventListener('click', () => selectHumorMatchday(matchday));
+        container.appendChild(button);
+    });
+
+    const defaultMatchday = (humorState.currentMatchday && humorState.matchdays.includes(humorState.currentMatchday))
+        ? humorState.currentMatchday
+        : humorState.matchdays[0];
+
+    selectHumorMatchday(defaultMatchday);
+}
+
+function updateHumorMatchdays(matchdays) {
+    const sanitized = Array.isArray(matchdays) ? [...matchdays] : [];
+    const current = humorState.matchdays || [];
+    const sameLength = sanitized.length === current.length;
+    const sameItems = sameLength && sanitized.every((value, index) => value === current[index]);
+    if (sameItems) {
+        return;
+    }
+    humorState.initialized = false;
+    initializeHumorTab(sanitized);
+}
+
+function selectHumorMatchday(matchday) {
+    const numericMatchday = Number(matchday);
+    if (!Number.isInteger(numericMatchday)) {
+        return;
+    }
+
+    humorState.currentMatchday = numericMatchday;
+
+    document.querySelectorAll('.humor-subtab-button').forEach(button => {
+        const buttonMatchday = Number(button.dataset.matchday);
+        button.classList.toggle('active', buttonMatchday === numericMatchday);
+    });
+
+    loadHumorArticle(numericMatchday);
+}
+
+async function loadHumorArticle(matchday) {
+    const accessMessage = document.getElementById('humor-access-message');
+    const loading = document.getElementById('humor-loading');
+    const errorDiv = document.getElementById('humor-error');
+    const content = document.getElementById('humor-content');
+
+    if (accessMessage) {
+        accessMessage.textContent = '';
+        accessMessage.style.display = 'none';
+    }
+    if (errorDiv) {
+        errorDiv.textContent = '';
+        errorDiv.style.display = 'none';
+    }
+    hideHumorEmpty();
+    if (content) {
+        content.style.display = 'none';
+    }
+    if (loading) {
+        loading.style.display = 'block';
+    }
+
+    if (humorState.cache.has(matchday)) {
+        if (loading) {
+            loading.style.display = 'none';
+        }
+        renderHumorArticle(matchday, humorState.cache.get(matchday));
+        return;
+    }
+
+    try {
+        const response = await fetch(`${HUMOR_API_URL}?matchday=${encodeURIComponent(matchday)}`);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        const payload = await response.json();
+        if (!payload || payload.success !== true || !payload.data) {
+            throw new Error('Formato de datos inválido');
+        }
+
+        humorState.cache.set(matchday, payload.data);
+        if (loading) {
+            loading.style.display = 'none';
+        }
+        renderHumorArticle(matchday, payload.data);
+    } catch (error) {
+        console.error('Error cargando crónica:', error);
+        if (loading) {
+            loading.style.display = 'none';
+        }
+        if (content) {
+            content.style.display = 'none';
+        }
+        if (errorDiv) {
+            const baseMessage = `No se pudo cargar la crónica de la jornada ${matchday}.`;
+            const detail = error && error.message ? ` ${error.message}` : '';
+            errorDiv.textContent = `${baseMessage}${detail}`.trim();
+            errorDiv.style.display = 'block';
+        } else {
+            showAccessMessage(`No se pudo cargar la crónica de la jornada ${matchday}.`, 'global', 5000);
+        }
+    }
+}
+
+function renderHumorArticle(matchday, articleData) {
+    const loading = document.getElementById('humor-loading');
+    if (loading) {
+        loading.style.display = 'none';
+    }
+
+    const errorDiv = document.getElementById('humor-error');
+    if (errorDiv) {
+        errorDiv.textContent = '';
+        errorDiv.style.display = 'none';
+    }
+
+    const content = document.getElementById('humor-content');
+    if (content) {
+        content.style.display = 'block';
+    }
+
+    const title = document.getElementById('humor-article-title');
+    if (title) {
+        title.textContent = `Crónica jornada ${matchday}`;
+    }
+
+    const meta = document.getElementById('humor-generated-at');
+    if (meta) {
+        if (articleData && articleData.generated_at) {
+            const generatedDate = new Date(articleData.generated_at);
+            if (!Number.isNaN(generatedDate.valueOf())) {
+                meta.textContent = `Generada el ${generatedDate.toLocaleString('es-ES')}`;
+                meta.style.display = 'block';
+            } else {
+                meta.textContent = '';
+                meta.style.display = 'none';
+            }
+        } else {
+            meta.textContent = '';
+            meta.style.display = 'none';
+        }
+    }
+
+    const body = document.getElementById('humor-article-body');
+    if (body) {
+        body.innerHTML = '';
+        const articleText = articleData && articleData.article ? String(articleData.article).trim() : '';
+        let paragraphs = articleText.split(/\n{2,}/).map(segment => segment.trim()).filter(Boolean);
+        if (paragraphs.length === 0 && articleText) {
+            paragraphs = [articleText];
+        }
+
+        if (paragraphs.length === 0) {
+            const placeholder = document.createElement('p');
+            placeholder.textContent = 'Todavía no hay contenido para esta jornada.';
+            body.appendChild(placeholder);
+        } else {
+            paragraphs.forEach(segment => {
+                const paragraph = document.createElement('p');
+                paragraph.textContent = segment.replace(/\n+/g, ' ');
+                body.appendChild(paragraph);
+            });
+        }
+    }
+
+    const summaryCard = document.getElementById('humor-summary-card');
+    const summaryList = document.getElementById('humor-summary-list');
+    if (summaryList) {
+        summaryList.innerHTML = '';
+    }
+
+    const summary = Array.isArray(articleData?.summary) ? articleData.summary : [];
+    if (summaryCard && summaryList && summary.length > 0) {
+        summaryCard.style.display = 'block';
+        summary.forEach(item => {
+            const li = document.createElement('li');
+            li.textContent = String(item).replace(/^[•\-\s]+/, '').trim();
+            summaryList.appendChild(li);
+        });
+    } else if (summaryCard) {
+        summaryCard.style.display = 'none';
+    }
+}
+
 /**
  * Initialize application
  */
@@ -1283,6 +1591,7 @@ async function init() {
         displayStats(data);
         createPointsChart(data);
         createPositionsChart(data);
+        ensureHumorTabInitialized();
         
         hideLoading();
         showContent();
@@ -1323,6 +1632,7 @@ function showTab(tabName) {
             (tabName === 'finances' && btnText.includes('finanzas')) ||
             (tabName === 'stats' && btnText.includes('estadísticas')) ||
             (tabName === 'clausulable' && btnText.includes('clausulables')) ||
+            (tabName === 'humor' && btnText.includes('crónicas')) ||
             (tabName === 'analytics' && btnText.includes('analytics'))) {
             btn.classList.add('active');
         }
@@ -1334,6 +1644,16 @@ function showTab(tabName) {
         loadUserStatsData();
     } else if (tabName === 'clausulable') {
         loadClausulablePlayersData();
+    } else if (tabName === 'humor') {
+        ensureHumorTabInitialized();
+        if (humorState.initialized && humorState.matchdays.length > 0) {
+            const targetMatchday = humorState.currentMatchday && humorState.matchdays.includes(humorState.currentMatchday)
+                ? humorState.currentMatchday
+                : humorState.matchdays[0];
+            selectHumorMatchday(targetMatchday);
+        } else {
+            showHumorEmpty('Aún no hay crónicas disponibles.');
+        }
     } else if (tabName === 'analytics') {
         showAnalyticsSection('overview');
     }

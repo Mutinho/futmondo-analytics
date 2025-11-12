@@ -25,6 +25,7 @@ from app.api.v1.endpoints.user_stats import router as user_stats_router
 from app.api.v1.endpoints.clausulable_players import router as clausulable_players_router
 from app.api.v1.endpoints.sync import router as sync_router
 from app.api.v1.endpoints.analytics import router as analytics_router
+from app.api.v1.endpoints.matchday_humor import router as matchday_humor_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -86,6 +87,7 @@ app.include_router(clausulable_players_router, prefix="/api/v1/clausulable-playe
 app.include_router(sync_router, prefix="/api/v1/sync", tags=["sync"])
 app.include_router(analytics_router, prefix="/api/v1/analytics", tags=["analytics"])
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
+app.include_router(matchday_humor_router, prefix="/api/v1", tags=["humor"])
 
 # Also serve routes without /api prefix (to avoid redirect loops)
 # Include the same router with the old prefix

@@ -250,6 +250,80 @@
             display: block;
         }
 
+        /* Humor articles */
+        .humor-container {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-top: 20px;
+        }
+
+        .humor-subtabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .humor-subtab-button {
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: 2px solid transparent;
+            background: rgba(144, 238, 144, 0.25);
+            color: #000;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .humor-subtab-button:hover {
+            background: #32CD32;
+            color: #fff;
+        }
+
+        .humor-subtab-button.active {
+            background: #000000;
+            color: #90EE90;
+            border-color: #90EE90;
+        }
+
+        .humor-header {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .humor-article {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            line-height: 1.7;
+            color: #222;
+        }
+
+        .humor-article p {
+            margin: 0;
+        }
+
+        .humor-meta {
+            font-size: 0.9rem;
+            color: #555;
+        }
+
+        .humor-summary-list {
+            list-style: disc;
+            margin-left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            color: #222;
+        }
+
+        #humor-empty {
+            display: none;
+        }
+
         .analytics-grid {
             display: grid;
             gap: 20px;
@@ -776,10 +850,10 @@
 </head>
 <body>
     <div id="app-container">
-        <div class="container">
-            <div class="header">
-                <h1>🏆 Futmondo</h1>
-                <p>Evolución de Puntos y Posiciones por Jornada</p>
+    <div class="container">
+        <div class="header">
+            <h1>🏆 Futmondo</h1>
+            <p>Evolución de Puntos y Posiciones por Jornada</p>
                 <div class="user-controls" id="user-controls">
                     <div class="user-status">
                         <span id="user-badge">Modo invitado</span>
@@ -792,7 +866,7 @@
                     </form>
                     <div id="login-error" class="login-error"></div>
                 </div>
-            </div>
+        </div>
 
             <div id="global-access-message" class="access-message"></div>
 
@@ -808,6 +882,7 @@
                 <button id="finances-tab-button" class="tab-button" onclick="showTab('finances')" style="display: none;">💰 Finanzas Usuarios</button>
                 <button id="stats-tab-button" class="tab-button" onclick="showTab('stats')">📈 Estadísticas</button>
                 <button id="clausulable-tab-button" class="tab-button" onclick="showTab('clausulable')">⚽ Jugadores Clausulables</button>
+                <button id="humor-tab-button" class="tab-button" onclick="showTab('humor')">📰 Crónicas Humorísticas</button>
                 <button id="analytics-tab-button" class="tab-button" onclick="showTab('analytics')">📊 Analytics Avanzado</button>
             </div>
             
@@ -824,10 +899,10 @@
                     <h2>🏅 Evolución de Posiciones</h2>
                     <div class="chart-wrapper">
                         <canvas id="positionsChart"></canvas>
-                        </div>
                     </div>
                 </div>
             </div>
+        </div>
             
             <div id="finances-tab" class="tab-content">
                 <div class="finances-container">
@@ -912,6 +987,29 @@
                             <tbody id="clausulable-table-body">
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="humor-tab" class="tab-content">
+                <div id="humor-access-message" class="access-message"></div>
+                <div class="humor-container">
+                    <div class="humor-subtabs" id="humor-subtabs"></div>
+                    <div id="humor-loading" class="loading" style="display: none;">Cargando crónica...</div>
+                    <div id="humor-error" class="error" style="display: none;"></div>
+                    <div id="humor-empty" class="empty-hint">Aún no hay crónicas disponibles.</div>
+                    <div id="humor-content" style="display: none;">
+                        <div class="chart-card">
+                            <div class="humor-header">
+                                <h2 id="humor-article-title">Crónica</h2>
+                                <span id="humor-generated-at" class="humor-meta" style="display: none;"></span>
+                            </div>
+                            <div id="humor-article-body" class="humor-article"></div>
+                        </div>
+                        <div class="table-card" id="humor-summary-card" style="display: none;">
+                            <h2>Resumen mordaz</h2>
+                            <ul id="humor-summary-list" class="humor-summary-list"></ul>
+                        </div>
                     </div>
                 </div>
             </div>
