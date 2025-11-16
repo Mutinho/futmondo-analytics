@@ -21,3 +21,5 @@ docker-compose exec "$service" /bin/sh || docker-compose exec "$service" /bin/ba
 
 
 
+
+
