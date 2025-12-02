@@ -35,3 +35,4 @@ docker-compose exec postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"
 
 
 
+

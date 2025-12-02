@@ -50,7 +50,7 @@ class NewsGenerator:
                     }
                 ],
                 temperature=0.8,
-                max_tokens=1000
+                max_tokens=500
             )
             
             news_text = response.choices[0].message.content
