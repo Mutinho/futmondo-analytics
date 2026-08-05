@@ -206,10 +206,14 @@ export class SofascoreDetailDialogComponent {
       const champId = this.championshipService.activeId();
       if (champId) params = params.set('championship_id', champId);
 
-      const data = await firstValueFrom(
-        this.http.get<SofascoreStats>(`/api/v1/sofascore/player/${encodeURIComponent(this.data.player_name)}`, { params })
+      const response = await firstValueFrom(
+        this.http.get<{ success: boolean; player: SofascoreStats }>(`/api/v1/sofascore/player/${encodeURIComponent(this.data.player_name)}`, { params })
       );
-      this.stats.set(data);
+      if (response.player) {
+        this.stats.set(response.player);
+      } else {
+        this.error.set('No se encontraron datos.');
+      }
     } catch (err: any) {
       if (err.status === 404) {
         this.error.set('No se encontraron datos de Sofascore para este jugador.');
