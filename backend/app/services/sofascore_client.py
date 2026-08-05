@@ -45,8 +45,8 @@ class SofascoreClient:
             logger.error(f"Sofascore request error: {e}")
             return None
 
-    def search_player(self, name: str) -> Optional[Dict]:
-        """Busca un jugador por nombre. Devuelve el primer resultado relevante."""
+    def search_player(self, name: str, team_hint: Optional[str] = None) -> Optional[Dict]:
+        """Busca un jugador por nombre. Si se pasa team_hint, prioriza resultados de ese equipo."""
         self._throttle()
         url = f"{BASE_URL}/search/players"
         try:
@@ -61,7 +61,22 @@ class SofascoreClient:
             if not results:
                 return None
 
-            # Primer resultado
+            # Si hay team_hint, intentar encontrar uno que coincida
+            if team_hint:
+                team_hint_lower = team_hint.lower()
+                for r in results:
+                    entity = r.get("entity", r)
+                    entity_team = (entity.get("team", {}) or {}).get("name", "")
+                    if entity_team and team_hint_lower in entity_team.lower():
+                        return {
+                            "id": entity.get("id"),
+                            "name": entity.get("name"),
+                            "slug": entity.get("slug"),
+                            "team": entity_team,
+                            "position": entity.get("position"),
+                        }
+
+            # Fallback: primer resultado
             entity = results[0].get("entity", results[0])
             return {
                 "id": entity.get("id"),

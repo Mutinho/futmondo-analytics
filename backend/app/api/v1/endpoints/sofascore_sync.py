@@ -80,8 +80,9 @@ async def sync_sofascore(
                 continue
 
             try:
-                # Buscar en Sofascore
-                search_result = sofascore.search_player(player_name)
+                # Buscar en Sofascore (con hint del equipo real para mejor matching)
+                team_hint = p.get('team', '')
+                search_result = sofascore.search_player(player_name, team_hint=team_hint)
                 if not search_result or not search_result.get('id'):
                     logger.debug(f"Sofascore: '{player_name}' no encontrado")
                     errors += 1
