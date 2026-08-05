@@ -20,7 +20,8 @@ html {
 }
 
 body {
-  color-scheme: light;
+  // Defer to user's system settings (light or dark)
+  color-scheme: light dark;
   background-color: var(--mat-sys-surface);
   color: var(--mat-sys-on-surface);
   font: var(--mat-sys-body-medium);
@@ -32,3 +33,10 @@ body {
 .money-positive { color: #16a34a; font-weight: 600; }
 .money-negative { color: #dc2626; font-weight: 600; }
 .clickable { cursor: pointer; &:hover { background: rgba(0, 0, 0, 0.04); } }
+
+// Dark mode overrides
+@media (prefers-color-scheme: dark) {
+  .money-positive { color: #4ade80; }
+  .money-negative { color: #f87171; }
+  .clickable:hover { background: rgba(255, 255, 255, 0.06); }
+}

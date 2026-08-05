@@ -53,6 +53,10 @@
         </button>
       }
       <span class="toolbar-title">🏆 Futmondo</span>
+      <span class="spacer"></span>
+      <button mat-icon-button (click)="toggleDarkMode()" [title]="darkMode() ? 'Modo claro' : 'Modo oscuro'">
+        <mat-icon>{{ darkMode() ? 'light_mode' : 'dark_mode' }}</mat-icon>
+      </button>
     </mat-toolbar>
 
     <!-- Page content -->

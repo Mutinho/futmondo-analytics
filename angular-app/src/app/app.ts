@@ -63,6 +63,28 @@ export class App {
 
   constructor() {
     this.championshipService.load();
+    this.loadTheme();
+  }
+
+  // Dark mode
+  darkMode = signal(false);
+
+  toggleDarkMode() {
+    this.darkMode.update(v => !v);
+    document.documentElement.style.colorScheme = this.darkMode() ? 'dark' : 'light';
+    localStorage.setItem('futmondo_dark_mode', this.darkMode() ? 'dark' : 'light');
+  }
+
+  private loadTheme() {
+    const saved = localStorage.getItem('futmondo_dark_mode');
+    if (saved === 'dark') {
+      this.darkMode.set(true);
+      document.documentElement.style.colorScheme = 'dark';
+    } else if (saved === 'light') {
+      this.darkMode.set(false);
+      document.documentElement.style.colorScheme = 'light';
+    }
+    // Si no hay preferencia guardada, usa la del sistema (color-scheme: light dark en CSS)
   }
 
   onChampionshipChange(championship: Championship) {
