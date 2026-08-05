@@ -157,11 +157,11 @@ interface MarketPlayer {
     .info-value.danger { color: #dc2626; }
     .table-container { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
     table { width: 100%; }
-    .suggested { font-weight: 700; color: #4CAF50; }
+    .suggested { font-weight: 700; color: #4CAF50; display: flex; align-items: center; gap: 4px; }
     .overpay { color: #d97706; font-weight: 600; }
     .trend-up { color: #16a34a; font-weight: 600; }
     .trend-down { color: #dc2626; font-weight: 600; }
-    .current-bid { color: #7c3aed; font-weight: 600; }
+    .current-bid { color: #7c3aed; font-weight: 600; display: flex; align-items: center; gap: 4px; }
     .bid-btn { transform: scale(0.8); }
     .cancel-btn { transform: scale(0.7); }
     .confidence { margin-left: 4px; font-size: 0.9em; }
