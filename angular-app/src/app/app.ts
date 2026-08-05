@@ -123,11 +123,14 @@ export class App {
 
   private applyTheme() {
     const body = document.body;
+    const html = document.documentElement;
     if (this.darkMode()) {
       body.classList.add('dark-theme');
+      html.style.colorScheme = 'dark';
       body.style.colorScheme = 'dark';
     } else {
       body.classList.remove('dark-theme');
+      html.style.colorScheme = 'light';
       body.style.colorScheme = 'light';
     }
   }
