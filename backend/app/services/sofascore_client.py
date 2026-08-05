@@ -75,7 +75,7 @@ class SofascoreClient:
             return None
 
     def get_player_stats(self, player_id: int) -> Optional[Dict]:
-        """Obtiene estadísticas del jugador (temporada actual o última disponible)."""
+        """Obtiene estadísticas del jugador (prioriza liga de club sobre selecciones)."""
         data = self._get(f"/player/{player_id}/statistics/seasons")
         if not data:
             return None
@@ -84,19 +84,36 @@ class SofascoreClient:
         if not seasons:
             return None
 
-        # Buscar la temporada más reciente de una liga relevante
+        # Torneos a excluir (selecciones/copas internacionales)
+        EXCLUDED_KEYWORDS = {'world cup', 'euro ', 'copa america', 'nations league', 'friendlies', 'olympic'}
+        
+        # Primero intentar ligas de club (excluir selecciones)
+        candidates = []
         for tournament_season in seasons:
             tournament = tournament_season.get("uniqueTournament", {})
-            seasons_list = tournament_season.get("seasons", [])
-            if not seasons_list:
+            tournament_name = (tournament.get("name") or "").lower()
+            
+            # Excluir torneos de selecciones
+            if any(kw in tournament_name for kw in EXCLUDED_KEYWORDS):
                 continue
+            
+            seasons_list = tournament_season.get("seasons", [])
+            if seasons_list:
+                candidates.append((tournament, seasons_list[0]))
 
-            # Tomar la temporada más reciente
-            latest_season = seasons_list[0]
+        # Si no hay candidatos de club, usar todos
+        if not candidates:
+            for tournament_season in seasons:
+                tournament = tournament_season.get("uniqueTournament", {})
+                seasons_list = tournament_season.get("seasons", [])
+                if seasons_list:
+                    candidates.append((tournament, seasons_list[0]))
+
+        # Probar cada candidato hasta encontrar stats
+        for tournament, latest_season in candidates:
             season_id = latest_season.get("id")
             tournament_id = tournament.get("id")
 
-            # Obtener stats de esa temporada
             stats = self._get(
                 f"/player/{player_id}/unique-tournament/{tournament_id}/season/{season_id}/statistics/overall"
             )
