@@ -54,6 +54,9 @@
       }
       <span class="toolbar-title">🏆 Futmondo</span>
       <span class="spacer"></span>
+      @if (lastSync()) {
+        <span class="last-sync-label">{{ lastSync() }}</span>
+      }
       <button mat-icon-button (click)="sync()" title="Sincronizar datos">
         <mat-icon>sync</mat-icon>
       </button>

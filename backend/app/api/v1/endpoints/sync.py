@@ -95,6 +95,26 @@ async def get_sync_status() -> Dict:
         raise HTTPException(status_code=500, detail=f"Error getting sync status: {str(e)}")
 
 
+@router.get("/last-sync")
+async def get_last_sync_date(
+    championship_id: str = CHAMPIONSHIP_ID,
+) -> Dict:
+    """Devuelve la fecha de la última sincronización completa para un campeonato."""
+    try:
+        from app.services.db_connection import DBConnection
+        db = DBConnection()
+        with db.get_connection() as conn:
+            cursor = db.get_cursor(conn)
+            sql = "SELECT MAX(last_sync_date) FROM sync_metadata WHERE championship_id = ?"
+            sql = db.adapt_params(sql)
+            cursor.execute(sql, (championship_id,))
+            row = cursor.fetchone()
+            last_date = row[0] if row else None
+            return {"success": True, "championship_id": championship_id, "last_sync": last_date}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @router.post("/trigger")
 async def trigger_sync(
     sync_type: str = "all",

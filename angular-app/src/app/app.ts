@@ -1,5 +1,7 @@
-import { Component, signal, inject, computed } from '@angular/core';
+import { Component, signal, inject, computed, effect } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -41,6 +43,7 @@ interface NavItem {
 export class App {
   private breakpointObserver = inject(BreakpointObserver);
   private dialog = inject(MatDialog);
+  private http = inject(HttpClient);
   championshipService = inject(ChampionshipService);
 
   sidenavOpened = signal(true);
@@ -68,6 +71,32 @@ export class App {
   constructor() {
     this.championshipService.load();
     this.loadTheme();
+    this.loadLastSync();
+
+    // Recargar lastSync al cambiar de campeonato
+    effect(() => {
+      const id = this.championshipService.activeId();
+      if (id) this.loadLastSync();
+    });
+  }
+
+  // Last sync
+  lastSync = signal('');
+
+  private async loadLastSync() {
+    const id = this.championshipService.activeId();
+    if (!id) return;
+    try {
+      const resp = await firstValueFrom(this.http.get<any>(`/api/v1/sync/last-sync?championship_id=${id}`));
+      if (resp.last_sync) {
+        const date = new Date(resp.last_sync);
+        this.lastSync.set(date.toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }));
+      } else {
+        this.lastSync.set('');
+      }
+    } catch {
+      this.lastSync.set('');
+    }
   }
 
   // Dark mode
@@ -112,9 +141,12 @@ export class App {
   }
 
   sync() {
-    this.dialog.open(SyncDialogComponent, {
+    const dialogRef = this.dialog.open(SyncDialogComponent, {
       width: '500px',
       disableClose: true,
+    });
+    dialogRef.afterClosed().subscribe(() => {
+      this.loadLastSync();
     });
   }
 }

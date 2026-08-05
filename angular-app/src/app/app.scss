@@ -65,6 +65,12 @@
   .spacer {
     flex: 1;
   }
+
+  .last-sync-label {
+    font-size: 0.75em;
+    color: var(--mat-sys-on-surface-variant);
+    margin-right: 8px;
+  }
 }
 
 .page-content {
