@@ -57,7 +57,7 @@ interface SofascoreStats {
             {{ stats()!.rating ? (stats()!.rating! | number:'1.1-1') : '-' }}
           </div>
           <div class="rating-meta">
-            @if (stats()!.position) { <span class="meta-item">📋 {{ stats()!.position }}</span> }
+            @if (stats()!.position) { <span class="meta-item">📋 {{ formatPosition(stats()!.position!) }}</span> }
             @if (stats()!.nationality) { <span class="meta-item">🌍 {{ stats()!.nationality }}</span> }
             @if (stats()!.age) { <span class="meta-item">🎂 {{ stats()!.age }} años</span> }
             @if (stats()!.tournament) { <span class="meta-item">🏆 {{ stats()!.tournament }}</span> }
@@ -230,5 +230,15 @@ export class SofascoreDetailDialogComponent {
     if (rating >= 7) return 'rating-green';
     if (rating >= 6) return 'rating-yellow';
     return 'rating-red';
+  }
+
+  formatPosition(pos: string): string {
+    const map: Record<string, string> = {
+      'F': 'Delantero',
+      'M': 'Centrocampista',
+      'D': 'Defensa',
+      'G': 'Portero',
+    };
+    return map[pos] || pos;
   }
 }
