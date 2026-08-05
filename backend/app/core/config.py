@@ -55,6 +55,11 @@ if DATABASE_URL:
 elif TURSO_DATABASE_URL:
     # Turso: LibSQL remoto (detectar automáticamente si hay URL de Turso)
     DATABASE_TYPE = os.getenv("DATABASE_TYPE", "turso")
+    POSTGRES_HOST = None
+    POSTGRES_PORT = None
+    POSTGRES_DB = None
+    POSTGRES_USER = None
+    POSTGRES_PASSWORD = None
 else:
     # Fallback: SQLite local o PostgreSQL manual
     DATABASE_TYPE = os.getenv("DATABASE_TYPE", "sqlite")
