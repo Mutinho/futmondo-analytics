@@ -23,6 +23,10 @@ export const routes: Routes = [
     loadComponent: () => import('./features/clausulable/clausulable.component').then(m => m.ClausulableComponent),
   },
   {
+    path: 'market',
+    loadComponent: () => import('./features/market/market.component').then(m => m.MarketComponent),
+  },
+  {
     path: 'analytics',
     loadChildren: () => import('./features/analytics/analytics.routes'),
   },

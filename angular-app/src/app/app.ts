@@ -49,6 +49,7 @@ export class App {
 
   allNavItems: NavItem[] = [
     { label: 'Presupuesto', icon: 'account_balance_wallet', route: '/budget' },
+    { label: 'Mercado', icon: 'shopping_cart', route: '/market' },
     { label: 'Evolución', icon: 'trending_up', route: '/evolution' },
     { label: 'Estadísticas', icon: 'bar_chart', route: '/stats' },
     { label: 'Finanzas', icon: 'payments', route: '/finances' },
@@ -71,7 +72,7 @@ export class App {
 
   toggleDarkMode() {
     this.darkMode.update(v => !v);
-    document.documentElement.style.colorScheme = this.darkMode() ? 'dark' : 'light';
+    this.applyTheme();
     localStorage.setItem('futmondo_dark_mode', this.darkMode() ? 'dark' : 'light');
   }
 
@@ -79,12 +80,24 @@ export class App {
     const saved = localStorage.getItem('futmondo_dark_mode');
     if (saved === 'dark') {
       this.darkMode.set(true);
-      document.documentElement.style.colorScheme = 'dark';
     } else if (saved === 'light') {
       this.darkMode.set(false);
-      document.documentElement.style.colorScheme = 'light';
+    } else {
+      // Usar preferencia del sistema
+      this.darkMode.set(window.matchMedia('(prefers-color-scheme: dark)').matches);
     }
-    // Si no hay preferencia guardada, usa la del sistema (color-scheme: light dark en CSS)
+    this.applyTheme();
+  }
+
+  private applyTheme() {
+    const body = document.body;
+    if (this.darkMode()) {
+      body.classList.add('dark-theme');
+      body.style.colorScheme = 'dark';
+    } else {
+      body.classList.remove('dark-theme');
+      body.style.colorScheme = 'light';
+    }
   }
 
   onChampionshipChange(championship: Championship) {
