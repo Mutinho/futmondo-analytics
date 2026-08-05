@@ -38,9 +38,9 @@
 // Sidebar nav item active state
 .active-link {
   background: rgba(76, 175, 80, 0.1) !important;
-  border-left: 4px solid #4CAF50;
-  border-radius: 0 8px 8px 0;
-  margin: 2px 8px 2px 0;
+  border-radius: 12px;
+  margin: 4px 12px;
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.15);
 
   mat-icon {
     color: #2e7d32;
@@ -50,6 +50,13 @@
     color: #2e7d32;
     font-weight: 600;
   }
+}
+
+// Nav items normal state
+mat-nav-list a[mat-list-item] {
+  border-radius: 12px;
+  margin: 4px 12px;
+  transition: all 0.15s ease;
 }
 
 // ===== MAIN CONTENT =====
