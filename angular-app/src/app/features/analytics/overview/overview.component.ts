@@ -14,6 +14,7 @@ import { AnalyticsService } from '../../../core/services/analytics.service';
       <div class="empty">🌐 No hay datos de jornadas disponibles para mostrar tendencias.</div>
     } @else {
       <h3>📊 Tendencias (últimas 5 jornadas)</h3>
+      <p class="section-desc">Resumen de puntos, posición y momentum de cada equipo en las últimas jornadas.</p>
       <div class="table-container">
         <table mat-table [dataSource]="trends()">
           <ng-container matColumnDef="team_name">
@@ -45,6 +46,7 @@ import { AnalyticsService } from '../../../core/services/analytics.service';
     .empty { text-align: center; padding: 48px; color: var(--mat-sys-on-surface-variant); }
     .table-container { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
     table { width: 100%; }
+    .section-desc { color: #666666; font-size: 13px; margin: -4px 0 20px; }
   `]
 })
 export class OverviewComponent {

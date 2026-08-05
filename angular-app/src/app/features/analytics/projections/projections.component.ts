@@ -10,6 +10,7 @@ import { AnalyticsService } from '../../../core/services/analytics.service';
   imports: [MatProgressSpinnerModule, MatCardModule, DatePipe],
   template: `
     <h3>🎯 Proyecciones de la Próxima Jornada</h3>
+    <p class="section-desc">Dificultad estimada de cada partido de la próxima jornada combinando las cuotas de apuestas y la forma de los equipos.</p>
     @if (loading()) {
       <div class="loading"><mat-spinner diameter="32" /> Calculando proyecciones...</div>
     } @else if (!matches().length) {
@@ -42,6 +43,7 @@ import { AnalyticsService } from '../../../core/services/analytics.service';
     .easy { color: #16a34a; }
     .hard { color: #dc2626; }
     .neutral { color: #d97706; }
+    .section-desc { color: #666666; font-size: 13px; margin: -4px 0 20px; }
   `]
 })
 export class ProjectionsComponent {

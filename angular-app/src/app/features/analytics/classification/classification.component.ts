@@ -13,6 +13,7 @@ import { AnalyticsService } from '../../../core/services/analytics.service';
   imports: [MatProgressSpinnerModule, MatTableModule, MatButtonModule, FormsModule, MatInputModule, MatFormFieldModule],
   template: `
     <h3>🏆 Clasificación Dinámica</h3>
+    <p class="section-desc">Clasificación filtrable por las últimas N jornadas. Permite ver quién está en mejor forma reciente, independientemente del acumulado total.</p>
     <div class="controls">
       <mat-form-field appearance="outline" class="window-field">
         <mat-label>Últimas jornadas</mat-label>
@@ -57,6 +58,7 @@ import { AnalyticsService } from '../../../core/services/analytics.service';
     .empty { text-align: center; padding: 48px; color: var(--mat-sys-on-surface-variant); }
     .table-container { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
     table { width: 100%; }
+    .section-desc { color: #666666; font-size: 13px; margin: -4px 0 20px; }
   `]
 })
 export class ClassificationComponent {

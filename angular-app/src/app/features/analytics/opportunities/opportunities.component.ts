@@ -10,6 +10,7 @@ import { AnalyticsService } from '../../../core/services/analytics.service';
   imports: [MatProgressSpinnerModule, MatTableModule, DecimalPipe],
   template: `
     <h3>⚡ Rachas Activas</h3>
+    <p class="section-desc">Jugadores que llevan varias jornadas consecutivas por encima de un umbral de puntos. Indica jugadores en racha que podrían ser interesantes para fichar.</p>
     @if (loading()) {
       <div class="loading"><mat-spinner diameter="32" /> Cargando...</div>
     } @else if (!streaks().length) {
@@ -27,7 +28,7 @@ import { AnalyticsService } from '../../../core/services/analytics.service';
       </div>
     }
   `,
-  styles: [`.loading { display: flex; align-items: center; gap: 12px; padding: 32px; color: var(--mat-sys-on-surface-variant); } .empty { text-align: center; padding: 48px; color: var(--mat-sys-on-surface-variant); } .table-container { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); } table { width: 100%; } .streak { color: #FF9800; font-weight: 700; }`]
+  styles: [`.loading { display: flex; align-items: center; gap: 12px; padding: 32px; color: var(--mat-sys-on-surface-variant); } .empty { text-align: center; padding: 48px; color: var(--mat-sys-on-surface-variant); } .table-container { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); } table { width: 100%; } .streak { color: #FF9800; font-weight: 700; } .section-desc { color: #666666; font-size: 13px; margin: -4px 0 20px; }`]
 })
 export class OpportunitiesComponent {
   private svc = inject(AnalyticsService);
