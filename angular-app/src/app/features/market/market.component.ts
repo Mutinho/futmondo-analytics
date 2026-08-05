@@ -162,8 +162,8 @@ interface MarketPlayer {
     .trend-up { color: #16a34a; font-weight: 600; }
     .trend-down { color: #dc2626; font-weight: 600; }
     .current-bid { color: #7c3aed; font-weight: 600; }
-    .bid-btn { transform: scale(0.75); vertical-align: middle; margin: -8px 0; }
-    .cancel-btn { transform: scale(0.7); vertical-align: middle; margin: -8px 0; }
+    .bid-btn { transform: scale(0.75); vertical-align: middle;  position: relative; padding: 0; }
+    .cancel-btn { transform: scale(0.7); vertical-align: middle; position: relative; padding: 0; top:1px; }
     .confidence { margin-left: 4px; font-size: 0.9em; }
     .legend { color: var(--mat-sys-on-surface-variant); font-size: 0.8em; margin-top: 12px; }
   `]
