@@ -171,6 +171,16 @@ class DBConnection:
         elif self.db_type in ["postgresql", "postgres"]:
             if self._pool:
                 conn = self._pool.getconn()
+                # Verify connection is alive (Neon closes idle connections)
+                try:
+                    conn.cursor().execute("SELECT 1")
+                except Exception:
+                    # Connection is dead — discard and get a fresh one
+                    try:
+                        self._pool.putconn(conn, close=True)
+                    except Exception:
+                        pass
+                    conn = self._pool.getconn()
                 try:
                     yield conn
                     conn.commit()
