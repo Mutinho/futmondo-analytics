@@ -83,7 +83,9 @@ interface MarketPlayer {
           </ng-container>
           <ng-container matColumnDef="position">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>Pos</th>
-            <td mat-cell *matCellDef="let p">{{ p.position }}</td>
+            <td mat-cell *matCellDef="let p">
+              <span class="pos-chip" [class]="'pos-' + getPositionKey(p.position)">{{ p.position }}</span>
+            </td>
           </ng-container>
           <ng-container matColumnDef="value">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>Valor</th>
@@ -155,6 +157,11 @@ interface MarketPlayer {
     table { width: 100%; }
     .suggested { font-weight: 700; color: #4CAF50; }
     .overpay { color: #d97706; font-weight: 600; }
+    .pos-chip { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600; color: #fff; text-transform: capitalize; }
+    .pos-fwd { background: #dc2626; }
+    .pos-mid { background: #2563eb; }
+    .pos-def { background: #ca8a04; }
+    .pos-gk { background: #16a34a; }
     .trend-up { color: #16a34a; font-weight: 600; }
     .trend-down { color: #dc2626; font-weight: 600; }
     .current-bid { color: #7c3aed; font-weight: 600; }
@@ -181,6 +188,15 @@ export class MarketComponent {
   bidding = signal(false);
   userInfo = signal<{ balance: number; team_value: number; max_bid: number; active_bids_total: number; available_for_bids: number } | null>(null);
   columns = ['name', 'team', 'position', 'value', 'change', 'market_price', 'current_bid', 'suggested_bid'];
+
+  getPositionKey(position: string): string {
+    const p = (position || '').toLowerCase();
+    if (p.includes('delantero') || p.includes('forward')) return 'fwd';
+    if (p.includes('centrocampista') || p.includes('medio') || p.includes('mid')) return 'mid';
+    if (p.includes('defensa') || p.includes('defender')) return 'def';
+    if (p.includes('portero') || p.includes('keeper')) return 'gk';
+    return 'mid';
+  }
 
   constructor() {
     effect(() => {
