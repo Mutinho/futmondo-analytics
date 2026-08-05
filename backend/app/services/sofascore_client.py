@@ -142,7 +142,31 @@ class SofascoreClient:
         """Obtiene el rating medio del jugador."""
         stats = self.get_player_stats(player_id)
         if stats and stats.get("stats"):
-            return stats["stats"].get("rating")
+            rating = stats["stats"].get("rating")
+            if rating:
+                return rating
+        # Fallback: calcular media de últimos partidos
+        return self.get_player_rating_from_matches(player_id)
+
+    def get_player_rating_from_matches(self, player_id: int) -> Optional[float]:
+        """Calcula rating medio a partir de los últimos partidos jugados."""
+        data = self._get(f"/player/{player_id}/events/last/0")
+        if not data:
+            return None
+
+        stats_map = data.get("statisticsMap", {})
+        events = data.get("events", [])
+
+        ratings = []
+        for event in events[:20]:  # Máximo 20 partidos
+            event_id = str(event.get("id"))
+            stats = stats_map.get(event_id, {})
+            rating = stats.get("rating")
+            if rating:
+                ratings.append(rating)
+
+        if ratings:
+            return sum(ratings) / len(ratings)
         return None
 
     def get_player_full_info(self, player_id: int) -> Optional[Dict]:
@@ -189,6 +213,14 @@ class SofascoreClient:
                 "clean_sheets": stats.get("cleanSheet"),
                 "saves": stats.get("saves"),
             })
+
+        # Fallback: si no hay rating de temporada, calcular de últimos partidos
+        if not result.get("rating"):
+            fallback_rating = self.get_player_rating_from_matches(player_id)
+            if fallback_rating:
+                result["rating"] = fallback_rating
+                if not result.get("tournament"):
+                    result["tournament"] = "Últimos partidos"
 
         return result
 
