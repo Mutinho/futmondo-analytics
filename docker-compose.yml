@@ -25,18 +25,12 @@ services:
         condition: service_started
     restart: unless-stopped
 
-  # --- Backend: FastAPI + SQLite ---
+  # --- Backend: FastAPI + Turso ---
   backend:
     build: ./backend
     container_name: futmondo-backend
     env_file: .env
-    environment:
-      - DATABASE_TYPE=sqlite
-      - DATABASE_PATH=/app/data/futmondo_data.db
-      - API_HOST=0.0.0.0
-      - API_PORT=8000
     volumes:
-      - db-data:/app/data
       - ./backend/static:/app/static
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -54,7 +48,3 @@ services:
       backend:
         condition: service_healthy
     restart: unless-stopped
-
-volumes:
-  db-data:
-    driver: local

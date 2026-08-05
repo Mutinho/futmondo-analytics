@@ -37,23 +37,27 @@ SHOW_DETAILED_ANALYSIS = os.getenv("SHOW_DETAILED_ANALYSIS", "True").lower() == 
 CACHE_DURATION_HOURS = int(os.getenv("CACHE_DURATION_HOURS", "24"))
 DATABASE_PATH = os.getenv("DATABASE_PATH", "futmondo_data.db")
 
-# PostgreSQL Settings (default to postgresql for production, can use sqlite for local dev)
-# Railway provides DATABASE_URL automatically, which takes precedence
+# Database type: "sqlite", "turso", or "postgresql"
 DATABASE_URL = os.getenv("DATABASE_URL", "")  # Railway provides this automatically
 
-# If DATABASE_URL is provided (Railway), parse it; otherwise use individual settings
+# Turso (LibSQL) Settings
+TURSO_DATABASE_URL = os.getenv("TURSO_DATABASE_URL", "")
+TURSO_AUTH_TOKEN = os.getenv("TURSO_AUTH_TOKEN", "")
+
 if DATABASE_URL:
-    # Parse DATABASE_URL (format: postgresql://user:password@host:port/dbname)
+    # Railway: PostgreSQL via DATABASE_URL
     DATABASE_TYPE = "postgresql"
-    # Extract components from DATABASE_URL if needed (db_connection.py handles this)
-    POSTGRES_HOST = None  # Will be parsed from DATABASE_URL
+    POSTGRES_HOST = None
     POSTGRES_PORT = None
     POSTGRES_DB = None
     POSTGRES_USER = None
     POSTGRES_PASSWORD = None
+elif TURSO_DATABASE_URL:
+    # Turso: LibSQL remoto (detectar automáticamente si hay URL de Turso)
+    DATABASE_TYPE = os.getenv("DATABASE_TYPE", "turso")
 else:
-    # Fallback to individual settings (for local dev or manual config)
-    DATABASE_TYPE = os.getenv("DATABASE_TYPE", "postgresql")  # "sqlite" or "postgresql"
+    # Fallback: SQLite local o PostgreSQL manual
+    DATABASE_TYPE = os.getenv("DATABASE_TYPE", "sqlite")
     POSTGRES_HOST = os.getenv("POSTGRES_HOST", "postgres")
     POSTGRES_PORT = int(os.getenv("POSTGRES_PORT", "5432"))
     POSTGRES_DB = os.getenv("POSTGRES_DB", "futmondo")
