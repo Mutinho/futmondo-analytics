@@ -11,6 +11,7 @@ import { AnalyticsService } from '../../../core/services/analytics.service';
     @if (loading()) {
       <div class="loading"><mat-spinner diameter="32" /> Cargando visión general...</div>
     } @else if (!hasData()) {
+      <p class="section-desc">Resumen de puntos, posición y momentum de cada equipo en las últimas jornadas.</p>
       <div class="empty">🌐 No hay datos de jornadas disponibles para mostrar tendencias.</div>
     } @else {
       <h3>📊 Tendencias (últimas 5 jornadas)</h3>
