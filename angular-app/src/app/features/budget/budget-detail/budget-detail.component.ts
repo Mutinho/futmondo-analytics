@@ -1,12 +1,14 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { MatTableModule } from '@angular/material/table';
+import { MatTableModule, MatTableDataSource } from '@angular/material/table';
+import { MatSortModule, MatSort } from '@angular/material/sort';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { DatePipe } from '@angular/common';
 import { MoneyPipe } from '../../../shared/pipes/money.pipe';
 import { BudgetService } from '../../../core/services/budget.service';
+import { ChampionshipService } from '../../../core/services/championship.service';
 import { TeamDetailResponse, Transaction } from '../../../core/models/budget.model';
 
 @Component({
@@ -14,6 +16,7 @@ import { TeamDetailResponse, Transaction } from '../../../core/models/budget.mod
   standalone: true,
   imports: [
     MatTableModule,
+    MatSortModule,
     MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
@@ -25,6 +28,7 @@ import { TeamDetailResponse, Transaction } from '../../../core/models/budget.mod
 })
 export class BudgetDetailComponent {
   private budgetService = inject(BudgetService);
+  private championshipService = inject(ChampionshipService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
 
@@ -32,8 +36,18 @@ export class BudgetDetailComponent {
   loading = signal(true);
   error = signal('');
 
+  purchasesSource = new MatTableDataSource<Transaction>([]);
+  salesSource = new MatTableDataSource<Transaction>([]);
+
   purchaseColumns = ['player_name', 'price', 'from', 'date'];
   saleColumns = ['player_name', 'price', 'to', 'date'];
+
+  @ViewChild('purchaseSort') set purchaseSort(sort: MatSort) {
+    if (sort) this.purchasesSource.sort = sort;
+  }
+  @ViewChild('saleSort') set saleSort(sort: MatSort) {
+    if (sort) this.salesSource.sort = sort;
+  }
 
   constructor() {
     const teamId = this.route.snapshot.paramMap.get('teamId');
@@ -46,8 +60,10 @@ export class BudgetDetailComponent {
     this.loading.set(true);
     this.error.set('');
     try {
-      const data = await this.budgetService.getTeamDetail(teamId);
+      const data = await this.budgetService.getTeamDetail(teamId, this.championshipService.activeId());
       this.detail.set(data);
+      this.purchasesSource.data = data.purchases;
+      this.salesSource.data = data.sales;
     } catch (err: any) {
       this.error.set(err.message || 'Error cargando detalle');
     } finally {

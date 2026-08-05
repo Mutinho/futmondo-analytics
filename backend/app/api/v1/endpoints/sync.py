@@ -115,8 +115,9 @@ async def trigger_sync(
         # Ensure service is authenticated
         service = ensure_authenticated(service)
         
-        # Create sync service
+        # Create sync service with the requested championship
         sync_service = DataSyncService(futmondo_client=service.client)
+        sync_service.championship_id = championship_id
         
         # Run requested sync
         if sync_type == "all":

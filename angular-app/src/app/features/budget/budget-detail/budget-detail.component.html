@@ -31,21 +31,21 @@
   <h2>📥 Altas (Compras) — {{ d.purchases.length }}</h2>
   @if (d.purchases.length) {
     <div class="table-container">
-      <table mat-table [dataSource]="d.purchases">
+      <table mat-table [dataSource]="purchasesSource" matSort #purchaseSort="matSort">
         <ng-container matColumnDef="player_name">
-          <th mat-header-cell *matHeaderCellDef>Jugador</th>
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Jugador</th>
           <td mat-cell *matCellDef="let t">{{ t.player_name }}</td>
         </ng-container>
         <ng-container matColumnDef="price">
-          <th mat-header-cell *matHeaderCellDef>Precio</th>
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Precio</th>
           <td mat-cell *matCellDef="let t" class="money-negative">{{ t.price | money }}</td>
         </ng-container>
         <ng-container matColumnDef="from">
-          <th mat-header-cell *matHeaderCellDef>Procedencia</th>
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Procedencia</th>
           <td mat-cell *matCellDef="let t">{{ t.from }}</td>
         </ng-container>
         <ng-container matColumnDef="date">
-          <th mat-header-cell *matHeaderCellDef>Fecha</th>
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Fecha</th>
           <td mat-cell *matCellDef="let t">{{ t.date | date:'dd/MM/yyyy' }}</td>
         </ng-container>
         <tr mat-header-row *matHeaderRowDef="purchaseColumns"></tr>
@@ -60,21 +60,21 @@
   <h2>📤 Bajas (Ventas) — {{ d.sales.length }}</h2>
   @if (d.sales.length) {
     <div class="table-container">
-      <table mat-table [dataSource]="d.sales">
+      <table mat-table [dataSource]="salesSource" matSort #saleSort="matSort">
         <ng-container matColumnDef="player_name">
-          <th mat-header-cell *matHeaderCellDef>Jugador</th>
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Jugador</th>
           <td mat-cell *matCellDef="let t">{{ t.player_name }}</td>
         </ng-container>
         <ng-container matColumnDef="price">
-          <th mat-header-cell *matHeaderCellDef>Precio</th>
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Precio</th>
           <td mat-cell *matCellDef="let t" class="money-positive">{{ t.price | money }}</td>
         </ng-container>
         <ng-container matColumnDef="to">
-          <th mat-header-cell *matHeaderCellDef>Destino</th>
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Destino</th>
           <td mat-cell *matCellDef="let t">{{ t.to }}</td>
         </ng-container>
         <ng-container matColumnDef="date">
-          <th mat-header-cell *matHeaderCellDef>Fecha</th>
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Fecha</th>
           <td mat-cell *matCellDef="let t">{{ t.date | date:'dd/MM/yyyy' }}</td>
         </ng-container>
         <tr mat-header-row *matHeaderRowDef="saleColumns"></tr>

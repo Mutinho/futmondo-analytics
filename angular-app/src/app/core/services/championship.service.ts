@@ -15,6 +15,8 @@ interface ChampionshipsResponse {
   championships: Championship[];
 }
 
+const STORAGE_KEY = 'futmondo_active_championship';
+
 @Injectable({ providedIn: 'root' })
 export class ChampionshipService {
   private http = inject(HttpClient);
@@ -29,13 +31,20 @@ export class ChampionshipService {
   async load() {
     const data = await firstValueFrom(this.http.get<ChampionshipsResponse>('/api/v1/championships'));
     this.championships.set(data.championships);
-    // Por defecto seleccionar el primero
-    if (data.championships.length && !this.activeChampionship()) {
+
+    // Recuperar selección de localStorage
+    const savedId = localStorage.getItem(STORAGE_KEY);
+    const saved = savedId ? data.championships.find(c => c.championship_id === savedId) : null;
+
+    if (saved) {
+      this.activeChampionship.set(saved);
+    } else if (data.championships.length) {
       this.setActive(data.championships[0]);
     }
   }
 
   setActive(championship: Championship) {
     this.activeChampionship.set(championship);
+    localStorage.setItem(STORAGE_KEY, championship.championship_id);
   }
 }

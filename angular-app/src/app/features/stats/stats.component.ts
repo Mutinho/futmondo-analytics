@@ -103,7 +103,7 @@ export class StatsComponent {
   async loadData() {
     this.loading.set(true);
     try {
-      const data = await this.statsService.getUserStats();
+      const data = await this.statsService.getUserStats(this.championshipService.activeId());
       if (!data.users.length) { this.hasData.set(false); return; }
 
       // Excluir Mercado y javier.ortega

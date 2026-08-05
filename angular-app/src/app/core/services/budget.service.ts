@@ -22,7 +22,7 @@ export class BudgetService {
 
   syncTransactions(championshipId?: string): Promise<SyncResponse> {
     let params = new HttpParams();
-    params = params.set('sync_type', 'transactions');
+    params = params.set('sync_type', 'all');
     if (championshipId) params = params.set('championship_id', championshipId);
     return firstValueFrom(this.http.post<SyncResponse>('/api/v1/sync/trigger', {}, { params }));
   }

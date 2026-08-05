@@ -8,7 +8,7 @@
   </div>
 </div>
 
-<p class="description">Presupuesto base: 200M. Saldo = 200M − compras + ventas. Haz clic en un equipo para ver detalle.</p>
+<p class="description">Presupuesto base: {{ championshipBudget() }}. Saldo = {{ championshipBudget() }} − compras + ventas. Haz clic en un equipo para ver detalle.</p>
 
 @if (loading()) {
   <div class="loading-container">
@@ -28,7 +28,7 @@
 
       <ng-container matColumnDef="balance">
         <th mat-header-cell *matHeaderCellDef mat-sort-header>Saldo</th>
-        <td mat-cell *matCellDef="let t" [class]="getBalanceClass(t.balance, t.initial_budget)">
+        <td mat-cell *matCellDef="let t" [class]="getBalanceClass(t.balance)">
           {{ t.balance | money }}
         </td>
       </ng-container>

@@ -1,4 +1,4 @@
-import { Component, inject, signal, effect, ViewChild } from '@angular/core';
+import { Component, inject, signal, effect, ViewChild, computed } from '@angular/core';
 import { Router } from '@angular/router';
 import { MatTableModule, MatTableDataSource } from '@angular/material/table';
 import { MatSortModule, MatSort } from '@angular/material/sort';
@@ -44,6 +44,11 @@ export class BudgetOverviewComponent {
 
   displayedColumns = ['team_name', 'balance', 'team_value', 'total_spent', 'total_income', 'ops', 'performance'];
 
+  championshipBudget = computed(() => {
+    const budget = this.championshipService.activeChampionship()?.initial_budget || 200000000;
+    return `${Math.round(budget / 1000000)}M`;
+  });
+
   constructor() {
     this.dataSource.sortingDataAccessor = (item: TeamBudget, property: string) => {
       if (property === 'ops') return item.purchases_count + item.sales_count;
@@ -86,10 +91,8 @@ export class BudgetOverviewComponent {
     this.router.navigate(['/budget', team.team_id]);
   }
 
-  getBalanceClass(balance: number, initial: number): string {
-    if (balance >= initial) return 'money-positive';
-    if (balance >= initial * 0.5) return 'money-neutral';
-    return 'money-negative';
+  getBalanceClass(balance: number): string {
+    return balance >= 0 ? 'money-positive' : 'money-negative';
   }
 
   getPerformanceClass(value: number): string {
