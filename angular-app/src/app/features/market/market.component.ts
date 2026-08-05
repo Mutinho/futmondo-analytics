@@ -12,6 +12,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
 import { ChampionshipService } from '../../core/services/championship.service';
 import { ConfirmDialogComponent } from './confirm-dialog.component';
+import { BidDialogComponent, BidDialogData, BidDialogResult } from './bid-dialog.component';
 import { SofascoreDetailDialogComponent } from './sofascore-detail-dialog.component';
 
 interface MarketPlayer {
@@ -268,18 +269,22 @@ export class MarketComponent {
     event.stopPropagation();
     const moneyFmt = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
 
-    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+    const userInfoData = this.userInfo();
+    const maxBid = userInfoData?.available_for_bids || userInfoData?.max_bid || player.suggested_bid;
+
+    const dialogRef = this.dialog.open(BidDialogComponent, {
       data: {
-        title: '🔨 Confirmar Puja',
-        message: `¿Pujar ${moneyFmt.format(player.suggested_bid)} por ${player.name} (${player.team})?`,
-        confirmText: 'Pujar',
-        color: 'primary',
-      },
-      width: '400px',
+        playerName: player.name,
+        team: player.team,
+        suggestedBid: player.suggested_bid,
+        marketPrice: player.market_price,
+        maxBid: maxBid,
+      } as BidDialogData,
+      width: '420px',
     });
 
-    const confirmed = await firstValueFrom(dialogRef.afterClosed());
-    if (!confirmed) return;
+    const result: BidDialogResult | undefined = await firstValueFrom(dialogRef.afterClosed());
+    if (!result?.confirmed) return;
 
     this.bidding.set(true);
     try {
@@ -287,15 +292,15 @@ export class MarketComponent {
         .set('championship_id', this.championshipService.activeId())
         .set('player_id', player.player_id)
         .set('player_slug', player.slug)
-        .set('price', player.suggested_bid)
+        .set('price', result.price)
         .set('is_clause', 'false');
 
-      const result = await firstValueFrom(this.http.post<any>('/api/v1/market/bid', {}, { params }));
-      if (result.success) {
-        this.snackBar.open(`✅ Puja realizada: ${moneyFmt.format(player.suggested_bid)} por ${player.name}`, 'OK', { duration: 4000 });
+      const apiResult = await firstValueFrom(this.http.post<any>('/api/v1/market/bid', {}, { params }));
+      if (apiResult.success) {
+        this.snackBar.open(`✅ Puja realizada: ${moneyFmt.format(result.price)} por ${player.name}`, 'OK', { duration: 4000 });
         await this.loadData();
       } else {
-        this.snackBar.open(`❌ Error: ${result.message}`, 'OK', { duration: 5000 });
+        this.snackBar.open(`❌ Error: ${apiResult.message}`, 'OK', { duration: 5000 });
       }
     } catch (err: any) {
       this.snackBar.open(`❌ Error al pujar: ${err.message || 'Error desconocido'}`, 'OK', { duration: 5000 });
