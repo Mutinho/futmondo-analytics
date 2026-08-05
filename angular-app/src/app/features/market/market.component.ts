@@ -170,12 +170,12 @@ interface MarketPlayer {
     .count { color: #666666; font-size: 13px; margin-bottom: 16px; }
     .user-info-banner {
       display: flex; gap: 32px; flex-wrap: wrap; padding: 20px 24px;
-      background: #ffffff; border-radius: 12px; margin-bottom: 24px;
+      background: var(--mat-sys-surface-container); border-radius: 12px; margin-bottom: 24px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.08);
     }
     .info-item { display: flex; flex-direction: column; gap: 4px; }
-    .info-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #666666; font-weight: 600; }
-    .info-value { font-size: 1.3em; font-weight: 700; color: #1a1a1a; }
+    .info-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--mat-sys-on-surface-variant); font-weight: 600; }
+    .info-value { font-size: 1.3em; font-weight: 700; color: var(--mat-sys-on-surface); }
     .info-value.bids { color: #7b1fa2; }
     .info-value.max { color: #1565c0; }
     .info-value.available { color: #2e7d32; }
