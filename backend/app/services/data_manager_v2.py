@@ -877,7 +877,7 @@ class DataManagerV2:
         return
     
     def save_pressroom_transactions(self, championship_id: str, transactions: List[Dict]):
-        """Save transactions from pressroom endpoint
+        """Save transactions from pressroom endpoint (batch optimized for PostgreSQL).
         
         Each transaction has:
         - _id: transaction ID (for pagination)
@@ -890,242 +890,164 @@ class DataManagerV2:
         if not transactions:
             return
         
-        max_retries = 3
-        retry_delay = 0.1
+        MARKET_USER_ID = "market_user"
+        MARKET_TEAM_ID = "market_team"
         
-        for attempt in range(max_retries):
-            try:
-                with self.db.get_connection() as conn:
-                    cursor = self.db.get_cursor(conn)
-
-                    MARKET_USER_ID = "market_user"
-                    MARKET_TEAM_ID = "market_team"
-
-                    # Helper to get or create user ID using the same connection
-                    def get_or_create_user_id_in_transaction(user_id: str, username: str) -> Optional[str]:
-                        if not user_id:
-                            return None
-
-                        sql = "SELECT user_id FROM users WHERE user_id = ?"
-                        sql = self.db.adapt_params(sql)
-                        cursor.execute(sql, (user_id,))
-                        row = cursor.fetchone()
-                        if row:
-                            return user_id
-
-                        sql = "SELECT user_id FROM users WHERE username = ?"
-                        sql = self.db.adapt_params(sql)
-                        cursor.execute(sql, (username,))
-                        row = cursor.fetchone()
-                        if row:
-                            return row[0] if isinstance(row, tuple) else row.get("user_id")
-
-                        now = datetime.now()
-
-                        if self.db.db_type in ["postgresql", "postgres"]:
-                            sql = """
-                                INSERT INTO users (user_id, username, last_updated)
-                                VALUES (%s, %s, %s)
-                                ON CONFLICT (user_id) DO UPDATE SET
-                                    username = EXCLUDED.username,
-                                    last_updated = EXCLUDED.last_updated
-                            """
-                        else:
-                            sql = """
-                                INSERT OR REPLACE INTO users (user_id, username, last_updated)
-                                VALUES (?, ?, ?)
-                            """
-                            sql = self.db.adapt_params(sql)
-
-                        cursor.execute(sql, (user_id, username, now))
-                        return user_id
-
-                    def ensure_team(team_id: str, team_name: str, user_id: Optional[str]) -> Optional[str]:
-                        if not team_id:
-                            return None
-
-                        sql = "SELECT team_id FROM teams WHERE team_id = ?"
-                        sql = self.db.adapt_params(sql)
-                        cursor.execute(sql, (team_id,))
-                        row = cursor.fetchone()
-                        if row:
-                            return team_id
-
-                        if not user_id:
-                            user_id = get_or_create_user_id_in_transaction(team_id, team_name or team_id)
-
-                        now_local = datetime.now()
-                        if self.db.db_type in ["postgresql", "postgres"]:
-                            sql = """
-                                INSERT INTO teams (team_id, user_id, team_name, initial_budget, last_updated)
-                                VALUES (%s, %s, %s, %s, %s)
-                                ON CONFLICT (team_id) DO NOTHING
-                            """
-                        else:
-                            sql = """
-                                INSERT OR IGNORE INTO teams (team_id, user_id, team_name, initial_budget, last_updated)
-                                VALUES (?, ?, ?, ?, ?)
-                            """
-                            sql = self.db.adapt_params(sql)
-
-                        cursor.execute(sql, (team_id, user_id, team_name or team_id, 270000000, now_local))
-                        return team_id
-
-                    # Process each transaction
-                    for transaction in transactions:
-                        player_info = transaction.get("_player", {})
-                        player_id = player_info.get("_id") if player_info else None
-
-                        if not player_id:
-                            continue
-
-                        buyer_user_id = None
-                        seller_user_id = None
-                        buyer_team_id = None
-                        seller_team_id = None
-
-                        # Ensure player exists in players table (minimal data, using same connection)
-                        try:
-                            player_name = player_info.get("name", "Unknown")
-                            real_team_name = player_info.get("team", "")
-                            if self.db.db_type in ["postgresql", "postgres"]:
-                                sql_player = """
-                                    INSERT INTO players (player_id, name, role, real_team_id, real_team_name, slug, photo_url, last_updated)
-                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                                    ON CONFLICT (player_id) DO NOTHING
-                                """
-                            else:
-                                sql_player = """
-                                    INSERT OR IGNORE INTO players (player_id, name, role, real_team_id, real_team_name, slug, photo_url, last_updated)
-                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                                """
-                                sql_player = self.db.adapt_params(sql_player)
-                            cursor.execute(sql_player, (
-                                player_id,
-                                player_name,
-                                player_info.get("position", ""),
-                                player_info.get("teamId", ""),
-                                real_team_name,
-                                player_info.get("slug", ""),
-                                player_info.get("photo", ""),
-                                datetime.now()
-                            ))
-                        except Exception as player_err:  # pylint: disable=broad-except
-                            logger.debug("Could not ensure player %s exists: %s", player_id, player_err)
-
-                        buyer_info = transaction.get("_buyer")
-                        seller_info = transaction.get("_seller")
-                        price = transaction.get("price", 0)
-                        created = transaction.get("created", "")
-                        matchday = (
-                            transaction.get("matchday")
-                            or transaction.get("roundNumber")
-                            or transaction.get("round")
-                        )
-
-                        if created:
-                            try:
-                                transaction_date = datetime.fromisoformat(created.replace("Z", "+00:00"))
-                            except Exception:  # pylint: disable=broad-except
-                                transaction_date = datetime.now()
-                        else:
-                            transaction_date = datetime.now()
-
-                        # Determine buyer and seller
-                        if buyer_info and seller_info:
-                            buyer_id = buyer_info.get("_id")
-                            buyer_name = buyer_info.get("name", "Unknown")
-                            seller_id = seller_info.get("_id")
-                            seller_name = seller_info.get("name", "Unknown")
-
-                            buyer_user_id = get_or_create_user_id_in_transaction(buyer_id, buyer_name)
-                            seller_user_id = get_or_create_user_id_in_transaction(seller_id, seller_name)
-                            buyer_team_id = ensure_team(buyer_id, buyer_name, buyer_user_id)
-                            seller_team_id = ensure_team(seller_id, seller_name, seller_user_id)
-
-                        elif buyer_info:
-                            buyer_id = buyer_info.get("_id")
-                            buyer_name = buyer_info.get("name", "Unknown")
-
-                            buyer_user_id = get_or_create_user_id_in_transaction(buyer_id, buyer_name)
-                            seller_user_id = get_or_create_user_id_in_transaction(MARKET_USER_ID, "Market")
-                            buyer_team_id = ensure_team(buyer_id, buyer_name, buyer_user_id)
-                            seller_team_id = ensure_team(MARKET_TEAM_ID, "Mercado", seller_user_id)
-
-                        elif seller_info:
-                            seller_id = seller_info.get("_id")
-                            seller_name = seller_info.get("name", "Unknown")
-
-                            buyer_user_id = get_or_create_user_id_in_transaction(MARKET_USER_ID, "Market")
-                            seller_user_id = get_or_create_user_id_in_transaction(seller_id, seller_name)
-                            buyer_team_id = ensure_team(MARKET_TEAM_ID, "Mercado", buyer_user_id)
-                            seller_team_id = ensure_team(seller_id, seller_name, seller_user_id)
-                        else:
-                            continue
-
-                        if buyer_info and not buyer_team_id:
-                            buyer_team_id = ensure_team(
-                                buyer_info.get("_id"), buyer_info.get("name", ""), buyer_user_id
-                            )
-                        if seller_info and not seller_team_id:
-                            seller_team_id = ensure_team(
-                                seller_info.get("_id"), seller_info.get("name", ""), seller_user_id
-                            )
-
-                        if not buyer_team_id:
-                            buyer_team_id = MARKET_TEAM_ID if buyer_user_id == MARKET_USER_ID else None
-                        if not seller_team_id:
-                            seller_team_id = MARKET_TEAM_ID if seller_user_id == MARKET_USER_ID else None
-
-                        api_transaction_id = transaction.get("_id", "")
-                        if not api_transaction_id:
-                            continue
-
-                        if self.db.db_type in ["postgresql", "postgres"]:
-                            sql = """
-                                INSERT INTO transactions 
-                                    (championship_id, api_transaction_id, player_id, seller_user_id, buyer_user_id,
-                                     seller_team_id, buyer_team_id, price, transaction_date, matchday, recorded_at)
-                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                                ON CONFLICT (api_transaction_id) DO NOTHING
-                            """
-                        else:
-                            sql = """
-                                INSERT OR IGNORE INTO transactions 
-                                    (championship_id, api_transaction_id, player_id, seller_user_id, buyer_user_id,
-                                     seller_team_id, buyer_team_id, price, transaction_date, matchday, recorded_at)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                            """
-                            sql = self.db.adapt_params(sql)
-
-                        cursor.execute(
-                            sql,
-                            (
-                                championship_id,
-                                api_transaction_id,
-                                player_id,
-                                seller_user_id,
-                                buyer_user_id,
-                                seller_team_id,
-                                buyer_team_id,
-                                int(price) if price is not None else 0,
-                                transaction_date,
-                                matchday,
-                                datetime.now(),
-                            ),
-                        )
-
-                    conn.commit()
-                    return  # Success, exit retry loop
-
-            except Exception as e:
-                if "locked" in str(e).lower() and attempt < max_retries - 1:
-                    import time
-                    time.sleep(retry_delay * (attempt + 1))  # Exponential backoff
+        with self.db.get_connection() as conn:
+            cursor = self.db.get_cursor(conn)
+            now = datetime.now()
+            
+            # --- Phase 1: Collect all users, teams, players that need to exist ---
+            users_to_upsert = {}   # user_id -> username
+            teams_to_upsert = {}   # team_id -> (user_id, team_name)
+            players_to_upsert = {} # player_id -> (name, position, teamId, team, slug, photo)
+            
+            # Always ensure market user/team exist
+            users_to_upsert[MARKET_USER_ID] = "Market"
+            teams_to_upsert[MARKET_TEAM_ID] = (MARKET_USER_ID, "Mercado")
+            
+            transaction_rows = []
+            
+            for txn in transactions:
+                player_info = txn.get("_player", {})
+                player_id = player_info.get("_id") if player_info else None
+                if not player_id:
                     continue
+                
+                api_transaction_id = txn.get("_id", "")
+                if not api_transaction_id:
+                    continue
+                
+                # Collect player
+                players_to_upsert[player_id] = (
+                    player_info.get("name", "Unknown"),
+                    player_info.get("position", ""),
+                    player_info.get("teamId", ""),
+                    player_info.get("team", ""),
+                    player_info.get("slug", ""),
+                    player_info.get("photo", ""),
+                )
+                
+                buyer_info = txn.get("_buyer")
+                seller_info = txn.get("_seller")
+                price = txn.get("price", 0)
+                created = txn.get("created", "")
+                matchday = txn.get("matchday") or txn.get("roundNumber") or txn.get("round")
+                
+                if created:
+                    try:
+                        transaction_date = datetime.fromisoformat(created.replace("Z", "+00:00"))
+                    except Exception:
+                        transaction_date = now
                 else:
-                    logger.warning(f"Failed to save pressroom transactions: {e}")
-                    raise
+                    transaction_date = now
+                
+                buyer_user_id = None
+                seller_user_id = None
+                buyer_team_id = None
+                seller_team_id = None
+                
+                if buyer_info and seller_info:
+                    bid = buyer_info.get("_id")
+                    bname = buyer_info.get("name", "Unknown")
+                    sid = seller_info.get("_id")
+                    sname = seller_info.get("name", "Unknown")
+                    users_to_upsert[bid] = bname
+                    users_to_upsert[sid] = sname
+                    teams_to_upsert[bid] = (bid, bname)
+                    teams_to_upsert[sid] = (sid, sname)
+                    buyer_user_id, buyer_team_id = bid, bid
+                    seller_user_id, seller_team_id = sid, sid
+                elif buyer_info:
+                    bid = buyer_info.get("_id")
+                    bname = buyer_info.get("name", "Unknown")
+                    users_to_upsert[bid] = bname
+                    teams_to_upsert[bid] = (bid, bname)
+                    buyer_user_id, buyer_team_id = bid, bid
+                    seller_user_id, seller_team_id = MARKET_USER_ID, MARKET_TEAM_ID
+                elif seller_info:
+                    sid = seller_info.get("_id")
+                    sname = seller_info.get("name", "Unknown")
+                    users_to_upsert[sid] = sname
+                    teams_to_upsert[sid] = (sid, sname)
+                    seller_user_id, seller_team_id = sid, sid
+                    buyer_user_id, buyer_team_id = MARKET_USER_ID, MARKET_TEAM_ID
+                else:
+                    continue
+                
+                transaction_rows.append((
+                    championship_id, api_transaction_id, player_id,
+                    seller_user_id, buyer_user_id, seller_team_id, buyer_team_id,
+                    int(price) if price is not None else 0,
+                    transaction_date, matchday, now,
+                ))
+            
+            if not transaction_rows:
+                return
+            
+            # --- Phase 2: Batch upsert users, teams, players ---
+            if self.db.db_type in ["postgresql", "postgres"]:
+                from psycopg2.extras import execute_values
+                raw_cursor = cursor._cursor if hasattr(cursor, '_cursor') else cursor
+                
+                # Batch upsert users
+                user_values = [(uid, uname, now) for uid, uname in users_to_upsert.items()]
+                execute_values(raw_cursor, """
+                    INSERT INTO users (user_id, username, last_updated)
+                    VALUES %s
+                    ON CONFLICT (user_id) DO UPDATE SET
+                        username = EXCLUDED.username,
+                        last_updated = EXCLUDED.last_updated
+                """, user_values, page_size=100)
+                
+                # Batch upsert teams
+                team_values = [(tid, uid, tname, 270000000, now) for tid, (uid, tname) in teams_to_upsert.items()]
+                execute_values(raw_cursor, """
+                    INSERT INTO teams (team_id, user_id, team_name, initial_budget, last_updated)
+                    VALUES %s
+                    ON CONFLICT (team_id) DO NOTHING
+                """, team_values, page_size=100)
+                
+                # Batch upsert players
+                player_values = [(pid, name, pos, tid, team, slug, photo, now) 
+                                 for pid, (name, pos, tid, team, slug, photo) in players_to_upsert.items()]
+                execute_values(raw_cursor, """
+                    INSERT INTO players (player_id, name, role, real_team_id, real_team_name, slug, photo_url, last_updated)
+                    VALUES %s
+                    ON CONFLICT (player_id) DO NOTHING
+                """, player_values, page_size=100)
+                
+                # --- Phase 3: Batch insert transactions ---
+                execute_values(raw_cursor, """
+                    INSERT INTO transactions 
+                        (championship_id, api_transaction_id, player_id, seller_user_id, buyer_user_id,
+                         seller_team_id, buyer_team_id, price, transaction_date, matchday, recorded_at)
+                    VALUES %s
+                    ON CONFLICT (api_transaction_id) DO NOTHING
+                """, transaction_rows, page_size=100)
+            else:
+                # SQLite/Turso fallback — executemany
+                cursor.executemany("""
+                    INSERT OR REPLACE INTO users (user_id, username, last_updated) VALUES (?, ?, ?)
+                """, [(uid, uname, now) for uid, uname in users_to_upsert.items()])
+                
+                cursor.executemany("""
+                    INSERT OR IGNORE INTO teams (team_id, user_id, team_name, initial_budget, last_updated)
+                    VALUES (?, ?, ?, ?, ?)
+                """, [(tid, uid, tname, 270000000, now) for tid, (uid, tname) in teams_to_upsert.items()])
+                
+                cursor.executemany("""
+                    INSERT OR IGNORE INTO players (player_id, name, role, real_team_id, real_team_name, slug, photo_url, last_updated)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, [(pid, name, pos, tid, team, slug, photo, now) 
+                      for pid, (name, pos, tid, team, slug, photo) in players_to_upsert.items()])
+                
+                cursor.executemany("""
+                    INSERT OR IGNORE INTO transactions 
+                        (championship_id, api_transaction_id, player_id, seller_user_id, buyer_user_id,
+                         seller_team_id, buyer_team_id, price, transaction_date, matchday, recorded_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, transaction_rows)
 
     def save_matchday_article(
         self,
@@ -3094,7 +3016,7 @@ class DataManagerV2:
             logger.warning(f"Could not ensure schema updates: {e}")
 
     def save_player_championship_stats(self, championship_id: str, player_stats: List[Dict]):
-        """Persist clause and average metrics for players in a championship."""
+        """Persist clause and average metrics for players in a championship (batch)."""
         if not player_stats:
             return
         
@@ -3104,33 +3026,8 @@ class DataManagerV2:
             # Ensure championship exists so FK constraints succeed
             self.ensure_championship_exists(championship_id, conn=conn, cursor=cursor)
             
-            if self.db.db_type in ["postgresql", "postgres"]:
-                sql = '''
-                    INSERT INTO player_championship_stats
-                    (championship_id, player_id, owner_team_id, owner_team_name, owner_user_id,
-                     clause_price, suggested_clause, average_last_five, average_overall, updated_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (championship_id, player_id) DO UPDATE SET
-                        owner_team_id = EXCLUDED.owner_team_id,
-                        owner_team_name = EXCLUDED.owner_team_name,
-                        owner_user_id = EXCLUDED.owner_user_id,
-                        clause_price = EXCLUDED.clause_price,
-                        suggested_clause = EXCLUDED.suggested_clause,
-                        average_last_five = EXCLUDED.average_last_five,
-                        average_overall = EXCLUDED.average_overall,
-                        updated_at = EXCLUDED.updated_at
-                '''
-            else:
-                sql = '''
-                    INSERT OR REPLACE INTO player_championship_stats
-                    (championship_id, player_id, owner_team_id, owner_team_name, owner_user_id,
-                     clause_price, suggested_clause, average_last_five, average_overall, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                '''
-                sql = self.db.adapt_params(sql)
-            
             now = datetime.now()
-            inserted = 0
+            values = []
             
             for data in player_stats:
                 player_id = data.get("player_id")
@@ -3163,21 +3060,43 @@ class DataManagerV2:
                 except (TypeError, ValueError):
                     average_overall = None
                 
-                cursor.execute(sql, (
-                    championship_id,
-                    player_id,
-                    owner_team_id,
-                    owner_team_name,
-                    owner_user_id,
-                    clause_price,
-                    suggested_clause,
-                    average_last_five,
-                    average_overall,
-                    now
+                values.append((
+                    championship_id, player_id, owner_team_id, owner_team_name,
+                    owner_user_id, clause_price, suggested_clause,
+                    average_last_five, average_overall, now
                 ))
-                inserted += 1
-
-            logger.info(f"Saved {inserted} player championship stats for {championship_id}")
+            
+            if not values:
+                return
+            
+            if self.db.db_type in ["postgresql", "postgres"]:
+                from psycopg2.extras import execute_values
+                raw_cursor = cursor._cursor if hasattr(cursor, '_cursor') else cursor
+                execute_values(raw_cursor, '''
+                    INSERT INTO player_championship_stats
+                    (championship_id, player_id, owner_team_id, owner_team_name, owner_user_id,
+                     clause_price, suggested_clause, average_last_five, average_overall, updated_at)
+                    VALUES %s
+                    ON CONFLICT (championship_id, player_id) DO UPDATE SET
+                        owner_team_id = EXCLUDED.owner_team_id,
+                        owner_team_name = EXCLUDED.owner_team_name,
+                        owner_user_id = EXCLUDED.owner_user_id,
+                        clause_price = EXCLUDED.clause_price,
+                        suggested_clause = EXCLUDED.suggested_clause,
+                        average_last_five = EXCLUDED.average_last_five,
+                        average_overall = EXCLUDED.average_overall,
+                        updated_at = EXCLUDED.updated_at
+                ''', values, page_size=100)
+            else:
+                sql = '''
+                    INSERT OR REPLACE INTO player_championship_stats
+                    (championship_id, player_id, owner_team_id, owner_team_name, owner_user_id,
+                     clause_price, suggested_clause, average_last_five, average_overall, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                '''
+                cursor.executemany(sql, values)
+            
+            logger.info(f"Saved {len(values)} player championship stats for {championship_id}")
     
     def get_clausulable_player_stats(self, championship_id: str) -> List[Dict]:
         """Retrieve stored clause metrics for clausulable player ranking."""
