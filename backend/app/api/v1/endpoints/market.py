@@ -78,6 +78,64 @@ def _calculate_suggested_bid(player_value: int, championship_id: str, db) -> Dic
     }
 
 
+@router.post("/bid")
+async def place_bid(
+    championship_id: str = Query(...),
+    player_id: str = Query(...),
+    player_slug: str = Query(...),
+    price: int = Query(...),
+    is_clause: bool = Query(default=False),
+    service: FutmondoService = Depends(FutmondoService),
+) -> Dict:
+    """Realiza una puja por un jugador en el mercado de Futmondo."""
+    try:
+        if not service.client or not service.client.is_authenticated():
+            service.login()
+        client = service.client
+
+        user_team_id = _get_user_team_id(client, championship_id)
+        if not user_team_id:
+            raise HTTPException(status_code=400, detail="No se pudo determinar tu equipo")
+
+        bid_data = {
+            "header": {
+                "token": client.token,
+                "userid": client.user_id,
+            },
+            "query": {
+                "championshipId": championship_id,
+                "userteamId": user_team_id,
+                "player_slug": player_slug,
+                "player_id": player_id,
+                "price": price,
+                "isClause": is_clause,
+            },
+            "answer": {}
+        }
+
+        resp = client.session.post(f"{client.base_url}/1/market/bid", json=bid_data, timeout=15)
+        result = resp.json()
+        answer = result.get("answer", {})
+
+        if answer.get("code") == "api.general.ok":
+            return {
+                "success": True,
+                "message": f"Puja de {price:,}€ realizada correctamente",
+                "player_id": player_id,
+                "price": price,
+            }
+        else:
+            return {
+                "success": False,
+                "message": answer.get("code", "Error desconocido"),
+                "detail": answer,
+            }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @router.get("/today")
 async def get_market_today(
     championship_id: str = Query(default=CHAMPIONSHIP_ID),
@@ -141,6 +199,7 @@ async def get_market_today(
             
             players_with_bid.append({
                 "player_id": p.get('id', ''),
+                "slug": p.get('slug', ''),
                 "name": p.get('name', ''),
                 "team": p.get('team', ''),
                 "position": p.get('role', ''),

@@ -5,11 +5,15 @@ import { MatTableModule, MatTableDataSource } from '@angular/material/table';
 import { MatSortModule, MatSort } from '@angular/material/sort';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatDialog } from '@angular/material/dialog';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
 import { ChampionshipService } from '../../core/services/championship.service';
 
 interface MarketPlayer {
   player_id: string;
+  slug: string;
   name: string;
   team: string;
   position: string;
@@ -28,7 +32,7 @@ interface MarketPlayer {
 @Component({
   selector: 'app-market',
   standalone: true,
-  imports: [MatTableModule, MatSortModule, MatProgressSpinnerModule, MatChipsModule, MoneyPipe],
+  imports: [MatTableModule, MatSortModule, MatProgressSpinnerModule, MatChipsModule, MatButtonModule, MatIconModule, MoneyPipe],
   template: `
     <h1>🛒 Mercado de Hoy</h1>
     <p class="description">Jugadores del computer disponibles para fichar. La puja sugerida se basa en el historial de compras similares.</p>
@@ -79,9 +83,12 @@ interface MarketPlayer {
             <th mat-header-cell *matHeaderCellDef mat-sort-header>Puja Sugerida</th>
             <td mat-cell *matCellDef="let p" class="suggested">
               {{ p.suggested_bid | money }}
-              <span class="confidence" [class]="'conf-' + p.bid_confidence">
-                {{ p.bid_confidence === 'high' ? '🎯' : p.bid_confidence === 'medium' ? '📊' : '❓' }}
-              </span>
+              <button mat-icon-button color="primary" class="bid-btn"
+                      (click)="confirmBid(p, $event)"
+                      [disabled]="bidding()"
+                      title="Pujar por {{ p.suggested_bid | money }}">
+                <mat-icon>gavel</mat-icon>
+              </button>
             </td>
           </ng-container>
           <ng-container matColumnDef="avg_paid_similar">
@@ -108,6 +115,7 @@ interface MarketPlayer {
     .trend-up { color: #16a34a; font-weight: 600; }
     .trend-down { color: #dc2626; font-weight: 600; }
     .current-bid { color: #7c3aed; font-weight: 600; }
+    .bid-btn { transform: scale(0.8); }
     .confidence { margin-left: 4px; font-size: 0.9em; }
     .legend { color: var(--mat-sys-on-surface-variant); font-size: 0.8em; margin-top: 12px; }
   `]
@@ -123,6 +131,7 @@ export class MarketComponent {
   dataSource = new MatTableDataSource<MarketPlayer>([]);
   loading = signal(true);
   error = signal('');
+  bidding = signal(false);
   columns = ['name', 'team', 'position', 'value', 'change', 'market_price', 'current_bid', 'suggested_bid', 'avg_paid_similar'];
 
   constructor() {
@@ -143,6 +152,38 @@ export class MarketComponent {
       this.error.set(err.message || 'Error cargando mercado');
     } finally {
       this.loading.set(false);
+    }
+  }
+
+  async confirmBid(player: MarketPlayer, event: Event) {
+    event.stopPropagation();
+    const moneyFmt = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+    const confirmed = confirm(
+      `¿Pujar ${moneyFmt.format(player.suggested_bid)} por ${player.name} (${player.team})?`
+    );
+    if (!confirmed) return;
+
+    this.bidding.set(true);
+    try {
+      let params = new HttpParams()
+        .set('championship_id', this.championshipService.activeId())
+        .set('player_id', player.player_id)
+        .set('player_slug', player.slug)
+        .set('price', player.suggested_bid)
+        .set('is_clause', 'false');
+
+      const result = await firstValueFrom(this.http.post<any>('/api/v1/market/bid', {}, { params }));
+      if (result.success) {
+        alert(`✅ Puja realizada: ${moneyFmt.format(player.suggested_bid)} por ${player.name}`);
+        // Recargar para actualizar puja actual
+        await this.loadData();
+      } else {
+        alert(`❌ Error: ${result.message}`);
+      }
+    } catch (err: any) {
+      alert(`❌ Error al pujar: ${err.message || 'Error desconocido'}`);
+    } finally {
+      this.bidding.set(false);
     }
   }
 }
