@@ -129,9 +129,9 @@ class DBConnection:
         
         try:
             self._pool = psycopg2.pool.SimpleConnectionPool(
-                2, 10, connection_string
+                5, 20, connection_string
             )
-            logger.info("✅ PostgreSQL connection pool created (2-10 connections)")
+            logger.info("✅ PostgreSQL connection pool created (5-20 connections)")
         except Exception as e:
             logger.warning(f"Could not create connection pool, using direct connections: {e}")
             self._pool = None
