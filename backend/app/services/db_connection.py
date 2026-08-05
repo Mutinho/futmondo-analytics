@@ -170,17 +170,32 @@ class DBConnection:
                 raise
         elif self.db_type in ["postgresql", "postgres"]:
             if self._pool:
-                conn = self._pool.getconn()
-                # Verify connection is alive (Neon closes idle connections)
-                try:
-                    conn.cursor().execute("SELECT 1")
-                except Exception:
-                    # Connection is dead — discard and get a fresh one
-                    try:
-                        self._pool.putconn(conn, close=True)
-                    except Exception:
-                        pass
+                max_attempts = 3
+                conn = None
+                for attempt in range(max_attempts):
                     conn = self._pool.getconn()
+                    try:
+                        conn.cursor().execute("SELECT 1")
+                        break  # Connection is alive
+                    except Exception:
+                        # Connection is dead — discard and retry
+                        try:
+                            self._pool.putconn(conn, close=True)
+                        except Exception:
+                            pass
+                        conn = None
+                        if attempt == max_attempts - 1:
+                            # All pool connections dead — recreate pool
+                            logger.warning("All pool connections dead, recreating pool...")
+                            try:
+                                self._pool.closeall()
+                            except Exception:
+                                pass
+                            import psycopg2.pool
+                            self._pool = psycopg2.pool.SimpleConnectionPool(
+                                5, 20, self.connection_string
+                            )
+                            conn = self._pool.getconn()
                 try:
                     yield conn
                     conn.commit()
