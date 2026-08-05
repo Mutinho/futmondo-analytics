@@ -1171,50 +1171,47 @@ class DataSyncService:
             
             total_synced = 0
             stats_payload: List[Dict] = []
+            player_records: List[Dict] = []
             
             for player in players:
-                try:
-                    player_id = player.get("id")
-                    if not player_id:
-                        continue
-                    
-                    # Save player (will update if exists)
-                    self.dm.save_player({
-                        "id": player_id,
-                        "name": player.get("name", ""),
-                        "role": player.get("role", ""),
-                        "real_team_id": player.get("teamId", ""),
-                        "real_team_name": player.get("team", ""),
-                        "slug": player.get("slug", ""),
-                        "photo_url": player.get("photo", "")
-                    })
-                    
-                    clause_data = player.get("clause") or {}
-                    average_data = player.get("average") or {}
-                    owner_team_id = player.get("userteamId")
-                    owner_team_name = player.get("userteam")
-                    owner_user_id = (
-                        player.get("userteamUserId")
-                        or player.get("userId")
-                        or owner_team_id
-                    )
-                    
-                    stats_payload.append({
-                        "player_id": player_id,
-                        "owner_team_id": owner_team_id,
-                        "owner_team_name": owner_team_name,
-                        "owner_user_id": owner_user_id,
-                        "clause_price": clause_data.get("price"),
-                        "suggested_clause": clause_data.get("suggestedClause"),
-                        "average_last_five": average_data.get("averageLastFive"),
-                        "average_overall": average_data.get("average")
-                    })
-                    
-                    total_synced += 1
-                    
-                except Exception as e:
-                    logger.warning(f"Failed to save player {player.get('id')}: {e}")
+                player_id = player.get("id")
+                if not player_id:
                     continue
+                
+                # Collect player data for batch insert
+                player_records.append({
+                    "id": player_id,
+                    "name": player.get("name", ""),
+                    "role": player.get("role", ""),
+                    "teamId": player.get("teamId", ""),
+                    "team": player.get("team", ""),
+                    "slug": player.get("slug", ""),
+                    "photo": player.get("photo", "")
+                })
+                
+                clause_data = player.get("clause") or {}
+                average_data = player.get("average") or {}
+                owner_team_id = player.get("userteamId")
+                owner_team_name = player.get("userteam")
+                owner_user_id = (
+                    player.get("userteamUserId")
+                    or player.get("userId")
+                    or owner_team_id
+                )
+                
+                stats_payload.append({
+                    "player_id": player_id,
+                    "owner_team_id": owner_team_id,
+                    "owner_team_name": owner_team_name,
+                    "owner_user_id": owner_user_id,
+                    "clause_price": clause_data.get("price"),
+                    "suggested_clause": clause_data.get("suggestedClause"),
+                    "average_last_five": average_data.get("averageLastFive"),
+                    "average_overall": average_data.get("average")
+                })
+            
+            # Batch insert all players in one transaction
+            total_synced = self.dm.save_players_batch(player_records)
             
             if stats_payload:
                 try:

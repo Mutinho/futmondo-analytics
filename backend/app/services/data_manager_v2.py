@@ -464,6 +464,83 @@ class DataManagerV2:
             
             return player_id
     
+    def save_players_batch(self, players: List[Dict]) -> int:
+        """Save or update multiple players in a single transaction (batch upsert).
+        
+        Args:
+            players: List of dicts with keys: id, name, role, real_team_id/teamId,
+                     real_team_name/team, slug, photo_url/photo
+        
+        Returns:
+            Number of players processed
+        """
+        if not players:
+            return 0
+        
+        with self.db.get_connection() as conn:
+            cursor = self.db.get_cursor(conn)
+            now = datetime.now()
+            
+            if self.db.db_type in ["postgresql", "postgres"]:
+                from psycopg2.extras import execute_values
+                sql = '''
+                    INSERT INTO players (player_id, name, role, real_team_id, real_team_name, slug, photo_url, last_updated)
+                    VALUES %s
+                    ON CONFLICT (player_id) DO UPDATE SET
+                        name = EXCLUDED.name,
+                        role = EXCLUDED.role,
+                        real_team_id = EXCLUDED.real_team_id,
+                        real_team_name = EXCLUDED.real_team_name,
+                        slug = EXCLUDED.slug,
+                        photo_url = EXCLUDED.photo_url,
+                        last_updated = EXCLUDED.last_updated
+                '''
+                values = []
+                for p in players:
+                    player_id = p.get("id", "")
+                    if not player_id:
+                        continue
+                    values.append((
+                        player_id,
+                        p.get("name", ""),
+                        p.get("role", ""),
+                        p.get("teamId", p.get("real_team_id", "")),
+                        p.get("team", p.get("real_team_name", "")),
+                        p.get("slug", ""),
+                        p.get("photo", p.get("photo_url", "")),
+                        now,
+                    ))
+                
+                # Use execute_values for efficient batch insert
+                # Unwrap the _TursoCursorWrapper if present
+                raw_cursor = cursor._cursor if hasattr(cursor, '_cursor') else cursor
+                execute_values(raw_cursor, sql, values, page_size=100)
+            else:
+                # SQLite/Turso: use executemany
+                sql = '''
+                    INSERT OR REPLACE INTO players 
+                    (player_id, name, role, real_team_id, real_team_name, slug, photo_url, last_updated)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                '''
+                values = []
+                for p in players:
+                    player_id = p.get("id", "")
+                    if not player_id:
+                        continue
+                    values.append((
+                        player_id,
+                        p.get("name", ""),
+                        p.get("role", ""),
+                        p.get("teamId", p.get("real_team_id", "")),
+                        p.get("team", p.get("real_team_name", "")),
+                        p.get("slug", ""),
+                        p.get("photo", p.get("photo_url", "")),
+                        now,
+                    ))
+                cursor.executemany(sql, values)
+            
+            return len(values)
+    
     def save_team_standing(self, championship_id: str, team_id: str, matchday: int, 
                            position: int, points: int, points_this_matchday: int = 0,
                           team_value: int = None, conn=None, cursor=None, **kwargs) -> None:
