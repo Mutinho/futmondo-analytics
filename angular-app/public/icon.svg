@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Gradients -->
+    <linearGradient id="bgSquare" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a3641" />
+      <stop offset="100%" stop-color="#041a21" />
+    </linearGradient>
+
+    <linearGradient id="arrowGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="50%" stop-color="#34d399" />
+      <stop offset="100%" stop-color="#6ee7b7" />
+    </linearGradient>
+
+    <linearGradient id="barGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#059669" />
+      <stop offset="100%" stop-color="#10b981" />
+    </linearGradient>
+
+    <linearGradient id="greenTileGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#047857" />
+    </linearGradient>
+
+    <!-- Drop Shadow Filter -->
+    <filter id="dropShadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000000" flood-opacity="0.4" />
+    </filter>
+
+    <!-- Clip Path for Inner Circle Content -->
+    <clipPath id="circleClip">
+      <circle cx="256" cy="256" r="165" />
+    </clipPath>
+  </defs>
+
+  <!-- Square Outer Frame / Background -->
+  <rect x="24" y="24" width="464" height="464" rx="32" fill="#0c404c" filter="url(#dropShadow)" />
+  <rect x="40" y="40" width="432" height="432" rx="20" fill="url(#bgSquare)" />
+
+  <!-- Outer White Circle Badge Inside Square -->
+  <circle cx="256" cy="256" r="185" fill="#ffffff" filter="url(#dropShadow)" />
+  
+  <!-- Outer Dark Ring Border -->
+  <circle cx="256" cy="256" r="175" fill="none" stroke="#062d37" stroke-width="10" />
+
+  <!-- Main Dark Blue/Teal Circle Background -->
+  <circle cx="256" cy="256" r="168" fill="url(#bgSquare)" />
+
+  <!-- Soccer Ball & Analytics Content (Clipped to Inner Circle) -->
+  <g clip-path="url(#circleClip)">
+    
+    <!-- Soccer Ball Hexagons & Pentagons Grid -->
+    <g stroke="#093845" stroke-width="5" stroke-linejoin="round" stroke-linecap="round">
+      <!-- Center Pentagon -->
+      <polygon points="256,190 215,220 230,270 282,270 297,220" fill="#0b4f42" />
+      
+      <!-- Top Hexagons / Panels -->
+      <polygon points="256,190 215,220 215,160 256,130 297,160 297,220" fill="url(#greenTileGrad)" />
+      <polygon points="256,130 215,160 174,130 174,85 215,65 256,85" fill="#ffffff" />
+      <polygon points="256,130 297,160 338,130 338,85 297,65 256,85" fill="#ffffff" />
+      
+      <!-- Upper Left Panels -->
+      <polygon points="215,220 174,190 134,210 134,255 174,282 215,270" fill="#ffffff" />
+      <polygon points="174,190 215,160 174,130 132,150 132,190" fill="url(#greenTileGrad)" />
+      
+      <!-- Upper Right Panels -->
+      <polygon points="297,220 338,190 378,210 378,255 338,282 297,270" fill="#ffffff" />
+      <polygon points="338,190 297,160 338,130 380,150 380,190" fill="url(#greenTileGrad)" />
+
+      <!-- Lower Side Panels -->
+      <polygon points="230,270 174,282 152,328 188,365 232,345" fill="#ffffff" />
+      <polygon points="282,270 338,282 360,328 324,365 280,345" fill="#ffffff" />
+    </g>
+
+    <!-- Dark Overlay Gradient at Bottom for Contrast -->
+    <rect x="70" y="270" width="372" height="160" fill="url(#bgSquare)" opacity="0.8" />
+
+    <!-- Bar Chart Elements at Bottom -->
+    <g fill="url(#barGrad)">
+      <rect x="210" y="340" width="20" height="55" rx="3" />
+      <rect x="238" y="320" width="20" height="75" rx="3" fill="#10b981" />
+      <rect x="266" y="300" width="20" height="95" rx="3" fill="#34d399" />
+      <rect x="294" y="325" width="20" height="70" rx="3" />
+    </g>
+
+    <!-- Star Indicator -->
+    <polygon points="256,285 260,297 273,297 263,305 266,317 256,310 246,317 249,305 239,297 252,297" fill="#10b981" />
+
+  </g>
+
+  <!-- Upward Trend Arrow -->
+  <g filter="url(#dropShadow)">
+    <!-- Dark Outline / Border for Arrow -->
+    <path d="M 130 345 
+             L 195 275 
+             L 245 310 
+             L 350 180 
+             L 328 175 
+             L 400 145 
+             L 382 215 
+             L 360 192 
+             L 250 332 
+             L 195 292 
+             L 138 355 Z" 
+          fill="#042a2b" />
+
+    <!-- Main Arrow Body -->
+    <path d="M 135 345 
+             L 195 280 
+             L 247 315 
+             L 355 180 
+             L 338 177 
+             L 392 152 
+             L 376 206 
+             L 360 190 
+             L 248 325 
+             L 195 288 
+             L 140 350 Z" 
+          fill="url(#arrowGrad)" />
+
+    <!-- Arrow Highlight Line -->
+    <path d="M 140 342 L 195 283 L 247 318 L 358 182" 
+          stroke="#a7f3d0" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.8" />
+  </g>
+
+</svg>
