@@ -907,21 +907,25 @@ class DataManagerV2:
                         buyer_team_id = None
                         seller_team_id = None
 
-                        # Ensure player exists in players table (minimal data)
+                        # Ensure player exists in players table (minimal data, using same connection)
                         try:
                             player_name = player_info.get("name", "Unknown")
                             real_team_name = player_info.get("team", "")
-                            self.save_player(
-                                {
-                                    "id": player_id,
-                                    "name": player_name,
-                                    "role": player_info.get("position", ""),
-                                    "teamId": player_info.get("teamId", ""),
-                                    "team": real_team_name,
-                                    "slug": player_info.get("slug", ""),
-                                    "photo": player_info.get("photo", ""),
-                                }
-                            )
+                            sql_player = """
+                                INSERT OR IGNORE INTO players (player_id, name, role, real_team_id, real_team_name, slug, photo_url, last_updated)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                            """
+                            sql_player = self.db.adapt_params(sql_player)
+                            cursor.execute(sql_player, (
+                                player_id,
+                                player_name,
+                                player_info.get("position", ""),
+                                player_info.get("teamId", ""),
+                                real_team_name,
+                                player_info.get("slug", ""),
+                                player_info.get("photo", ""),
+                                datetime.now()
+                            ))
                         except Exception as player_err:  # pylint: disable=broad-except
                             logger.debug("Could not ensure player %s exists: %s", player_id, player_err)
 

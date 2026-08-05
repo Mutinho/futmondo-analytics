@@ -98,18 +98,19 @@ async def get_sync_status() -> Dict:
 @router.post("/trigger")
 async def trigger_sync(
     sync_type: str = "all",
+    championship_id: str = CHAMPIONSHIP_ID,
     service: FutmondoService = Depends(FutmondoService)
 ) -> Dict:
     """Manually trigger data synchronization
     
     Args:
         sync_type: Type of sync to trigger ("all", "transactions", "clauses", "dream_teams", "rosters", "players")
+        championship_id: Championship ID to sync (defaults to configured one)
     
     Returns:
         Dict with sync results
     """
     try:
-        championship_id = CHAMPIONSHIP_ID
         
         # Ensure service is authenticated
         service = ensure_authenticated(service)

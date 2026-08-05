@@ -108,6 +108,7 @@ class DBConnection:
         else:
             # SQLite: direct connection (connection pooling not critical)
             conn = self.connector.connect(self.db_path)
+            conn.execute("PRAGMA journal_mode=WAL;")
             try:
                 yield conn
                 conn.commit()

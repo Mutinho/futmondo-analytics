@@ -7,7 +7,6 @@ import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
-from app.services.matchday_humor_service import MatchdayHumorService
 from app.services.data_manager_v2 import DataManagerV2
 from app.services.futmondo_client import FutmondoClient
 from app.core.config import (
@@ -113,15 +112,19 @@ class DataSyncService:
             while True:
                 try:
                     page_count += 1
-                    logger.info(f"Fetching pressroom page {page_count} (from={pagination_from or 'start'})...")
+                    logger.info(f"📰 Pressroom page {page_count} (from={pagination_from or 'start'})...")
                     
                     pressroom_data = self.client.get_pressroom_news(self.championship_id, from_id=pagination_from or None)
                     if not pressroom_data:
+                        logger.info(f"📰 Page {page_count}: No response from API, stopping.")
                         break
                     
                     news_items = pressroom_data.get("news", pressroom_data.get("data", []))
                     if not news_items:
+                        logger.info(f"📰 Page {page_count}: Empty news list, stopping.")
                         break
+                    
+                    logger.info(f"📰 Page {page_count}: Got {len(news_items)} items")
                     
                     transaction_items = []
                     for item in news_items:
@@ -140,9 +143,12 @@ class DataSyncService:
                                 if not newest_transaction_id:
                                     newest_transaction_id = transaction_id
                     
+                    logger.info(f"📰 Page {page_count}: Filtered {len(transaction_items)} transactions from {len(news_items)} items")
+                    
                     if transaction_items:
                         self.dm.save_pressroom_transactions(self.championship_id, transaction_items)
                         total_synced += len(transaction_items)
+                        logger.info(f"📰 Page {page_count}: Saved {len(transaction_items)} transactions (total: {total_synced})")
                     
                     if reached_previous:
                         logger.info("Reached previously synced transaction ID; stopping pagination")
@@ -161,8 +167,8 @@ class DataSyncService:
                     
                     time.sleep(0.3)  # Rate limiting
                     
-                    if page_count >= 1000:  # Safety limit
-                        logger.warning("Page limit reached (1000)")
+                    if page_count >= 50:  # Safety limit
+                        logger.warning("Page limit reached (50)")
                         break
                         
                 except Exception as e:
@@ -297,8 +303,8 @@ class DataSyncService:
 
                     time.sleep(0.3)  # Rate limiting
 
-                    if page_count >= 1000:  # Safety limit
-                        logger.warning("Page limit reached (1000)")
+                    if page_count >= 50:  # Safety limit
+                        logger.warning("Page limit reached (50)")
                         break
 
                 except Exception as e:
@@ -1313,91 +1319,6 @@ class DataSyncService:
                 "duration_seconds": duration
             }
 
-    def sync_matchday_humor_articles(self, force: bool = False, upto_matchday: Optional[int] = None) -> Dict:
-        """Ensure humorous articles exist for all completed matchdays."""
-        start_time = time.time()
-        logger.info("Starting matchday humor article sync...")
-
-        try:
-            latest_matchday = self.dm.get_latest_matchday(self.championship_id)
-            if not latest_matchday:
-                duration = time.time() - start_time
-                logger.info("No matchdays available yet; skipping humor sync.")
-                return {
-                    "status": "no_data",
-                    "generated": 0,
-                    "skipped": 0,
-                    "duration_seconds": duration
-                }
-
-            if upto_matchday is not None:
-                latest_matchday = min(latest_matchday, upto_matchday)
-
-            try:
-                humor_service = MatchdayHumorService(data_manager=self.dm)
-            except RuntimeError as config_err:
-                duration = time.time() - start_time
-                logger.error(f"Cannot initialize humor service: {config_err}")
-                return {
-                    "status": "error",
-                    "error": str(config_err),
-                    "generated": 0,
-                    "skipped": 0,
-                    "duration_seconds": duration
-                }
-
-            generated = 0
-            skipped = 0
-            failures: List[Dict[str, Any]] = []
-
-            for matchday in range(1, latest_matchday + 1):
-                try:
-                    exists = self.dm.get_matchday_article(self.championship_id, matchday)
-                    if exists and not force:
-                        skipped += 1
-                        continue
-
-                    humor_service.get_or_generate_article(
-                        championship_id=self.championship_id,
-                        matchday=matchday,
-                        force_refresh=force
-                    )
-                    generated += 1
-                    time.sleep(0.2)
-                except Exception as article_err:
-                    logger.error(
-                        "Failed to generate humor article for matchday %s: %s",
-                        matchday,
-                        article_err
-                    )
-                    failures.append({"matchday": matchday, "error": str(article_err)})
-
-            duration = time.time() - start_time
-            status = "success"
-            if failures and generated == 0:
-                status = "error"
-            elif failures:
-                status = "partial_success"
-
-            return {
-                "status": status,
-                "generated": generated,
-                "skipped": skipped,
-                "failures": failures,
-                "duration_seconds": duration
-            }
-
-        except Exception as e:
-            duration = time.time() - start_time
-            logger.error(f"Matchday humor article sync failed: {e}", exc_info=True)
-            return {
-                "status": "error",
-                "error": str(e),
-                "generated": 0,
-                "skipped": 0,
-                "duration_seconds": duration
-            }
-
     def sync_all(self) -> Dict:
         """Run all sync operations
         
@@ -1420,7 +1341,6 @@ class DataSyncService:
             "rosters": self.sync_rosters(),
             "team_standings": self.sync_round_rankings(),
             "match_odds": self.sync_match_odds(),
-            "humor_articles": self.sync_matchday_humor_articles()
         }
         
         logger.info("=" * 60)

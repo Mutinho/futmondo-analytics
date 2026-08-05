@@ -1,0 +1,86 @@
+.budget-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 8px;
+
+  h1 {
+    margin: 0;
+    font-size: 1.5em;
+  }
+}
+
+.sync-area {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sync-message {
+  font-size: 0.85em;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.description {
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 0.9em;
+  margin-bottom: 16px;
+}
+
+.loading-container {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 40px;
+  justify-content: center;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.error-message {
+  padding: 16px;
+  background: var(--mat-sys-error-container);
+  color: var(--mat-sys-on-error-container);
+  border-radius: 8px;
+}
+
+.table-container {
+  overflow-x: auto;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.budget-table {
+  width: 100%;
+}
+
+.clickable-row {
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover {
+    background: var(--mat-sys-surface-container-high) !important;
+  }
+}
+
+.money-positive {
+  color: #16a34a;
+  font-weight: 600;
+}
+
+.money-negative {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.money-neutral {
+  color: #d97706;
+  font-weight: 600;
+}
+
+.footnote {
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 0.8em;
+  margin-top: 12px;
+}

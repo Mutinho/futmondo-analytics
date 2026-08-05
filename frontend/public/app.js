@@ -18,7 +18,8 @@ const ANALYTICS_ENDPOINTS = {
     watchlist: `${ANALYTICS_BASE_URL}/market/watchlist`,
     clauseNetwork: `${ANALYTICS_BASE_URL}/clauses/network`,
     streaks: `${ANALYTICS_BASE_URL}/opportunities/streaks`,
-    projections: `${ANALYTICS_BASE_URL}/projections/matchday`
+    projections: `${ANALYTICS_BASE_URL}/projections/matchday`,
+    balances: `${ANALYTICS_BASE_URL}/balances`
 };
 const HUMOR_API_URL = '/api/v1/humor/article';
 const AUTH_BASE_URL = '/api/v1/auth';
@@ -1628,7 +1629,8 @@ function showTab(tabName) {
     const buttons = document.querySelectorAll('.tab-button');
     buttons.forEach(btn => {
         const btnText = btn.textContent.toLowerCase();
-        if ((tabName === 'evolution' && btnText.includes('evolución')) ||
+        if ((tabName === 'budget' && btnText.includes('presupuesto')) ||
+            (tabName === 'evolution' && btnText.includes('evolución')) ||
             (tabName === 'finances' && btnText.includes('finanzas')) ||
             (tabName === 'stats' && btnText.includes('estadísticas')) ||
             (tabName === 'clausulable' && btnText.includes('clausulables')) ||
@@ -1638,7 +1640,9 @@ function showTab(tabName) {
         }
     });
 
-    if (tabName === 'finances') {
+    if (tabName === 'budget') {
+        loadBudgetTab();
+    } else if (tabName === 'finances') {
         loadFinancesData();
     } else if (tabName === 'stats') {
         loadUserStatsData();
@@ -3167,6 +3171,200 @@ function getDifficultyBadge(value) {
     return { label: `Neutral · ${formatted}`, className: 'badge-medium' };
 }
 
+// ==================== PRESUPUESTO (Tab principal) ====================
+
+let budgetLoaded = false;
+
+async function syncTransactions() {
+    const btn = document.getElementById('budgetSyncBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳ Sincronizando...';
+    
+    try {
+        const response = await fetch('/api/v1/sync/trigger?sync_type=transactions', { method: 'POST' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        const synced = data.results?.transactions?.records_synced || 0;
+        btn.textContent = `✅ ${synced} nuevas`;
+        
+        // Recargar datos de presupuesto
+        budgetLoaded = false;
+        await loadBudgetTab();
+    } catch (err) {
+        btn.textContent = '❌ Error';
+        console.error('Sync error:', err);
+    }
+    
+    setTimeout(() => {
+        btn.disabled = false;
+        btn.textContent = '🔄 Sincronizar';
+    }, 3000);
+}
+
+async function loadBudgetTab() {
+    if (budgetLoaded) return;
+    
+    const loading = document.getElementById('budgetLoading');
+    const error = document.getElementById('budgetError');
+    const content = document.getElementById('budgetContent');
+
+    loading.style.display = 'block';
+    error.style.display = 'none';
+    content.style.display = 'none';
+
+    try {
+        const response = await fetch(ANALYTICS_ENDPOINTS.balances);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        renderBudgetTable(data);
+        budgetLoaded = true;
+        loading.style.display = 'none';
+        content.style.display = 'block';
+    } catch (err) {
+        console.error('Budget load error:', err);
+        loading.style.display = 'none';
+        error.textContent = `No se pudo cargar los presupuestos: ${err.message}`;
+        error.style.display = 'block';
+    }
+}
+
+function renderBudgetTable(data) {
+    const container = document.getElementById('budgetTable');
+    const detailContainer = document.getElementById('budgetDetail');
+    if (!container) return;
+
+    container.style.display = 'block';
+    detailContainer.style.display = 'none';
+
+    const teams = data.teams || [];
+    if (!teams.length) {
+        container.innerHTML = '<p>No hay datos de transacciones disponibles.</p>';
+        return;
+    }
+
+    let html = `<table class="analytics-table balances-table">
+        <thead>
+            <tr>
+                <th>Equipo</th>
+                <th>Saldo</th>
+                <th>Valor Plantilla</th>
+                <th>Gastado</th>
+                <th>Ingresado</th>
+                <th>Ops</th>
+                <th>Rendimiento</th>
+            </tr>
+        </thead>
+        <tbody>`;
+
+    teams.forEach(team => {
+        const balanceClass = team.balance >= data.initial_budget ? 'balance-positive' : 
+                            team.balance >= data.initial_budget * 0.5 ? 'balance-neutral' : 'balance-negative';
+        const perfClass = team.performance >= 0 ? 'perf-positive' : 'perf-negative';
+        const perfSign = team.performance >= 0 ? '+' : '';
+        html += `
+            <tr class="clickable-row" onclick="loadBudgetDetail('${team.team_id}', '${team.team_name.replace(/'/g, "\\'")}')">
+                <td><strong>${team.team_name}</strong></td>
+                <td class="${balanceClass}">${formatMoney(team.balance)}</td>
+                <td>${formatMoney(team.team_value)}</td>
+                <td class="money-spent">-${formatMoney(team.total_spent)}</td>
+                <td class="money-income">+${formatMoney(team.total_income)}</td>
+                <td>${team.purchases_count + team.sales_count}</td>
+                <td class="${perfClass}">${perfSign}${formatMoney(team.performance)}</td>
+            </tr>`;
+    });
+
+    html += '</tbody></table>';
+    html += '<p style="color:#888; font-size:0.8em; margin-top:8px;">Rendimiento = Valor plantilla − (Gastado − Ingresado). Positivo = plantilla vale más de lo invertido neto.</p>';
+    container.innerHTML = html;
+}
+
+async function loadBudgetDetail(teamId, teamName) {
+    const tableContainer = document.getElementById('budgetTable');
+    const detailContainer = document.getElementById('budgetDetail');
+    const detailContent = document.getElementById('budgetDetailContent');
+
+    tableContainer.style.display = 'none';
+    detailContainer.style.display = 'block';
+    detailContent.innerHTML = '<div class="loading">Cargando detalle...</div>';
+
+    try {
+        const response = await fetch(`${ANALYTICS_ENDPOINTS.balances}/${teamId}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        renderBudgetDetail(data);
+    } catch (err) {
+        detailContent.innerHTML = `<p class="error">Error cargando detalle: ${err.message}</p>`;
+    }
+}
+
+function renderBudgetDetail(data) {
+    const container = document.getElementById('budgetDetailContent');
+
+    const balanceClass = data.balance >= data.initial_budget ? 'balance-positive' : 
+                        data.balance >= data.initial_budget * 0.5 ? 'balance-neutral' : 'balance-negative';
+
+    let html = `
+        <h3>💰 ${data.team_name}</h3>
+        <div class="balance-summary">
+            <span class="balance-label">Saldo actual:</span>
+            <span class="balance-value ${balanceClass}">${formatMoney(data.balance)}</span>
+            <span class="balance-detail">(Gastado: ${formatMoney(data.total_spent)} | Ingresado: ${formatMoney(data.total_income)})</span>
+        </div>
+    `;
+
+    // Altas (compras)
+    html += '<h4>📥 Altas (Compras) — ' + data.purchases.length + '</h4>';
+    if (data.purchases.length) {
+        html += `<table class="analytics-table balances-table">
+            <thead><tr><th>Jugador</th><th>Precio</th><th>Procedencia</th><th>Fecha</th></tr></thead>
+            <tbody>`;
+        data.purchases.forEach(p => {
+            const date = p.date ? new Date(p.date).toLocaleDateString('es-ES') : '-';
+            html += `<tr>
+                <td>${p.player_name}</td>
+                <td class="money-spent">${formatMoney(p.price)}</td>
+                <td>${p.from}</td>
+                <td>${date}</td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+    } else {
+        html += '<p>No hay compras registradas.</p>';
+    }
+
+    // Bajas (ventas)
+    html += '<h4>📤 Bajas (Ventas) — ' + data.sales.length + '</h4>';
+    if (data.sales.length) {
+        html += `<table class="analytics-table balances-table">
+            <thead><tr><th>Jugador</th><th>Precio</th><th>Destino</th><th>Fecha</th></tr></thead>
+            <tbody>`;
+        data.sales.forEach(s => {
+            const date = s.date ? new Date(s.date).toLocaleDateString('es-ES') : '-';
+            html += `<tr>
+                <td>${s.player_name}</td>
+                <td class="money-income">${formatMoney(s.price)}</td>
+                <td>${s.to}</td>
+                <td>${date}</td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+    } else {
+        html += '<p>No hay ventas registradas.</p>';
+    }
+
+    container.innerHTML = html;
+}
+
+function hideBudgetDetail() {
+    document.getElementById('budgetTable').style.display = 'block';
+    document.getElementById('budgetDetail').style.display = 'none';
+}
+
+function formatMoney(amount) {
+    if (amount === null || amount === undefined) return '-';
+    return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(amount);
+}
+
 async function attemptLogin(username, password) {
     const response = await fetch(AUTH_ENDPOINTS.login, {
         method: 'POST',
@@ -3366,7 +3564,7 @@ async function initializeAuth() {
 
     await startAppIfNeeded();
     applyRoleRestrictions();
-    showTab('evolution');
+    showTab('budget');
     showAnalyticsSection('overview');
 }
 

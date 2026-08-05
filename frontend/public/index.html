@@ -365,6 +365,29 @@
             font-weight: 600;
         }
 
+        /* Balances (Saldos) styles */
+        .balances-table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .balances-table th { background: #f8fafc; color: #475569; font-weight: 600; font-size: 0.82em; text-transform: uppercase; letter-spacing: 0.5px; }
+        .balances-table th, .balances-table td { padding: 12px 14px; text-align: right; border-bottom: 1px solid #f1f5f9; }
+        .balances-table th:first-child, .balances-table td:first-child { text-align: left; }
+        .balances-table tbody tr:last-child td { border-bottom: none; }
+        .clickable-row { cursor: pointer; transition: background 0.2s; }
+        .clickable-row:hover { background: #f0f7ff; }
+        .balance-positive { color: #16a34a; font-weight: 700; }
+        .balance-neutral { color: #d97706; font-weight: 700; }
+        .balance-negative { color: #dc2626; font-weight: 700; }
+        .money-spent { color: #dc2626; }
+        .money-income { color: #16a34a; }
+        .perf-positive { color: #16a34a; font-weight: 600; }
+        .perf-negative { color: #dc2626; font-weight: 600; }
+        .balance-summary { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 12px 0 20px; padding: 14px 18px; background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .balance-label { font-weight: 600; }
+        .balance-value { font-size: 1.3em; }
+        .balance-detail { color: #666; font-size: 0.9em; }
+        .back-button { background: #fff; border: 1px solid #e2e8f0; padding: 8px 16px; border-radius: 6px; cursor: pointer; margin-bottom: 16px; font-size: 0.9em; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .back-button:hover { background: #f8fafc; border-color: #cbd5e1; }
+        .section-description { color: #666; margin: -8px 0 16px; font-size: 0.9em; }
+
         .heatmap-wrapper {
             overflow-x: auto;
         }
@@ -878,7 +901,8 @@
 
         <div id="content" style="display: none;">
             <div class="tabs">
-                <button id="evolution-tab-button" class="tab-button active" onclick="showTab('evolution')">📊 Evolución</button>
+                <button id="budget-tab-button" class="tab-button active" onclick="showTab('budget')">💰 Presupuesto</button>
+                <button id="evolution-tab-button" class="tab-button" onclick="showTab('evolution')">📊 Evolución</button>
                 <button id="finances-tab-button" class="tab-button" onclick="showTab('finances')" style="display: none;">💰 Finanzas Usuarios</button>
                 <button id="stats-tab-button" class="tab-button" onclick="showTab('stats')">📈 Estadísticas</button>
                 <button id="clausulable-tab-button" class="tab-button" onclick="showTab('clausulable')">⚽ Jugadores Clausulables</button>
@@ -886,7 +910,24 @@
                 <button id="analytics-tab-button" class="tab-button" onclick="showTab('analytics')">📊 Analytics Avanzado</button>
             </div>
             
-            <div id="evolution-tab" class="tab-content active">
+            <div id="budget-tab" class="tab-content active">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                    <h2 style="margin: 0;">💰 Presupuesto por Equipo</h2>
+                    <button id="budgetSyncBtn" class="back-button" onclick="syncTransactions()">🔄 Sincronizar</button>
+                </div>
+                <p class="section-description">Presupuesto base: 200M. Saldo = 200M − compras + ventas. Haz clic en un equipo para ver sus altas y bajas.</p>
+                <div id="budgetLoading" class="loading">Calculando presupuestos...</div>
+                <div id="budgetError" class="error" style="display: none;"></div>
+                <div id="budgetContent" style="display: none;">
+                    <div id="budgetTable"></div>
+                    <div id="budgetDetail" style="display: none;">
+                        <button class="back-button" onclick="hideBudgetDetail()">← Volver a todos los equipos</button>
+                        <div id="budgetDetailContent"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="evolution-tab" class="tab-content">
             <div class="stats" id="stats"></div>
             <div class="charts-container">
                 <div class="chart-card">

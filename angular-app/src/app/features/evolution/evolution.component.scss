@@ -1,0 +1,48 @@
+.loading-container {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 40px;
+  justify-content: center;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.error-message {
+  padding: 16px;
+  background: var(--mat-sys-error-container);
+  color: var(--mat-sys-on-error-container);
+  border-radius: 8px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--mat-sys-on-surface-variant);
+
+  p:first-child {
+    font-size: 1.2em;
+    margin-bottom: 8px;
+  }
+}
+
+.charts-grid {
+  display: grid;
+  gap: 24px;
+}
+
+.chart-card {
+  background: var(--mat-sys-surface);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+
+  h2 {
+    margin: 0 0 16px;
+    font-size: 1.1em;
+  }
+}
+
+.chart-wrapper {
+  position: relative;
+  height: 350px;
+}

@@ -27,10 +27,9 @@ app.use('/api', async (req, res, next) => {
     const response = await axios({
       method: req.method,
       url: `${API_URL}${backendPath}`,
-      data: req.body,
+      data: req.method !== 'GET' ? req.body : undefined,
       headers: {
-        ...req.headers,
-        host: undefined, // Remove host header to avoid issues
+        'Content-Type': 'application/json',
       },
       params: req.query
     });

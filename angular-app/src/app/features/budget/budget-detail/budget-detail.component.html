@@ -1,0 +1,87 @@
+<button mat-button (click)="goBack()">
+  <mat-icon>arrow_back</mat-icon> Volver
+</button>
+
+@if (loading()) {
+  <div class="loading-container">
+    <mat-spinner diameter="40" />
+    <span>Cargando detalle...</span>
+  </div>
+} @else if (error()) {
+  <div class="error-message">{{ error() }}</div>
+} @else if (detail(); as d) {
+  <h1>💰 {{ d.team_name }}</h1>
+
+  <div class="summary-card">
+    <div class="summary-item">
+      <span class="label">Saldo actual</span>
+      <span class="value" [class]="getBalanceClass()">{{ d.balance | money }}</span>
+    </div>
+    <div class="summary-item">
+      <span class="label">Gastado</span>
+      <span class="value money-negative">{{ d.total_spent | money }}</span>
+    </div>
+    <div class="summary-item">
+      <span class="label">Ingresado</span>
+      <span class="value money-positive">{{ d.total_income | money }}</span>
+    </div>
+  </div>
+
+  <!-- Altas (Compras) -->
+  <h2>📥 Altas (Compras) — {{ d.purchases.length }}</h2>
+  @if (d.purchases.length) {
+    <div class="table-container">
+      <table mat-table [dataSource]="d.purchases">
+        <ng-container matColumnDef="player_name">
+          <th mat-header-cell *matHeaderCellDef>Jugador</th>
+          <td mat-cell *matCellDef="let t">{{ t.player_name }}</td>
+        </ng-container>
+        <ng-container matColumnDef="price">
+          <th mat-header-cell *matHeaderCellDef>Precio</th>
+          <td mat-cell *matCellDef="let t" class="money-negative">{{ t.price | money }}</td>
+        </ng-container>
+        <ng-container matColumnDef="from">
+          <th mat-header-cell *matHeaderCellDef>Procedencia</th>
+          <td mat-cell *matCellDef="let t">{{ t.from }}</td>
+        </ng-container>
+        <ng-container matColumnDef="date">
+          <th mat-header-cell *matHeaderCellDef>Fecha</th>
+          <td mat-cell *matCellDef="let t">{{ t.date | date:'dd/MM/yyyy' }}</td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="purchaseColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: purchaseColumns"></tr>
+      </table>
+    </div>
+  } @else {
+    <p class="empty">No hay compras registradas.</p>
+  }
+
+  <!-- Bajas (Ventas) -->
+  <h2>📤 Bajas (Ventas) — {{ d.sales.length }}</h2>
+  @if (d.sales.length) {
+    <div class="table-container">
+      <table mat-table [dataSource]="d.sales">
+        <ng-container matColumnDef="player_name">
+          <th mat-header-cell *matHeaderCellDef>Jugador</th>
+          <td mat-cell *matCellDef="let t">{{ t.player_name }}</td>
+        </ng-container>
+        <ng-container matColumnDef="price">
+          <th mat-header-cell *matHeaderCellDef>Precio</th>
+          <td mat-cell *matCellDef="let t" class="money-positive">{{ t.price | money }}</td>
+        </ng-container>
+        <ng-container matColumnDef="to">
+          <th mat-header-cell *matHeaderCellDef>Destino</th>
+          <td mat-cell *matCellDef="let t">{{ t.to }}</td>
+        </ng-container>
+        <ng-container matColumnDef="date">
+          <th mat-header-cell *matHeaderCellDef>Fecha</th>
+          <td mat-cell *matCellDef="let t">{{ t.date | date:'dd/MM/yyyy' }}</td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="saleColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: saleColumns"></tr>
+      </table>
+    </div>
+  } @else {
+    <p class="empty">No hay ventas registradas.</p>
+  }
+}

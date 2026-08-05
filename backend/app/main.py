@@ -18,14 +18,13 @@ from app.api.v1.endpoints import matchdays
 from app.api.v1.endpoints.initialize import router as initialize_router
 from app.api.v1.endpoints.reset_db import router as reset_db_router
 from app.api.v1.endpoints.statistics import router as statistics_router
-from app.api.v1.endpoints.news import router as news_router
-from app.api.v1.endpoints.auth import router as auth_router
 from app.api.v1.endpoints.player_finances import router as player_finances_router
 from app.api.v1.endpoints.user_stats import router as user_stats_router
 from app.api.v1.endpoints.clausulable_players import router as clausulable_players_router
 from app.api.v1.endpoints.sync import router as sync_router
 from app.api.v1.endpoints.analytics import router as analytics_router
-from app.api.v1.endpoints.matchday_humor import router as matchday_humor_router
+from app.api.v1.endpoints.balances import router as balances_router
+from app.api.v1.endpoints.championships import router as championships_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -80,14 +79,13 @@ app.include_router(matchdays.router, prefix="/api/v1/matchdays", tags=["matchday
 app.include_router(initialize_router, prefix="/api/v1/initialize", tags=["initialize"])
 app.include_router(reset_db_router, prefix="/api/v1/database", tags=["database"])
 app.include_router(statistics_router, prefix="/api/v1/statistics", tags=["statistics"])
-app.include_router(news_router, prefix="/api/v1/news", tags=["news"])
 app.include_router(player_finances_router, prefix="/api/v1/player-finances", tags=["player-finances"])
 app.include_router(user_stats_router, prefix="/api/v1/user-stats", tags=["user-stats"])
 app.include_router(clausulable_players_router, prefix="/api/v1/clausulable-players", tags=["clausulable-players"])
 app.include_router(sync_router, prefix="/api/v1/sync", tags=["sync"])
 app.include_router(analytics_router, prefix="/api/v1/analytics", tags=["analytics"])
-app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
-app.include_router(matchday_humor_router, prefix="/api/v1", tags=["humor"])
+app.include_router(balances_router, prefix="/api/v1/analytics", tags=["balances"])
+app.include_router(championships_router, prefix="/api/v1", tags=["championships"])
 
 # Also serve routes without /api prefix (to avoid redirect loops)
 # Include the same router with the old prefix

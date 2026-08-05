@@ -146,9 +146,12 @@ class FutmondoClient:
             return None
         
         try:
-            response = self.session.post(f"{self.base_url}{endpoint}", json=data)
+            response = self.session.post(f"{self.base_url}{endpoint}", json=data, timeout=15)
             response.raise_for_status()
             return response.json()
+        except requests.exceptions.Timeout:
+            logger.error(f"API request timed out: {endpoint}")
+            return None
         except requests.exceptions.RequestException as e:
             logger.error(f"API request failed: {e}")
             return None

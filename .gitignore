@@ -28,6 +28,10 @@ node_modules/
 npm-debug.log
 yarn-error.log
 
+# Angular
+angular-app/dist/
+angular-app/.angular/
+
 # IDE
 .vscode/
 .idea/

@@ -64,12 +64,3 @@ else:
 API_HOST = os.getenv("API_HOST", "0.0.0.0")
 API_PORT = int(os.getenv("API_PORT", "8000"))
 
-# OpenAI Settings
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if not OPENAI_API_KEY:
-    raise RuntimeError(
-        "OPENAI_API_KEY must be set in the environment (.env) and must NOT be hardcoded in config.py."
-    )
-
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")  # Use cheaper model by default
-

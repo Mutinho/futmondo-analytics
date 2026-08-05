@@ -1,0 +1,39 @@
+<h1>📊 Evolución</h1>
+
+@if (loading()) {
+  <div class="loading-container">
+    <mat-spinner diameter="40" />
+    <span>Cargando datos de evolución...</span>
+  </div>
+} @else if (error()) {
+  <div class="error-message">{{ error() }}</div>
+} @else if (!hasData()) {
+  <div class="empty-state">
+    <p>📅 No hay datos de jornadas disponibles.</p>
+    <p>Los gráficos se mostrarán cuando empiece la temporada y se jueguen jornadas.</p>
+  </div>
+} @else {
+  <div class="charts-grid">
+    <div class="chart-card">
+      <h2>📈 Puntos Acumulados</h2>
+      <div class="chart-wrapper">
+        <canvas baseChart
+          type="line"
+          [data]="pointsChartData()"
+          [options]="pointsChartOptions">
+        </canvas>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <h2>🏅 Posiciones por Jornada</h2>
+      <div class="chart-wrapper">
+        <canvas baseChart
+          type="line"
+          [data]="positionsChartData()"
+          [options]="positionsChartOptions">
+        </canvas>
+      </div>
+    </div>
+  </div>
+}
