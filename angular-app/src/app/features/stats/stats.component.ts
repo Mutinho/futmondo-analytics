@@ -1,9 +1,12 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, effect } from '@angular/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatDialog } from '@angular/material/dialog';
 import { BaseChartDirective } from 'ng2-charts';
-import { ChartConfiguration, ChartOptions } from 'chart.js';
+import { ChartConfiguration, ChartOptions, ChartEvent, ActiveElement } from 'chart.js';
 import { StatsService } from '../../core/services/stats.service';
+import { ChampionshipService } from '../../core/services/championship.service';
 import { UserStats } from '../../core/models/stats.model';
+import { TeamMovementsDialogComponent, TeamMovementsDialogData } from './team-movements-dialog/team-movements-dialog.component';
 
 const COLORS = ['#4CAF50', '#2196F3', '#FF9800', '#9C27B0', '#F44336', '#00BCD4', '#795548', '#607D8B', '#E91E63'];
 
@@ -53,6 +56,8 @@ const COLORS = ['#4CAF50', '#2196F3', '#FF9800', '#9C27B0', '#F44336', '#00BCD4'
 })
 export class StatsComponent {
   private statsService = inject(StatsService);
+  private championshipService = inject(ChampionshipService);
+  private dialog = inject(MatDialog);
 
   loading = signal(true);
   error = signal('');
@@ -61,14 +66,38 @@ export class StatsComponent {
   opsChartData = signal<ChartConfiguration<'bar'>['data']>({ labels: [], datasets: [] });
   spentChartData = signal<ChartConfiguration<'bar'>['data']>({ labels: [], datasets: [] });
 
+  private users: UserStats[] = [];
+
   chartOptions: ChartOptions<'bar'> = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: { legend: { display: false } },
+    onClick: (_event: ChartEvent, elements: ActiveElement[]) => {
+      if (elements.length > 0) {
+        const index = elements[0].index;
+        this.openMovements(index);
+      }
+    },
   };
 
   constructor() {
-    this.loadData();
+    effect(() => {
+      const id = this.championshipService.activeId();
+      if (id) this.loadData();
+    });
+  }
+
+  openMovements(index: number) {
+    const user = this.users[index];
+    if (!user) return;
+    this.dialog.open(TeamMovementsDialogComponent, {
+      data: {
+        teamId: user.team_id,
+        teamName: user.team_name,
+        championshipId: this.championshipService.activeId(),
+      } as TeamMovementsDialogData,
+      width: '650px',
+    });
   }
 
   async loadData() {
@@ -91,6 +120,7 @@ export class StatsComponent {
 
       this.hasData.set(true);
       const users = filtered.sort((a, b) => b.transaction_count - a.transaction_count);
+      this.users = users;
       const labels = users.map(u => u.team_name);
 
       this.opsChartData.set({

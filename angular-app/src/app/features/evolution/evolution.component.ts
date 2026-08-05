@@ -1,8 +1,9 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, effect } from '@angular/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartConfiguration, ChartOptions } from 'chart.js';
 import { EvolutionService } from '../../core/services/evolution.service';
+import { ChampionshipService } from '../../core/services/championship.service';
 import { TeamEvolution } from '../../core/models/evolution.model';
 
 // Colores para los equipos
@@ -21,6 +22,7 @@ const TEAM_COLORS = [
 })
 export class EvolutionComponent {
   private evolutionService = inject(EvolutionService);
+  private championshipService = inject(ChampionshipService);
 
   loading = signal(true);
   error = signal('');
@@ -61,7 +63,10 @@ export class EvolutionComponent {
   };
 
   constructor() {
-    this.loadData();
+    effect(() => {
+      const id = this.championshipService.activeId();
+      if (id) this.loadData();
+    });
   }
 
   async loadData() {

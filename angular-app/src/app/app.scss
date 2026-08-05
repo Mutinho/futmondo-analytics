@@ -90,3 +90,58 @@
     font-size: 1em;
   }
 }
+
+// Tablet: sidebar mini mode
+@media (min-width: 769px) and (max-width: 1024px) {
+  .app-sidenav {
+    width: 64px;
+    overflow-x: hidden;
+    transition: width 0.2s ease;
+
+    .sidenav-header {
+      padding: 16px 12px;
+      justify-content: center;
+
+      .app-name {
+        display: none;
+      }
+    }
+
+    .championship-selector {
+      display: none;
+    }
+
+    [matListItemTitle] {
+      display: none;
+    }
+
+    mat-icon {
+      margin: 0 auto;
+    }
+
+    &:hover {
+      width: 240px;
+
+      .sidenav-header {
+        justify-content: flex-start;
+        padding: 16px 20px;
+
+        .app-name {
+          display: inline;
+        }
+      }
+
+      .championship-selector {
+        display: block;
+      }
+
+      [matListItemTitle] {
+        display: inline;
+      }
+
+      mat-icon {
+        margin: 0;
+      }
+    }
+  }
+}
