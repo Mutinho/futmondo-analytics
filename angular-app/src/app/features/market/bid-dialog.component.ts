@@ -27,7 +27,6 @@ export interface BidDialogResult {
   template: `
     <h2 mat-dialog-title>🔨 Pujar por {{ data.playerName }}</h2>
     <mat-dialog-content>
-      <p class="player-info">{{ data.team }}</p>
 
       <div class="limits">
         <div class="limit-item">
