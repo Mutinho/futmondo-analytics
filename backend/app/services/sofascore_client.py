@@ -19,7 +19,7 @@ class SofascoreClient:
     def __init__(self):
         self.session = cffi_requests.Session(impersonate="chrome")
         self._last_request = 0
-        self._min_delay = 1.0  # Mínimo 1 segundo entre requests
+        self._min_delay = 0.75  # 750ms entre requests (Sofascore tolera bien)
 
     def _throttle(self):
         """Rate limiting para no ser baneado."""

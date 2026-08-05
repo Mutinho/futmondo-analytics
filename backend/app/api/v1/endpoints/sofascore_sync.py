@@ -74,6 +74,9 @@ async def sync_sofascore(
             cursor.execute(sql, (championship_id,))
             logger.info(f"Sofascore cache cleared for {championship_id}")
 
+        # Collect all results, then batch insert
+        cache_rows = []
+
         for p in computer_players:
             player_name = p.get('name', '')
             if not player_name:
@@ -94,10 +97,73 @@ async def sync_sofascore(
                     errors += 1
                     continue
 
-                # Guardar en caché
-                with db.get_connection() as conn:
-                    cursor = db.get_cursor(conn)
-                    sql = """
+                cache_rows.append((
+                    player_name, championship_id,
+                    full_info.get('id'), full_info.get('name'), full_info.get('team'),
+                    full_info.get('rating'), full_info.get('goals'), full_info.get('assists'),
+                    full_info.get('appearances'), full_info.get('minutes_played'),
+                    full_info.get('yellow_cards'), full_info.get('red_cards'),
+                    full_info.get('tournament'), full_info.get('season'),
+                    full_info.get('position'), full_info.get('nationality'),
+                    full_info.get('age'), full_info.get('successful_dribbles'),
+                    full_info.get('accurate_passes_pct'), full_info.get('shots_on_target'),
+                    full_info.get('tackles'), full_info.get('interceptions'),
+                    full_info.get('clean_sheets'), full_info.get('saves'),
+                    full_info.get('sofascore_url', ''),
+                    now,
+                ))
+
+                synced += 1
+                logger.info(f"Sofascore: {player_name} -> rating {full_info.get('rating')}")
+
+            except Exception as e:
+                logger.error(f"Sofascore sync error for '{player_name}': {e}")
+                errors += 1
+
+        # Batch insert all results at once
+        if cache_rows:
+            with db.get_connection() as conn:
+                cursor = db.get_cursor(conn)
+                if db.db_type in ["postgresql", "postgres"]:
+                    from psycopg2.extras import execute_values
+                    raw_cursor = cursor._cursor if hasattr(cursor, '_cursor') else cursor
+                    execute_values(raw_cursor, """
+                        INSERT INTO sofascore_cache 
+                        (player_name, championship_id, sofascore_id, sofascore_name, team,
+                         rating, goals, assists, appearances, minutes_played,
+                         yellow_cards, red_cards, tournament, season, position,
+                         nationality, age, successful_dribbles, accurate_passes_pct,
+                         shots_on_target, tackles, interceptions, clean_sheets, saves,
+                         sofascore_url, synced_at)
+                        VALUES %s
+                        ON CONFLICT (player_name, championship_id) DO UPDATE SET
+                            sofascore_id = EXCLUDED.sofascore_id,
+                            sofascore_name = EXCLUDED.sofascore_name,
+                            team = EXCLUDED.team,
+                            rating = EXCLUDED.rating,
+                            goals = EXCLUDED.goals,
+                            assists = EXCLUDED.assists,
+                            appearances = EXCLUDED.appearances,
+                            minutes_played = EXCLUDED.minutes_played,
+                            yellow_cards = EXCLUDED.yellow_cards,
+                            red_cards = EXCLUDED.red_cards,
+                            tournament = EXCLUDED.tournament,
+                            season = EXCLUDED.season,
+                            position = EXCLUDED.position,
+                            nationality = EXCLUDED.nationality,
+                            age = EXCLUDED.age,
+                            successful_dribbles = EXCLUDED.successful_dribbles,
+                            accurate_passes_pct = EXCLUDED.accurate_passes_pct,
+                            shots_on_target = EXCLUDED.shots_on_target,
+                            tackles = EXCLUDED.tackles,
+                            interceptions = EXCLUDED.interceptions,
+                            clean_sheets = EXCLUDED.clean_sheets,
+                            saves = EXCLUDED.saves,
+                            sofascore_url = EXCLUDED.sofascore_url,
+                            synced_at = EXCLUDED.synced_at
+                    """, cache_rows, page_size=50)
+                else:
+                    cursor.executemany("""
                         INSERT OR REPLACE INTO sofascore_cache 
                         (player_name, championship_id, sofascore_id, sofascore_name, team,
                          rating, goals, assists, appearances, minutes_played,
@@ -106,30 +172,8 @@ async def sync_sofascore(
                          shots_on_target, tackles, interceptions, clean_sheets, saves,
                          sofascore_url, synced_at)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """
-                    sql = db.adapt_params(sql)
-                    cursor.execute(sql, (
-                        player_name, championship_id,
-                        full_info.get('id'), full_info.get('name'), full_info.get('team'),
-                        full_info.get('rating'), full_info.get('goals'), full_info.get('assists'),
-                        full_info.get('appearances'), full_info.get('minutes_played'),
-                        full_info.get('yellow_cards'), full_info.get('red_cards'),
-                        full_info.get('tournament'), full_info.get('season'),
-                        full_info.get('position'), full_info.get('nationality'),
-                        full_info.get('age'), full_info.get('successful_dribbles'),
-                        full_info.get('accurate_passes_pct'), full_info.get('shots_on_target'),
-                        full_info.get('tackles'), full_info.get('interceptions'),
-                        full_info.get('clean_sheets'), full_info.get('saves'),
-                        full_info.get('sofascore_url', ''),
-                        now,
-                    ))
-
-                synced += 1
-                logger.info(f"Sofascore: {player_name} -> rating {full_info.get('rating')}")
-
-            except Exception as e:
-                logger.error(f"Sofascore sync error for '{player_name}': {e}")
-                errors += 1
+                    """, cache_rows)
+                logger.info(f"Batch inserted {len(cache_rows)} sofascore records")
 
         return {
             "success": True,
