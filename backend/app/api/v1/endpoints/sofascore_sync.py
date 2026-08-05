@@ -66,6 +66,14 @@ async def sync_sofascore(
         errors = 0
         now = datetime.now()
 
+        # Limpiar caché anterior de este campeonato
+        with db.get_connection() as conn:
+            cursor = db.get_cursor(conn)
+            sql = "DELETE FROM sofascore_cache WHERE championship_id = ?"
+            sql = db.adapt_params(sql)
+            cursor.execute(sql, (championship_id,))
+            logger.info(f"Sofascore cache cleared for {championship_id}")
+
         for p in computer_players:
             player_name = p.get('name', '')
             if not player_name:
