@@ -53,3 +53,34 @@ export interface SyncResponse {
     };
   };
 }
+
+export interface SyncTriggerResponse {
+  success: boolean;
+  task_id: string;
+  sync_type: string;
+  championship_id: string;
+  message: string;
+}
+
+export interface SyncTaskStepProgress {
+  status: string;
+  records_synced?: number;
+  duration_seconds?: number;
+  last_sync_id?: string;
+  last_sync_matchday?: number;
+}
+
+export interface SyncTaskResponse {
+  success: boolean;
+  task_id: string;
+  sync_type: string;
+  championship_id: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  current_step: string | null;
+  progress: Record<string, SyncTaskStepProgress>;
+  result: Record<string, SyncTaskStepProgress> | null;
+  error: string | null;
+  created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+}

@@ -1,14 +1,16 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, computed } from '@angular/core';
 import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { MoneyPipe } from '../../../shared/pipes/money.pipe';
-import { BudgetService } from '../../../core/services/budget.service';
+import { SyncService } from '../../../core/services/sync.service';
 import { ChampionshipService } from '../../../core/services/championship.service';
+import { SyncTaskResponse, SyncTaskStepProgress } from '../../../core/models/budget.model';
 
 interface PhantomPlayer {
   team_name: string;
@@ -26,22 +28,58 @@ interface PhantomsResponse {
   total_phantoms: number;
 }
 
+const STEP_LABELS: Record<string, string> = {
+  initializing: 'Inicializando...',
+  players: 'Jugadores',
+  transactions: 'Transacciones',
+  clauses: 'Cláusulas',
+  punishments_bonuses: 'Castigos y bonificaciones',
+  dream_teams: 'Dream teams y MVPs',
+  player_performance: 'Rendimiento por jornada',
+  rosters: 'Plantillas',
+  team_standings: 'Clasificación',
+  match_odds: 'Cuotas de partidos',
+};
+
+const ALL_STEPS = [
+  'players', 'transactions', 'clauses', 'punishments_bonuses',
+  'dream_teams', 'player_performance', 'rosters', 'team_standings', 'match_odds'
+];
+
 @Component({
   selector: 'app-sync-dialog',
   standalone: true,
-  imports: [MatDialogModule, MatButtonModule, MatProgressSpinnerModule, MatIconModule, MatDividerModule, MoneyPipe],
+  imports: [
+    MatDialogModule, MatButtonModule, MatProgressSpinnerModule,
+    MatProgressBarModule, MatIconModule, MatDividerModule, MoneyPipe
+  ],
   template: `
     <h2 mat-dialog-title>🔄 Sincronización</h2>
     <mat-dialog-content>
-      <!-- Fase 1: Sync -->
+      <!-- Phase: Syncing with progress -->
       @if (phase() === 'syncing') {
-        <div class="sync-progress">
-          <mat-spinner diameter="36" />
-          <span>Sincronizando datos...</span>
+        <div class="sync-steps">
+          @for (step of allSteps; track step) {
+            <div class="step-row" [class.active]="currentStep() === step" [class.done]="isStepDone(step)" [class.pending]="!isStepDone(step) && currentStep() !== step">
+              @if (isStepDone(step)) {
+                <mat-icon class="step-icon done">check_circle</mat-icon>
+              } @else if (currentStep() === step) {
+                <mat-spinner diameter="18" class="step-icon" />
+              } @else {
+                <mat-icon class="step-icon pending">radio_button_unchecked</mat-icon>
+              }
+              <span class="step-label">{{ stepLabel(step) }}</span>
+              @if (isStepDone(step) && stepRecords(step) !== null) {
+                <span class="step-records">{{ stepRecords(step) }} registros</span>
+              }
+            </div>
+          }
         </div>
+        <mat-progress-bar mode="determinate" [value]="progressPercent()" />
+        <p class="progress-text">{{ completedSteps() }} de {{ allSteps.length }} pasos completados</p>
       }
 
-      <!-- Fase 2: Checking phantoms -->
+      <!-- Phase: Checking phantoms -->
       @if (phase() === 'checking') {
         <div class="sync-progress">
           <mat-spinner diameter="36" />
@@ -49,7 +87,7 @@ interface PhantomsResponse {
         </div>
       }
 
-      <!-- Fase 3: Syncing sofascore -->
+      <!-- Phase: Syncing sofascore -->
       @if (phase() === 'syncing_sofascore') {
         <div class="sync-progress">
           <mat-spinner diameter="36" />
@@ -57,7 +95,7 @@ interface PhantomsResponse {
         </div>
       }
 
-      <!-- Fase Error -->
+      <!-- Phase: Error -->
       @if (phase() === 'error') {
         <div class="sync-result error">
           <mat-icon>error</mat-icon>
@@ -65,20 +103,19 @@ interface PhantomsResponse {
         </div>
       }
 
-      <!-- Fase 4: Resultado -->
+      <!-- Phase: Done -->
       @if (phase() === 'done') {
         <div class="sync-result success">
           <mat-icon>check_circle</mat-icon>
           <div class="result-details">
-            <p><strong>{{ syncResult()!.records_synced }}</strong> nuevas transacciones</p>
+            <p><strong>{{ totalRecords() }}</strong> registros sincronizados</p>
             @if (sofascoreResult()) {
               <p><strong>{{ sofascoreResult()!.players_synced }}</strong> jugadores con stats de Sofascore</p>
             }
-            <p class="duration">Duración: {{ syncResult()!.duration_seconds.toFixed(1) }}s</p>
+            <p class="duration">Duración: {{ duration().toFixed(1) }}s</p>
           </div>
         </div>
 
-        <!-- Avisos de fantasmas -->
         @if (phantoms().length) {
           <mat-divider />
           <div class="phantoms-section">
@@ -111,6 +148,17 @@ interface PhantomsResponse {
     </mat-dialog-actions>
   `,
   styles: [`
+    .sync-steps { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+    .step-row { display: flex; align-items: center; gap: 10px; padding: 4px 0; transition: opacity 0.2s; }
+    .step-row.pending { opacity: 0.4; }
+    .step-row.active { opacity: 1; font-weight: 500; }
+    .step-row.done { opacity: 0.8; }
+    .step-icon { width: 18px; height: 18px; font-size: 18px; }
+    .step-icon.done { color: #16a34a; }
+    .step-icon.pending { color: var(--mat-sys-on-surface-variant); }
+    .step-label { flex: 1; }
+    .step-records { font-size: 0.8em; color: var(--mat-sys-on-surface-variant); }
+    .progress-text { text-align: center; font-size: 0.85em; color: var(--mat-sys-on-surface-variant); margin-top: 8px; }
     .sync-progress { display: flex; align-items: center; gap: 16px; padding: 24px 0; }
     .sync-result { display: flex; align-items: flex-start; gap: 12px; padding: 16px 0; }
     .sync-result.success mat-icon { color: #16a34a; font-size: 32px; width: 32px; height: 32px; }
@@ -134,40 +182,87 @@ interface PhantomsResponse {
 })
 export class SyncDialogComponent {
   private http = inject(HttpClient);
-  private budgetService = inject(BudgetService);
+  private syncService = inject(SyncService);
   private championshipService = inject(ChampionshipService);
   private dialogRef = inject(MatDialogRef<SyncDialogComponent>);
 
   phase = signal<'syncing' | 'checking' | 'syncing_sofascore' | 'done' | 'error'>('syncing');
   error = signal('');
-  syncResult = signal<{ records_synced: number; duration_seconds: number; status: string } | null>(null);
+  currentStep = signal<string | null>(null);
+  stepProgress = signal<Record<string, SyncTaskStepProgress>>({});
+  finalResult = signal<SyncTaskResponse | null>(null);
   sofascoreResult = signal<{ players_synced: number } | null>(null);
   phantoms = signal<PhantomPlayer[]>([]);
+
+  allSteps = ALL_STEPS;
+
+  completedSteps = computed(() => {
+    const progress = this.stepProgress();
+    return Object.values(progress).filter(s => s.status !== 'running').length;
+  });
+
+  progressPercent = computed(() => {
+    return (this.completedSteps() / this.allSteps.length) * 100;
+  });
+
+  totalRecords = computed(() => {
+    const result = this.finalResult()?.result;
+    if (!result) return 0;
+    return Object.values(result).reduce((sum, step) => sum + (step.records_synced || 0), 0);
+  });
+
+  duration = computed(() => {
+    const task = this.finalResult();
+    if (!task?.started_at || !task?.completed_at) return 0;
+    return (new Date(task.completed_at).getTime() - new Date(task.started_at).getTime()) / 1000;
+  });
 
   constructor() {
     this.runSync();
   }
 
+  stepLabel(step: string): string {
+    return STEP_LABELS[step] || step;
+  }
+
+  isStepDone(step: string): boolean {
+    const s = this.stepProgress()[step];
+    return !!s && s.status !== 'running';
+  }
+
+  stepRecords(step: string): number | null {
+    const s = this.stepProgress()[step];
+    return s?.records_synced ?? null;
+  }
+
   async runSync() {
     const championshipId = this.championshipService.activeId();
 
-    // Fase 1: Sync completo
+    // Phase 1: Async sync with progress polling
     try {
-      const data = await this.budgetService.syncTransactions(championshipId);
-      const results = data.results || {};
-      const txn = results.transactions || results;
-      this.syncResult.set({
-        records_synced: txn.records_synced || 0,
-        duration_seconds: txn.duration_seconds || 0,
-        status: txn.status || 'success',
-      });
+      const finalTask = await this.syncService.syncWithPolling(
+        championshipId,
+        (task) => {
+          this.currentStep.set(task.current_step);
+          this.stepProgress.set({ ...task.progress });
+        }
+      );
+
+      if (finalTask.status === 'failed') {
+        this.error.set(finalTask.error || 'Error desconocido en la sincronización');
+        this.phase.set('error');
+        return;
+      }
+
+      this.finalResult.set(finalTask);
     } catch (err: any) {
-      this.error.set(err.message || 'Error al sincronizar');
+      const detail = err?.error?.detail || err?.message || 'Error al sincronizar';
+      this.error.set(detail);
       this.phase.set('error');
       return;
     }
 
-    // Fase 2: Check phantoms
+    // Phase 2: Check phantoms
     this.phase.set('checking');
     try {
       let params = new HttpParams();
@@ -178,10 +273,10 @@ export class SyncDialogComponent {
       const all = [...(phantomData.roster_phantoms || []), ...(phantomData.sold_phantoms || [])];
       this.phantoms.set(all);
     } catch {
-      // Si falla el check, no es crítico — mostramos resultado del sync sin avisos
+      // Non-critical
     }
 
-    // Fase 3: Sync Sofascore
+    // Phase 3: Sync Sofascore
     this.phase.set('syncing_sofascore');
     try {
       let params = new HttpParams();
@@ -193,13 +288,13 @@ export class SyncDialogComponent {
         players_synced: sofaData.players_synced || sofaData.synced_count || 0,
       });
     } catch {
-      // Si falla el sync de sofascore, no es crítico
+      // Non-critical
     }
 
     this.phase.set('done');
   }
 
   close() {
-    this.dialogRef.close(this.syncResult());
+    this.dialogRef.close();
   }
 }
