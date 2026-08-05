@@ -7,8 +7,61 @@ import os
 import logging
 from typing import Optional, Any
 from contextlib import contextmanager
+from datetime import datetime, date
 
 logger = logging.getLogger(__name__)
+
+
+def _convert_params(params):
+    """Convert unsupported parameter types (datetime, etc.) to strings for libsql."""
+    if params is None:
+        return None
+    converted = []
+    for p in params:
+        if isinstance(p, datetime):
+            converted.append(p.isoformat())
+        elif isinstance(p, date):
+            converted.append(p.isoformat())
+        else:
+            converted.append(p)
+    return tuple(converted)
+
+class _TursoCursorWrapper:
+    """Wraps a libsql cursor to auto-convert datetime params to ISO strings."""
+    
+    def __init__(self, cursor):
+        self._cursor = cursor
+    
+    def execute(self, sql, params=None):
+        if params is not None:
+            params = _convert_params(params)
+        return self._cursor.execute(sql, params) if params else self._cursor.execute(sql)
+    
+    def executemany(self, sql, params_list):
+        converted = [_convert_params(p) for p in params_list]
+        return self._cursor.executemany(sql, converted)
+    
+    def fetchone(self):
+        return self._cursor.fetchone()
+    
+    def fetchall(self):
+        return self._cursor.fetchall()
+    
+    def fetchmany(self, size=None):
+        return self._cursor.fetchmany(size) if size else self._cursor.fetchmany()
+    
+    @property
+    def lastrowid(self):
+        return self._cursor.lastrowid
+    
+    @property
+    def description(self):
+        return self._cursor.description
+    
+    @property
+    def rowcount(self):
+        return self._cursor.rowcount
+
 
 class DBConnection:
     """Database connection manager supporting SQLite, PostgreSQL, and Turso"""
@@ -151,7 +204,10 @@ class DBConnection:
     
     def get_cursor(self, conn):
         """Get a cursor from a connection"""
-        return conn.cursor()
+        cursor = conn.cursor()
+        if self.db_type == "turso":
+            return _TursoCursorWrapper(cursor)
+        return cursor
     
     def execute_sql(self, sql: str, params: Optional[tuple] = None):
         """Execute SQL and return cursor (for compatibility)"""

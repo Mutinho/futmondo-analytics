@@ -911,11 +911,18 @@ class DataManagerV2:
                         try:
                             player_name = player_info.get("name", "Unknown")
                             real_team_name = player_info.get("team", "")
-                            sql_player = """
-                                INSERT OR IGNORE INTO players (player_id, name, role, real_team_id, real_team_name, slug, photo_url, last_updated)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                            """
-                            sql_player = self.db.adapt_params(sql_player)
+                            if self.db.db_type in ["postgresql", "postgres"]:
+                                sql_player = """
+                                    INSERT INTO players (player_id, name, role, real_team_id, real_team_name, slug, photo_url, last_updated)
+                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                                    ON CONFLICT (player_id) DO NOTHING
+                                """
+                            else:
+                                sql_player = """
+                                    INSERT OR IGNORE INTO players (player_id, name, role, real_team_id, real_team_name, slug, photo_url, last_updated)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                """
+                                sql_player = self.db.adapt_params(sql_player)
                             cursor.execute(sql_player, (
                                 player_id,
                                 player_name,
