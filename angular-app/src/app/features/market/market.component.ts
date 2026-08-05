@@ -127,10 +127,6 @@ interface MarketPlayer {
               </button>
             </td>
           </ng-container>
-          <ng-container matColumnDef="avg_paid_similar">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header>Sobrepuja Media</th>
-            <td mat-cell *matCellDef="let p" class="overpay">+{{ p.overpay_pct }}%</td>
-          </ng-container>
           <tr mat-header-row *matHeaderRowDef="columns"></tr>
           <tr mat-row *matRowDef="let row; columns: columns"></tr>
         </table>
@@ -184,7 +180,7 @@ export class MarketComponent {
   error = signal('');
   bidding = signal(false);
   userInfo = signal<{ balance: number; team_value: number; max_bid: number; active_bids_total: number; available_for_bids: number } | null>(null);
-  columns = ['name', 'team', 'position', 'value', 'change', 'market_price', 'current_bid', 'suggested_bid', 'avg_paid_similar'];
+  columns = ['name', 'team', 'position', 'value', 'change', 'market_price', 'current_bid', 'suggested_bid'];
 
   constructor() {
     effect(() => {
