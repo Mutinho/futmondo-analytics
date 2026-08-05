@@ -15,6 +15,8 @@ interface MarketPlayer {
   position: string;
   value: number;
   market_price: number;
+  change: number;
+  current_bid: number;
   average: number;
   suggested_bid: number;
   bid_confidence: string;
@@ -57,9 +59,21 @@ interface MarketPlayer {
             <th mat-header-cell *matHeaderCellDef mat-sort-header>Valor</th>
             <td mat-cell *matCellDef="let p">{{ p.value | money }}</td>
           </ng-container>
+          <ng-container matColumnDef="change">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Tendencia</th>
+            <td mat-cell *matCellDef="let p" [class]="p.change >= 0 ? 'trend-up' : 'trend-down'">
+              {{ p.change >= 0 ? '▲' : '▼' }} {{ p.change | money }}
+            </td>
+          </ng-container>
           <ng-container matColumnDef="market_price">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>Precio Mercado</th>
             <td mat-cell *matCellDef="let p">{{ p.market_price | money }}</td>
+          </ng-container>
+          <ng-container matColumnDef="current_bid">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Puja Actual</th>
+            <td mat-cell *matCellDef="let p" class="current-bid">
+              {{ p.current_bid ? (p.current_bid | money) : '-' }}
+            </td>
           </ng-container>
           <ng-container matColumnDef="suggested_bid">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>Puja Sugerida</th>
@@ -91,6 +105,9 @@ interface MarketPlayer {
     table { width: 100%; }
     .suggested { font-weight: 700; color: #4CAF50; }
     .overpay { color: #d97706; font-weight: 600; }
+    .trend-up { color: #16a34a; font-weight: 600; }
+    .trend-down { color: #dc2626; font-weight: 600; }
+    .current-bid { color: #7c3aed; font-weight: 600; }
     .confidence { margin-left: 4px; font-size: 0.9em; }
     .legend { color: var(--mat-sys-on-surface-variant); font-size: 0.8em; margin-top: 12px; }
   `]
@@ -106,7 +123,7 @@ export class MarketComponent {
   dataSource = new MatTableDataSource<MarketPlayer>([]);
   loading = signal(true);
   error = signal('');
-  columns = ['name', 'team', 'position', 'value', 'market_price', 'suggested_bid', 'avg_paid_similar'];
+  columns = ['name', 'team', 'position', 'value', 'change', 'market_price', 'current_bid', 'suggested_bid', 'avg_paid_similar'];
 
   constructor() {
     effect(() => {

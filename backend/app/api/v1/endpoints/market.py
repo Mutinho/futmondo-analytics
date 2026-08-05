@@ -146,6 +146,8 @@ async def get_market_today(
                 "position": p.get('role', ''),
                 "value": player_value,
                 "market_price": market_price,
+                "change": p.get('change', 0),
+                "current_bid": p.get('bid', {}).get('price', 0) if isinstance(p.get('bid'), dict) else 0,
                 "average": p.get('average', {}).get('average', 0) if isinstance(p.get('average'), dict) else 0,
                 "photo": p.get('photo', ''),
                 "expiration": p.get('expirationDate', ''),
