@@ -23,8 +23,9 @@ RUN NODE_TLS_REJECT_UNAUTHORIZED=0 npx ng build --configuration=production
 # --- Stage 2: Serve con nginx ---
 FROM nginx:alpine
 
-# Copiar config de nginx con proxy al backend
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Select nginx config: use NGINX_CONF build arg (default: nginx.conf for local docker-compose)
+ARG NGINX_CONF=nginx.conf
+COPY ${NGINX_CONF} /etc/nginx/conf.d/default.conf
 
 # Copiar build de Angular
 COPY --from=build /app/dist/angular-app/browser /usr/share/nginx/html
