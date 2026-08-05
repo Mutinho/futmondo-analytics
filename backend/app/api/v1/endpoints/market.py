@@ -146,6 +146,49 @@ async def place_bid(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+@router.post("/cancelbid")
+async def cancel_bid(
+    championship_id: str = Query(...),
+    bid_id: str = Query(...),
+    service: FutmondoService = Depends(FutmondoService),
+) -> Dict:
+    """Cancela una puja activa en el mercado de Futmondo."""
+    try:
+        if not service.client or not service.client.is_authenticated():
+            service.login()
+        client = service.client
+
+        user_team_id = _get_user_team_id(client, championship_id)
+        if not user_team_id:
+            raise HTTPException(status_code=400, detail="No se pudo determinar tu equipo")
+
+        cancel_data = {
+            "header": {
+                "token": client.token,
+                "userid": client.user_id,
+            },
+            "query": {
+                "championshipId": championship_id,
+                "userteamId": user_team_id,
+                "bid": bid_id,
+            },
+            "answer": {}
+        }
+
+        resp = client.session.post(f"{client.base_url}/1/market/cancelbid", json=cancel_data, timeout=15)
+        result = resp.json()
+        answer = result.get("answer", {})
+
+        if answer.get("code") == "api.general.ok":
+            return {"success": True, "message": "Puja cancelada correctamente"}
+        else:
+            return {"success": False, "message": answer.get("code", "Error desconocido")}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @router.get("/today")
 async def get_market_today(
     championship_id: str = Query(default=CHAMPIONSHIP_ID),
@@ -217,6 +260,7 @@ async def get_market_today(
                 "market_price": market_price,
                 "change": p.get('change', 0),
                 "current_bid": p.get('bid', {}).get('price', 0) if isinstance(p.get('bid'), dict) else 0,
+                "current_bid_id": p.get('bid', {}).get('id', '') if isinstance(p.get('bid'), dict) else '',
                 "average": p.get('average', {}).get('average', 0) if isinstance(p.get('average'), dict) else 0,
                 "photo": p.get('photo', ''),
                 "expiration": p.get('expirationDate', ''),

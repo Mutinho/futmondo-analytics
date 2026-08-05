@@ -21,6 +21,7 @@ interface MarketPlayer {
   market_price: number;
   change: number;
   current_bid: number;
+  current_bid_id: string;
   average: number;
   suggested_bid: number;
   bid_confidence: string;
@@ -99,7 +100,17 @@ interface MarketPlayer {
           <ng-container matColumnDef="current_bid">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>Puja Actual</th>
             <td mat-cell *matCellDef="let p" class="current-bid">
-              {{ p.current_bid ? (p.current_bid | money) : '-' }}
+              @if (p.current_bid) {
+                {{ p.current_bid | money }}
+                <button mat-icon-button color="warn" class="cancel-btn"
+                        (click)="cancelBid(p, $event)"
+                        [disabled]="bidding()"
+                        title="Cancelar puja">
+                  <mat-icon>close</mat-icon>
+                </button>
+              } @else {
+                -
+              }
             </td>
           </ng-container>
           <ng-container matColumnDef="suggested_bid">
@@ -150,6 +161,7 @@ interface MarketPlayer {
     .trend-down { color: #dc2626; font-weight: 600; }
     .current-bid { color: #7c3aed; font-weight: 600; }
     .bid-btn { transform: scale(0.8); }
+    .cancel-btn { transform: scale(0.7); }
     .confidence { margin-left: 4px; font-size: 0.9em; }
     .legend { color: var(--mat-sys-on-surface-variant); font-size: 0.8em; margin-top: 12px; }
   `]
@@ -218,6 +230,34 @@ export class MarketComponent {
       }
     } catch (err: any) {
       alert(`❌ Error al pujar: ${err.message || 'Error desconocido'}`);
+    } finally {
+      this.bidding.set(false);
+    }
+  }
+
+  async cancelBid(player: MarketPlayer, event: Event) {
+    event.stopPropagation();
+    const moneyFmt = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+    const confirmed = confirm(
+      `¿Cancelar puja de ${moneyFmt.format(player.current_bid)} por ${player.name}?`
+    );
+    if (!confirmed) return;
+
+    this.bidding.set(true);
+    try {
+      let params = new HttpParams()
+        .set('championship_id', this.championshipService.activeId())
+        .set('bid_id', player.current_bid_id);
+
+      const result = await firstValueFrom(this.http.post<any>('/api/v1/market/cancelbid', {}, { params }));
+      if (result.success) {
+        alert(`✅ Puja cancelada para ${player.name}`);
+        await this.loadData();
+      } else {
+        alert(`❌ Error: ${result.message}`);
+      }
+    } catch (err: any) {
+      alert(`❌ Error al cancelar: ${err.message || 'Error desconocido'}`);
     } finally {
       this.bidding.set(false);
     }
