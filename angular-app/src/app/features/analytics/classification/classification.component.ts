@@ -1,3 +1,4 @@
+import { InfoCardComponent } from '../../../shared/components/info-card.component';
 import { Component, inject, signal } from '@angular/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTableModule } from '@angular/material/table';
@@ -10,10 +11,10 @@ import { AnalyticsService } from '../../../core/services/analytics.service';
 @Component({
   selector: 'app-analytics-classification',
   standalone: true,
-  imports: [MatProgressSpinnerModule, MatTableModule, MatButtonModule, FormsModule, MatInputModule, MatFormFieldModule],
+  imports: [MatProgressSpinnerModule, MatTableModule, MatButtonModule, FormsModule, MatInputModule, MatFormFieldModule, InfoCardComponent],
   template: `
     <h3>🏆 Clasificación Dinámica</h3>
-    <p class="section-desc">Clasificación filtrable por las últimas N jornadas. Permite ver quién está en mejor forma reciente, independientemente del acumulado total.</p>
+    <app-info-card>Clasificación filtrable por las últimas N jornadas. Permite ver quién está en mejor forma reciente, independientemente del acumulado total.</app-info-card>
     <div class="controls">
       <mat-form-field appearance="outline" class="window-field">
         <mat-label>Últimas jornadas</mat-label>

@@ -1,3 +1,4 @@
+import { InfoCardComponent } from '../../../shared/components/info-card.component';
 import { Component, inject, signal } from '@angular/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTableModule } from '@angular/material/table';
@@ -6,16 +7,16 @@ import { AnalyticsService } from '../../../core/services/analytics.service';
 @Component({
   selector: 'app-analytics-overview',
   standalone: true,
-  imports: [MatProgressSpinnerModule, MatTableModule],
+  imports: [MatProgressSpinnerModule, MatTableModule, InfoCardComponent],
   template: `
     @if (loading()) {
       <div class="loading"><mat-spinner diameter="32" /> Cargando visión general...</div>
     } @else if (!hasData()) {
-      <p class="section-desc">Resumen de puntos, posición y momentum de cada equipo en las últimas jornadas.</p>
+      <app-info-card>Resumen de puntos, posición y momentum de cada equipo en las últimas jornadas.</app-info-card>
       <div class="empty">🌐 No hay datos de jornadas disponibles para mostrar tendencias.</div>
     } @else {
       <h3>📊 Tendencias (últimas 5 jornadas)</h3>
-      <p class="section-desc">Resumen de puntos, posición y momentum de cada equipo en las últimas jornadas.</p>
+      <app-info-card>Resumen de puntos, posición y momentum de cada equipo en las últimas jornadas.</app-info-card>
       <div class="table-container">
         <table mat-table [dataSource]="trends()">
           <ng-container matColumnDef="team_name">

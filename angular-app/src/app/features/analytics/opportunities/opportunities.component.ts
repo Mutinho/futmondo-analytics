@@ -1,3 +1,4 @@
+import { InfoCardComponent } from '../../../shared/components/info-card.component';
 import { Component, inject, signal } from '@angular/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTableModule } from '@angular/material/table';
@@ -7,10 +8,10 @@ import { AnalyticsService } from '../../../core/services/analytics.service';
 @Component({
   selector: 'app-analytics-opportunities',
   standalone: true,
-  imports: [MatProgressSpinnerModule, MatTableModule, DecimalPipe],
+  imports: [MatProgressSpinnerModule, MatTableModule, DecimalPipe, InfoCardComponent],
   template: `
     <h3>⚡ Rachas Activas</h3>
-    <p class="section-desc">Jugadores que llevan varias jornadas consecutivas por encima de un umbral de puntos. Indica jugadores en racha que podrían ser interesantes para fichar.</p>
+    <app-info-card>Jugadores que llevan varias jornadas consecutivas por encima de un umbral de puntos. Indica jugadores en racha que podrían ser interesantes para fichar.</app-info-card>
     @if (loading()) {
       <div class="loading"><mat-spinner diameter="32" /> Cargando...</div>
     } @else if (!streaks().length) {

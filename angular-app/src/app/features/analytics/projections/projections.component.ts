@@ -1,3 +1,4 @@
+import { InfoCardComponent } from '../../../shared/components/info-card.component';
 import { Component, inject, signal } from '@angular/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCardModule } from '@angular/material/card';
@@ -7,10 +8,10 @@ import { AnalyticsService } from '../../../core/services/analytics.service';
 @Component({
   selector: 'app-analytics-projections',
   standalone: true,
-  imports: [MatProgressSpinnerModule, MatCardModule, DatePipe],
+  imports: [MatProgressSpinnerModule, MatCardModule, DatePipe, InfoCardComponent],
   template: `
     <h3>🎯 Proyecciones de la Próxima Jornada</h3>
-    <p class="section-desc">Dificultad estimada de cada partido de la próxima jornada combinando las cuotas de apuestas y la forma de los equipos.</p>
+    <app-info-card>Dificultad estimada de cada partido de la próxima jornada combinando las cuotas de apuestas y la forma de los equipos.</app-info-card>
     @if (loading()) {
       <div class="loading"><mat-spinner diameter="32" /> Calculando proyecciones...</div>
     } @else if (!matches().length) {

@@ -1,3 +1,4 @@
+import { InfoCardComponent } from '../../../shared/components/info-card.component';
 import { Component, inject, signal } from '@angular/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTableModule } from '@angular/material/table';
@@ -8,10 +9,10 @@ import { AnalyticsService } from '../../../core/services/analytics.service';
 @Component({
   selector: 'app-analytics-market',
   standalone: true,
-  imports: [MatProgressSpinnerModule, MatTableModule, DecimalPipe, MoneyPipe],
+  imports: [MatProgressSpinnerModule, MatTableModule, DecimalPipe, MoneyPipe, InfoCardComponent],
   template: `
     <h3>💹 Watchlist — Agentes Libres</h3>
-    <p class="section-desc">Jugadores libres (sin dueño) ordenados por su relación puntos/cláusula. Útil para encontrar fichajes baratos con buen rendimiento.</p>
+    <app-info-card>Jugadores libres (sin dueño) ordenados por su relación puntos/cláusula. Útil para encontrar fichajes baratos con buen rendimiento.</app-info-card>
     @if (loading()) {
       <div class="loading"><mat-spinner diameter="32" /> Cargando...</div>
     } @else if (!players().length) {

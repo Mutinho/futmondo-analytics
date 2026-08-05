@@ -1,3 +1,4 @@
+import { InfoCardComponent } from '../../../shared/components/info-card.component';
 import { Component, inject, signal } from '@angular/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTableModule } from '@angular/material/table';
@@ -7,10 +8,10 @@ import { AnalyticsService } from '../../../core/services/analytics.service';
 @Component({
   selector: 'app-analytics-players',
   standalone: true,
-  imports: [MatProgressSpinnerModule, MatTableModule, DecimalPipe],
+  imports: [MatProgressSpinnerModule, MatTableModule, DecimalPipe, InfoCardComponent],
   template: `
     <h3>🔥 Forma de Jugadores</h3>
-    <p class="section-desc">Top jugadores por rendimiento reciente. Muestra media de puntos y tendencia al alza o a la baja para detectar jugadores en racha.</p>
+    <app-info-card>Top jugadores por rendimiento reciente. Muestra media de puntos y tendencia al alza o a la baja para detectar jugadores en racha.</app-info-card>
     @if (loading()) {
       <div class="loading"><mat-spinner diameter="32" /> Cargando...</div>
     } @else if (!players().length) {
