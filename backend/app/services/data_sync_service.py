@@ -705,7 +705,7 @@ class DataSyncService:
                     logger.debug("No round ID for matchday %s, skipping.", matchday)
                     continue
 
-                matchday_records = 0
+                matchday_records = []
 
                 for team_id, userteam_id in team_map:
                     try:
@@ -743,11 +743,6 @@ class DataSyncService:
                             try:
                                 points = int(raw_points)
                             except (TypeError, ValueError):
-                                logger.debug(
-                                    "Skipping player %s with non-integer points value: %s",
-                                    player_id,
-                                    raw_points
-                                )
                                 continue
 
                             value = (
@@ -763,27 +758,14 @@ class DataSyncService:
                                 or player.get("isMvp")
                             )
 
-                            try:
-                                self.dm.save_player_performance(
-                                    championship_id=self.championship_id,
-                                    player_id=player_id,
-                                    team_id=team_id,
-                                    matchday=matchday,
-                                    points=points,
-                                    value=value,
-                                    was_best_player=was_best
-                                )
-                                total_records += 1
-                                matchday_records += 1
-                            except Exception as save_err:
-                                logger.debug(
-                                    "Failed to save player performance for player %s (team %s, matchday %s): %s",
-                                    player_id,
-                                    team_id,
-                                    matchday,
-                                    save_err
-                                )
-                                continue
+                            matchday_records.append({
+                                "player_id": player_id,
+                                "team_id": team_id,
+                                "matchday": matchday,
+                                "points": points,
+                                "value": value,
+                                "was_best_player": was_best,
+                            })
 
                         time.sleep(0.05)
 
@@ -796,7 +778,10 @@ class DataSyncService:
                         )
                         continue
 
-                if matchday_records > 0:
+                # Batch insert all records for this matchday
+                if matchday_records:
+                    self.dm.save_player_performance_batch(self.championship_id, matchday_records)
+                    total_records += len(matchday_records)
                     processed_matchday = matchday
 
             duration = time.time() - start_time

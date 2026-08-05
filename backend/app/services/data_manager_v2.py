@@ -624,41 +624,60 @@ class DataManagerV2:
     def save_player_performance(self, championship_id: str, player_id: str, team_id: str,
                                matchday: int, points: int, value: int = None,
                                was_best_player: bool = False, **kwargs) -> None:
-        """Save player performance for a specific matchday"""
+        """Save player performance for a specific matchday (single record)"""
+        self.save_player_performance_batch(championship_id, [{
+            "player_id": player_id,
+            "team_id": team_id,
+            "matchday": matchday,
+            "points": points,
+            "value": value,
+            "was_best_player": was_best_player,
+        }])
+    
+    def save_player_performance_batch(self, championship_id: str, records: List[Dict]) -> int:
+        """Save multiple player performance records in a single transaction (batch)."""
+        if not records:
+            return 0
+        
         with self.db.get_connection() as conn:
             cursor = self.db.get_cursor(conn)
-            
-            # Ensure championship exists in the same transaction
             self.ensure_championship_exists(championship_id, conn=conn, cursor=cursor)
             
-            sql = '''
-                INSERT INTO player_performance 
-                (championship_id, player_id, team_id, matchday, points, value, was_best_player, recorded_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            '''
-            sql = self.db.adapt_params(sql)
+            now = datetime.now()
+            values = []
+            for r in records:
+                values.append((
+                    championship_id,
+                    r["player_id"],
+                    r["team_id"],
+                    r["matchday"],
+                    r["points"],
+                    r.get("value"),
+                    bool(r.get("was_best_player", False)),
+                    now,
+                ))
             
             if self.db.db_type in ["postgresql", "postgres"]:
-                sql = '''
+                from psycopg2.extras import execute_values
+                raw_cursor = cursor._cursor if hasattr(cursor, '_cursor') else cursor
+                execute_values(raw_cursor, '''
                     INSERT INTO player_performance 
                     (championship_id, player_id, team_id, matchday, points, value, was_best_player, recorded_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES %s
                     ON CONFLICT (championship_id, player_id, team_id, matchday) DO UPDATE SET
                         points = EXCLUDED.points,
                         value = EXCLUDED.value,
                         was_best_player = EXCLUDED.was_best_player,
                         recorded_at = EXCLUDED.recorded_at
-                '''
+                ''', values, page_size=200)
             else:
-                sql = '''
+                cursor.executemany('''
                     INSERT OR REPLACE INTO player_performance 
                     (championship_id, player_id, team_id, matchday, points, value, was_best_player, recorded_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                '''
-                sql = self.db.adapt_params(sql)
+                ''', values)
             
-            now = datetime.now()
-            cursor.execute(sql, (championship_id, player_id, team_id, matchday, points, value, was_best_player, now))
+            return len(values)
     
     def save_players(self, players: List[Dict]):
         """Save players data to database (optimized for historical analysis)"""
