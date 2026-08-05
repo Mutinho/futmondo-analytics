@@ -256,6 +256,7 @@ async def get_market_today(
                 "name": p.get('name', ''),
                 "team": p.get('team', ''),
                 "position": p.get('role', ''),
+                "position2": p.get('role2', ''),
                 "value": player_value,
                 "market_price": market_price,
                 "change": p.get('change', 0),

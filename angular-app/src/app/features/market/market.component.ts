@@ -19,6 +19,7 @@ interface MarketPlayer {
   name: string;
   team: string;
   position: string;
+  position2: string;
   value: number;
   market_price: number;
   change: number;
@@ -84,7 +85,10 @@ interface MarketPlayer {
           <ng-container matColumnDef="position">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>Pos</th>
             <td mat-cell *matCellDef="let p">
-              <span class="pos-chip" [class]="'pos-' + getPositionKey(p.position)">{{ p.position }}</span>
+              <span class="pos-chip" [class]="'pos-' + getPositionKey(p.position)">{{ getPositionLabel(p.position) }}</span>
+              @if (p.position2) {
+                <span class="pos-chip pos-secondary" [class]="'pos-' + getPositionKey(p.position2)">{{ getPositionLabel(p.position2) }}</span>
+              }
             </td>
           </ng-container>
           <ng-container matColumnDef="value">
@@ -158,6 +162,7 @@ interface MarketPlayer {
     .suggested { font-weight: 700; color: #4CAF50; }
     .overpay { color: #d97706; font-weight: 600; }
     .pos-chip { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600; color: #fff; text-transform: capitalize; }
+    .pos-secondary { margin-left: 3px; opacity: 0.8; }
     .pos-fwd { background: #dc2626; }
     .pos-mid { background: #2563eb; }
     .pos-def { background: #ca8a04; }
@@ -196,6 +201,15 @@ export class MarketComponent {
     if (p.includes('defensa') || p.includes('defender')) return 'def';
     if (p.includes('portero') || p.includes('keeper')) return 'gk';
     return 'mid';
+  }
+
+  getPositionLabel(position: string): string {
+    const p = (position || '').toLowerCase();
+    if (p.includes('delantero')) return 'DL';
+    if (p.includes('centrocampista')) return 'MC';
+    if (p.includes('defensa')) return 'DF';
+    if (p.includes('portero')) return 'PT';
+    return position;
   }
 
   constructor() {
