@@ -8,8 +8,10 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog } from '@angular/material/dialog';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
 import { ChampionshipService } from '../../core/services/championship.service';
+import { ConfirmDialogComponent } from './confirm-dialog.component';
 
 interface MarketPlayer {
   player_id: string;
@@ -33,7 +35,7 @@ interface MarketPlayer {
 @Component({
   selector: 'app-market',
   standalone: true,
-  imports: [MatTableModule, MatSortModule, MatProgressSpinnerModule, MatChipsModule, MatButtonModule, MatIconModule, MoneyPipe],
+  imports: [MatTableModule, MatSortModule, MatProgressSpinnerModule, MatChipsModule, MatButtonModule, MatIconModule, MatSnackBarModule, MoneyPipe],
   template: `
     <h1>🛒 Mercado de Hoy</h1>
     <p class="description">Jugadores del computer disponibles para fichar. La puja sugerida se basa en el historial de compras similares.</p>
@@ -170,6 +172,9 @@ export class MarketComponent {
   private http = inject(HttpClient);
   private championshipService = inject(ChampionshipService);
 
+  private dialog = inject(MatDialog);
+  private snackBar = inject(MatSnackBar);
+
   @ViewChild(MatSort) set matSort(sort: MatSort) {
     if (sort) this.dataSource.sort = sort;
   }
@@ -206,9 +211,18 @@ export class MarketComponent {
   async confirmBid(player: MarketPlayer, event: Event) {
     event.stopPropagation();
     const moneyFmt = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
-    const confirmed = confirm(
-      `¿Pujar ${moneyFmt.format(player.suggested_bid)} por ${player.name} (${player.team})?`
-    );
+
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      data: {
+        title: '🔨 Confirmar Puja',
+        message: `¿Pujar ${moneyFmt.format(player.suggested_bid)} por ${player.name} (${player.team})?`,
+        confirmText: 'Pujar',
+        color: 'primary',
+      },
+      width: '400px',
+    });
+
+    const confirmed = await firstValueFrom(dialogRef.afterClosed());
     if (!confirmed) return;
 
     this.bidding.set(true);
@@ -222,14 +236,13 @@ export class MarketComponent {
 
       const result = await firstValueFrom(this.http.post<any>('/api/v1/market/bid', {}, { params }));
       if (result.success) {
-        alert(`✅ Puja realizada: ${moneyFmt.format(player.suggested_bid)} por ${player.name}`);
-        // Recargar para actualizar puja actual
+        this.snackBar.open(`✅ Puja realizada: ${moneyFmt.format(player.suggested_bid)} por ${player.name}`, 'OK', { duration: 4000 });
         await this.loadData();
       } else {
-        alert(`❌ Error: ${result.message}`);
+        this.snackBar.open(`❌ Error: ${result.message}`, 'OK', { duration: 5000 });
       }
     } catch (err: any) {
-      alert(`❌ Error al pujar: ${err.message || 'Error desconocido'}`);
+      this.snackBar.open(`❌ Error al pujar: ${err.message || 'Error desconocido'}`, 'OK', { duration: 5000 });
     } finally {
       this.bidding.set(false);
     }
@@ -238,9 +251,18 @@ export class MarketComponent {
   async cancelBid(player: MarketPlayer, event: Event) {
     event.stopPropagation();
     const moneyFmt = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
-    const confirmed = confirm(
-      `¿Cancelar puja de ${moneyFmt.format(player.current_bid)} por ${player.name}?`
-    );
+
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      data: {
+        title: '❌ Cancelar Puja',
+        message: `¿Cancelar puja de ${moneyFmt.format(player.current_bid)} por ${player.name}?`,
+        confirmText: 'Cancelar puja',
+        color: 'warn',
+      },
+      width: '400px',
+    });
+
+    const confirmed = await firstValueFrom(dialogRef.afterClosed());
     if (!confirmed) return;
 
     this.bidding.set(true);
@@ -251,13 +273,13 @@ export class MarketComponent {
 
       const result = await firstValueFrom(this.http.post<any>('/api/v1/market/cancelbid', {}, { params }));
       if (result.success) {
-        alert(`✅ Puja cancelada para ${player.name}`);
+        this.snackBar.open(`✅ Puja cancelada para ${player.name}`, 'OK', { duration: 4000 });
         await this.loadData();
       } else {
-        alert(`❌ Error: ${result.message}`);
+        this.snackBar.open(`❌ Error: ${result.message}`, 'OK', { duration: 5000 });
       }
     } catch (err: any) {
-      alert(`❌ Error al cancelar: ${err.message || 'Error desconocido'}`);
+      this.snackBar.open(`❌ Error al cancelar: ${err.message || 'Error desconocido'}`, 'OK', { duration: 5000 });
     } finally {
       this.bidding.set(false);
     }
