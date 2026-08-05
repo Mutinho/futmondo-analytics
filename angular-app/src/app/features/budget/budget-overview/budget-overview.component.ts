@@ -5,12 +5,10 @@ import { MatSortModule, MatSort } from '@angular/material/sort';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatDialog } from '@angular/material/dialog';
 import { MoneyPipe } from '../../../shared/pipes/money.pipe';
 import { BudgetService } from '../../../core/services/budget.service';
 import { ChampionshipService } from '../../../core/services/championship.service';
 import { TeamBudget } from '../../../core/models/budget.model';
-import { SyncDialogComponent } from '../sync-dialog/sync-dialog.component';
 
 @Component({
   selector: 'app-budget-overview',
@@ -30,7 +28,6 @@ export class BudgetOverviewComponent {
   private budgetService = inject(BudgetService);
   private championshipService = inject(ChampionshipService);
   private router = inject(Router);
-  private dialog = inject(MatDialog);
 
   @ViewChild(MatSort) set matSort(sort: MatSort) {
     if (sort) {
@@ -72,19 +69,6 @@ export class BudgetOverviewComponent {
     } finally {
       this.loading.set(false);
     }
-  }
-
-  async sync() {
-    const dialogRef = this.dialog.open(SyncDialogComponent, {
-      width: '400px',
-      disableClose: true,
-    });
-
-    dialogRef.afterClosed().subscribe(result => {
-      if (result) {
-        this.loadData();
-      }
-    });
   }
 
   openDetail(team: TeamBudget) {

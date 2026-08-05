@@ -12,6 +12,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
 import { ChampionshipService } from '../../core/services/championship.service';
 import { ConfirmDialogComponent } from './confirm-dialog.component';
+import { SofascoreDetailDialogComponent } from './sofascore-detail-dialog.component';
 
 interface MarketPlayer {
   player_id: string;
@@ -31,6 +32,7 @@ interface MarketPlayer {
   bid_based_on: number;
   overpay_pct: number;
   expiration: string;
+  sofascore_rating: number | null;
 }
 
 @Component({
@@ -88,6 +90,19 @@ interface MarketPlayer {
               <span class="pos-chip" [class]="'pos-' + getPositionKey(p.position)">{{ getPositionLabel(p.position) }}</span>
               @if (p.position2) {
                 <span class="pos-chip pos-secondary" [class]="'pos-' + getPositionKey(p.position2)">{{ getPositionLabel(p.position2) }}</span>
+              }
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="sofascore_rating">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Sofascore</th>
+            <td mat-cell *matCellDef="let p">
+              @if (p.sofascore_rating != null) {
+                <span class="sofascore-badge" [class]="getSofascoreClass(p.sofascore_rating)"
+                      (click)="openSofascoreDetail(p, $event)">
+                  {{ p.sofascore_rating.toFixed(1) }}
+                </span>
+              } @else {
+                <span class="sofascore-na">-</span>
               }
             </td>
           </ng-container>
@@ -174,6 +189,12 @@ interface MarketPlayer {
     .cancel-btn { transform: scale(0.7); vertical-align: middle; position: relative; padding: 0; top:1px; }
     .confidence { margin-left: 4px; font-size: 0.9em; }
     .legend { color: var(--mat-sys-on-surface-variant); font-size: 0.8em; margin-top: 12px; }
+    .sofascore-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.85em; font-weight: 700; color: #fff; cursor: pointer; transition: transform 0.15s; }
+    .sofascore-badge:hover { transform: scale(1.1); }
+    .sofascore-green { background: #16a34a; }
+    .sofascore-yellow { background: #ca8a04; }
+    .sofascore-red { background: #dc2626; }
+    .sofascore-na { color: var(--mat-sys-on-surface-variant); }
   `]
 })
 export class MarketComponent {
@@ -192,7 +213,7 @@ export class MarketComponent {
   error = signal('');
   bidding = signal(false);
   userInfo = signal<{ balance: number; team_value: number; max_bid: number; active_bids_total: number; available_for_bids: number } | null>(null);
-  columns = ['name', 'team', 'position', 'value', 'change', 'market_price', 'current_bid', 'suggested_bid'];
+  columns = ['name', 'team', 'position', 'sofascore_rating', 'value', 'change', 'market_price', 'current_bid', 'suggested_bid'];
 
   getPositionKey(position: string): string {
     const p = (position || '').toLowerCase();
@@ -309,5 +330,19 @@ export class MarketComponent {
     } finally {
       this.bidding.set(false);
     }
+  }
+
+  getSofascoreClass(rating: number): string {
+    if (rating >= 7) return 'sofascore-green';
+    if (rating >= 6) return 'sofascore-yellow';
+    return 'sofascore-red';
+  }
+
+  openSofascoreDetail(player: MarketPlayer, event: Event) {
+    event.stopPropagation();
+    this.dialog.open(SofascoreDetailDialogComponent, {
+      data: { player_name: player.name },
+      width: '550px',
+    });
   }
 }

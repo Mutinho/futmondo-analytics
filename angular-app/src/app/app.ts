@@ -8,9 +8,11 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatDialog } from '@angular/material/dialog';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs';
 import { ChampionshipService, Championship } from './core/services/championship.service';
+import { SyncDialogComponent } from './features/budget/sync-dialog/sync-dialog.component';
 
 interface NavItem {
   label: string;
@@ -38,6 +40,7 @@ interface NavItem {
 })
 export class App {
   private breakpointObserver = inject(BreakpointObserver);
+  private dialog = inject(MatDialog);
   championshipService = inject(ChampionshipService);
 
   sidenavOpened = signal(true);
@@ -106,5 +109,12 @@ export class App {
 
   toggleSidenav() {
     this.sidenavOpened.update(v => !v);
+  }
+
+  sync() {
+    this.dialog.open(SyncDialogComponent, {
+      width: '500px',
+      disableClose: true,
+    });
   }
 }

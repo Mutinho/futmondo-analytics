@@ -271,6 +271,39 @@ async def get_market_today(
                 "overpay_pct": overpay_pct,
             })
         
+        # Enriquecer con ratings de Sofascore desde caché
+        with db.get_connection() as conn_sf:
+            cursor_sf = db.get_cursor(conn_sf)
+            sql_sf = """
+                SELECT player_name, sofascore_id, rating, goals, assists, appearances
+                FROM sofascore_cache
+                WHERE championship_id = ?
+            """
+            sql_sf = db.adapt_params(sql_sf)
+            cursor_sf.execute(sql_sf, (championship_id,))
+            sf_rows = cursor_sf.fetchall()
+
+        sf_map = {}
+        for row in sf_rows:
+            sf_map[row[0]] = {
+                "sofascore_id": row[1],
+                "sofascore_rating": row[2],
+                "sofascore_goals": row[3],
+                "sofascore_assists": row[4],
+                "sofascore_appearances": row[5],
+            }
+
+        for player in players_with_bid:
+            sf_data = sf_map.get(player["name"])
+            if sf_data:
+                player.update(sf_data)
+            else:
+                player["sofascore_id"] = None
+                player["sofascore_rating"] = None
+                player["sofascore_goals"] = None
+                player["sofascore_assists"] = None
+                player["sofascore_appearances"] = None
+
         # Ordenar por valor descendente
         players_with_bid.sort(key=lambda x: x['value'], reverse=True)
         

@@ -49,7 +49,15 @@ interface PhantomsResponse {
         </div>
       }
 
-      <!-- Fase 3: Error -->
+      <!-- Fase 3: Syncing sofascore -->
+      @if (phase() === 'syncing_sofascore') {
+        <div class="sync-progress">
+          <mat-spinner diameter="36" />
+          <span>Sincronizando ratings de Sofascore...</span>
+        </div>
+      }
+
+      <!-- Fase Error -->
       @if (phase() === 'error') {
         <div class="sync-result error">
           <mat-icon>error</mat-icon>
@@ -63,6 +71,9 @@ interface PhantomsResponse {
           <mat-icon>check_circle</mat-icon>
           <div class="result-details">
             <p><strong>{{ syncResult()!.records_synced }}</strong> nuevas transacciones</p>
+            @if (sofascoreResult()) {
+              <p><strong>{{ sofascoreResult()!.players_synced }}</strong> jugadores con stats de Sofascore</p>
+            }
             <p class="duration">Duración: {{ syncResult()!.duration_seconds.toFixed(1) }}s</p>
           </div>
         </div>
@@ -96,7 +107,7 @@ interface PhantomsResponse {
       }
     </mat-dialog-content>
     <mat-dialog-actions align="end">
-      <button mat-button [disabled]="phase() === 'syncing' || phase() === 'checking'" (click)="close()">Cerrar</button>
+      <button mat-button [disabled]="phase() === 'syncing' || phase() === 'checking' || phase() === 'syncing_sofascore'" (click)="close()">Cerrar</button>
     </mat-dialog-actions>
   `,
   styles: [`
@@ -127,9 +138,10 @@ export class SyncDialogComponent {
   private championshipService = inject(ChampionshipService);
   private dialogRef = inject(MatDialogRef<SyncDialogComponent>);
 
-  phase = signal<'syncing' | 'checking' | 'done' | 'error'>('syncing');
+  phase = signal<'syncing' | 'checking' | 'syncing_sofascore' | 'done' | 'error'>('syncing');
   error = signal('');
   syncResult = signal<{ records_synced: number; duration_seconds: number; status: string } | null>(null);
+  sofascoreResult = signal<{ players_synced: number } | null>(null);
   phantoms = signal<PhantomPlayer[]>([]);
 
   constructor() {
@@ -167,6 +179,21 @@ export class SyncDialogComponent {
       this.phantoms.set(all);
     } catch {
       // Si falla el check, no es crítico — mostramos resultado del sync sin avisos
+    }
+
+    // Fase 3: Sync Sofascore
+    this.phase.set('syncing_sofascore');
+    try {
+      let params = new HttpParams();
+      if (championshipId) params = params.set('championship_id', championshipId);
+      const sofaData = await firstValueFrom(
+        this.http.post<any>('/api/v1/sync/sofascore', {}, { params })
+      );
+      this.sofascoreResult.set({
+        players_synced: sofaData.players_synced || sofaData.synced_count || 0,
+      });
+    } catch {
+      // Si falla el sync de sofascore, no es crítico
     }
 
     this.phase.set('done');
