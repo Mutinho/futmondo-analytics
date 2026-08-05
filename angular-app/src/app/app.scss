@@ -5,26 +5,8 @@
 // ===== SIDEBAR =====
 .app-sidenav {
   width: 240px;
-  background: #ffffff;
-  border-right: 1px solid #e0e0e0;
-}
-
-.sidenav-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 24px 20px;
-  border-bottom: 1px solid #e0e0e0;
-
-  .logo {
-    font-size: 1.8em;
-  }
-
-  .app-name {
-    font-size: 1.2em;
-    font-weight: 700;
-    color: #1a1a1a;
-  }
+  background: var(--mat-sys-surface);
+  border-right: 1px solid var(--mat-sys-outline-variant);
 }
 
 .championship-selector {
@@ -41,11 +23,12 @@
   border-radius: 12px;
 
   mat-icon {
-    color: #ffffff;
+    color: #ffffff !important;
   }
 
   span[matListItemTitle] {
-    color: #ffffff;
+    color: #ffffff !important;
+    font-weight: 600;
   }
 }
 
@@ -71,18 +54,17 @@ mat-nav-list {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: #ffffff;
-  border-bottom: 1px solid #e0e0e0;
+  background: var(--mat-sys-surface);
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
 
   .toolbar-title {
     font-weight: 700;
     font-size: 1.1em;
-    color: #1a1a1a;
   }
 
   .toolbar-logo {
-    width: 50px;
-    height: 50px;
+    width: 28px;
+    height: 28px;
     margin-right: 8px;
     border-radius: 4px;
   }
@@ -93,7 +75,7 @@ mat-nav-list {
 
   .last-sync-label {
     font-size: 0.75em;
-    color: #666666;
+    color: var(--mat-sys-on-surface-variant);
     margin-right: 8px;
   }
 }
@@ -102,7 +84,7 @@ mat-nav-list {
   flex: 1;
   padding: 32px;
   overflow-y: auto;
-  background: #f8f9fa;
+  background: var(--mat-sys-surface-container-lowest);
 }
 
 // Route transition animation
@@ -133,15 +115,6 @@ mat-nav-list {
     overflow-x: hidden;
     transition: width 0.2s ease;
 
-    .sidenav-header {
-      padding: 16px 12px;
-      justify-content: center;
-
-      .app-name {
-        display: none;
-      }
-    }
-
     .championship-selector {
       display: none;
     }
@@ -157,15 +130,6 @@ mat-nav-list {
     &:hover {
       width: 240px;
 
-      .sidenav-header {
-        justify-content: flex-start;
-        padding: 24px 20px;
-
-        .app-name {
-          display: inline;
-        }
-      }
-
       .championship-selector {
         display: block;
       }
@@ -178,42 +142,5 @@ mat-nav-list {
         margin: 0;
       }
     }
-  }
-}
-
-// ===== DARK MODE =====
-body.dark-theme {
-  .app-sidenav {
-    background: var(--mat-sys-surface);
-    border-color: var(--mat-sys-outline-variant);
-  }
-
-  .sidenav-header {
-    border-color: var(--mat-sys-outline-variant);
-
-    .app-name {
-      color: var(--mat-sys-on-surface);
-    }
-  }
-
-  .app-toolbar {
-    background: var(--mat-sys-surface);
-    border-color: var(--mat-sys-outline-variant);
-
-    .toolbar-title {
-      color: var(--mat-sys-on-surface);
-    }
-
-    .last-sync-label {
-      color: var(--mat-sys-on-surface-variant);
-    }
-  }
-
-  .page-content {
-    background: var(--mat-sys-surface-container-lowest);
-  }
-
-  .active-link {
-    background: rgba(76, 175, 80, 0.15) !important;
   }
 }
