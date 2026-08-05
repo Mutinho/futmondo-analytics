@@ -33,6 +33,7 @@ interface MarketPlayer {
   overpay_pct: number;
   expiration: string;
   sofascore_rating: number | null;
+  sofascore_url: string | null;
 }
 
 @Component({
@@ -78,7 +79,13 @@ interface MarketPlayer {
         <table mat-table [dataSource]="dataSource" matSort>
           <ng-container matColumnDef="name">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>Jugador</th>
-            <td mat-cell *matCellDef="let p"><strong>{{ p.name }}</strong></td>
+            <td mat-cell *matCellDef="let p">
+              @if (p.sofascore_url) {
+                <a [href]="p.sofascore_url" target="_blank" class="player-link"><strong>{{ p.name }}</strong></a>
+              } @else {
+                <strong>{{ p.name }}</strong>
+              }
+            </td>
           </ng-container>
           <ng-container matColumnDef="team">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>Equipo</th>
@@ -184,6 +191,7 @@ interface MarketPlayer {
     .pos-gk { background: #16a34a; }
     .trend-up { color: #16a34a; font-weight: 600; }
     .trend-down { color: #dc2626; font-weight: 600; }
+    .player-link { color: var(--mat-sys-primary); text-decoration: none; &:hover { text-decoration: underline; } }
     .current-bid { color: #7c3aed; font-weight: 600; }
     .bid-btn { transform: scale(0.75); vertical-align: middle;  position: relative; padding: 0; }
     .cancel-btn { transform: scale(0.7); vertical-align: middle; position: relative; padding: 0; top:1px; }

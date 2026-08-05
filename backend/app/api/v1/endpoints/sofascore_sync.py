@@ -103,8 +103,9 @@ async def sync_sofascore(
                          rating, goals, assists, appearances, minutes_played,
                          yellow_cards, red_cards, tournament, season, position,
                          nationality, age, successful_dribbles, accurate_passes_pct,
-                         shots_on_target, tackles, interceptions, clean_sheets, saves, synced_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         shots_on_target, tackles, interceptions, clean_sheets, saves,
+                         sofascore_url, synced_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """
                     sql = db.adapt_params(sql)
                     cursor.execute(sql, (
@@ -119,6 +120,7 @@ async def sync_sofascore(
                         full_info.get('accurate_passes_pct'), full_info.get('shots_on_target'),
                         full_info.get('tackles'), full_info.get('interceptions'),
                         full_info.get('clean_sheets'), full_info.get('saves'),
+                        full_info.get('sofascore_url', ''),
                         now,
                     ))
 

@@ -275,7 +275,7 @@ async def get_market_today(
         with db.get_connection() as conn_sf:
             cursor_sf = db.get_cursor(conn_sf)
             sql_sf = """
-                SELECT player_name, sofascore_id, rating, goals, assists, appearances
+                SELECT player_name, sofascore_id, rating, goals, assists, appearances, sofascore_url
                 FROM sofascore_cache
                 WHERE championship_id = ?
             """
@@ -291,6 +291,7 @@ async def get_market_today(
                 "sofascore_goals": row[3],
                 "sofascore_assists": row[4],
                 "sofascore_appearances": row[5],
+                "sofascore_url": row[6] or None,
             }
 
         for player in players_with_bid:
@@ -303,6 +304,7 @@ async def get_market_today(
                 player["sofascore_goals"] = None
                 player["sofascore_assists"] = None
                 player["sofascore_appearances"] = None
+                player["sofascore_url"] = None
 
         # Ordenar por valor descendente
         players_with_bid.sort(key=lambda x: x['value'], reverse=True)
