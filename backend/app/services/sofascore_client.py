@@ -87,8 +87,13 @@ class SofascoreClient:
         # Torneos a excluir (selecciones/copas internacionales)
         EXCLUDED_KEYWORDS = {'world cup', 'euro ', 'copa america', 'nations league', 'friendlies', 'olympic'}
         
-        # Primero intentar ligas de club (excluir selecciones)
-        candidates = []
+        # Torneos prioritarios (ligas españolas primero)
+        PRIORITY_KEYWORDS = ['laliga', 'la liga', 'liga 2']
+        
+        # Clasificar candidatos
+        priority_candidates = []
+        normal_candidates = []
+        
         for tournament_season in seasons:
             tournament = tournament_season.get("uniqueTournament", {})
             tournament_name = (tournament.get("name") or "").lower()
@@ -99,7 +104,14 @@ class SofascoreClient:
             
             seasons_list = tournament_season.get("seasons", [])
             if seasons_list:
-                candidates.append((tournament, seasons_list[0]))
+                entry = (tournament, seasons_list[0])
+                if any(kw in tournament_name for kw in PRIORITY_KEYWORDS):
+                    priority_candidates.append(entry)
+                else:
+                    normal_candidates.append(entry)
+
+        # Ordenar: primero prioritarios, luego normales
+        candidates = priority_candidates + normal_candidates
 
         # Si no hay candidatos de club, usar todos
         if not candidates:
