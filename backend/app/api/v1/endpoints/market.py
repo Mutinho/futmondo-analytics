@@ -9,6 +9,16 @@ from app.services.db_connection import DBConnection
 router = APIRouter()
 
 
+def _get_championship_config_for_market(db, cursor, championship_id: str) -> dict:
+    """Lee la config del campeonato."""
+    import json as _json
+    sql = "SELECT initial_budget FROM championships_config WHERE championship_id = ?"
+    sql = db.adapt_params(sql)
+    cursor.execute(sql, (championship_id,))
+    row = cursor.fetchone()
+    return {"initial_budget": row[0] if row else 200000000}
+
+
 def _get_user_team_id(client, championship_id: str) -> str:
     """Obtiene el team_id del usuario autenticado en el campeonato."""
     standings = client.get_matchday_standings(championship_id)
@@ -219,12 +229,54 @@ async def get_market_today(
         # Ordenar por valor descendente
         players_with_bid.sort(key=lambda x: x['value'], reverse=True)
         
+        # Calcular pujas activas del usuario (todas las pujas, no solo computer)
+        active_bids_total = 0
+        for p in all_players:
+            bid = p.get('bid')
+            if isinstance(bid, dict) and bid.get('price'):
+                active_bids_total += bid['price']
+        
+        # Obtener saldo y valor de equipo del usuario para calcular puja máxima
+        standings = client.get_matchday_standings(championship_id)
+        user_team_value = 0
+        if standings and not standings.get('error'):
+            for t in standings.get('teams', []):
+                if t.get('userid') == client.user_id:
+                    user_team_value = t.get('teamValue', 0)
+                    break
+        
+        # Calcular saldo del usuario
+        with db.get_connection() as conn2:
+            cursor2 = db.get_cursor(conn2)
+            config = _get_championship_config_for_market(db, cursor2, championship_id)
+            initial_budget = config["initial_budget"]
+            
+            sql_spent = "SELECT COALESCE(SUM(price), 0) FROM transactions WHERE championship_id = ? AND buyer_team_id = ?"
+            sql_spent = db.adapt_params(sql_spent)
+            cursor2.execute(sql_spent, (championship_id, user_team_id))
+            user_spent = cursor2.fetchone()[0]
+            
+            sql_income = "SELECT COALESCE(SUM(price), 0) FROM transactions WHERE championship_id = ? AND seller_team_id = ?"
+            sql_income = db.adapt_params(sql_income)
+            cursor2.execute(sql_income, (championship_id, user_team_id))
+            user_income = cursor2.fetchone()[0]
+        
+        user_balance = initial_budget - user_spent + user_income
+        user_max_bid = user_balance + int(user_team_value * 0.5)
+        
         return {
             "success": True,
             "championship_id": championship_id,
             "total_in_market": len(all_players),
             "computer_players": len(players_with_bid),
             "players": players_with_bid,
+            "user_info": {
+                "balance": user_balance,
+                "team_value": user_team_value,
+                "max_bid": user_max_bid,
+                "active_bids_total": active_bids_total,
+                "available_for_bids": user_max_bid - active_bids_total,
+            },
         }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))

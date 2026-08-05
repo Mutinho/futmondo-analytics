@@ -44,6 +44,29 @@ interface MarketPlayer {
     } @else if (!dataSource.data.length) {
       <div class="empty">🛒 No hay jugadores del computer en el mercado ahora mismo.</div>
     } @else {
+      <!-- Banner info usuario -->
+      @if (userInfo()) {
+        <div class="user-info-banner">
+          <div class="info-item">
+            <span class="info-label">Presupuesto</span>
+            <span class="info-value">{{ userInfo()!.balance | money }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">En pujas</span>
+            <span class="info-value bids">{{ userInfo()!.active_bids_total | money }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Puja máxima</span>
+            <span class="info-value max">{{ userInfo()!.max_bid | money }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Disponible</span>
+            <span class="info-value" [class]="userInfo()!.available_for_bids > 0 ? 'available' : 'danger'">
+              {{ userInfo()!.available_for_bids | money }}
+            </span>
+          </div>
+        </div>
+      }
       <p class="count">{{ dataSource.data.length }} jugadores disponibles</p>
       <div class="table-container">
         <table mat-table [dataSource]="dataSource" matSort>
@@ -108,6 +131,17 @@ interface MarketPlayer {
     .error-message { padding: 16px; background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); border-radius: 8px; }
     .empty { text-align: center; padding: 60px 20px; color: var(--mat-sys-on-surface-variant); font-size: 1.1em; }
     .count { color: var(--mat-sys-on-surface-variant); font-size: 0.85em; margin-bottom: 12px; }
+    .user-info-banner {
+      display: flex; gap: 24px; flex-wrap: wrap; padding: 16px 20px;
+      background: var(--mat-sys-surface-container); border-radius: 12px; margin-bottom: 16px;
+    }
+    .info-item { display: flex; flex-direction: column; gap: 2px; }
+    .info-label { font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.5px; color: var(--mat-sys-on-surface-variant); }
+    .info-value { font-size: 1.2em; font-weight: 700; }
+    .info-value.bids { color: #7c3aed; }
+    .info-value.max { color: #2563eb; }
+    .info-value.available { color: #16a34a; }
+    .info-value.danger { color: #dc2626; }
     .table-container { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
     table { width: 100%; }
     .suggested { font-weight: 700; color: #4CAF50; }
@@ -132,6 +166,7 @@ export class MarketComponent {
   loading = signal(true);
   error = signal('');
   bidding = signal(false);
+  userInfo = signal<{ balance: number; team_value: number; max_bid: number; active_bids_total: number; available_for_bids: number } | null>(null);
   columns = ['name', 'team', 'position', 'value', 'change', 'market_price', 'current_bid', 'suggested_bid', 'avg_paid_similar'];
 
   constructor() {
@@ -148,6 +183,7 @@ export class MarketComponent {
       let params = new HttpParams().set('championship_id', this.championshipService.activeId());
       const data = await firstValueFrom(this.http.get<any>('/api/v1/market/today', { params }));
       this.dataSource.data = data.players || [];
+      this.userInfo.set(data.user_info || null);
     } catch (err: any) {
       this.error.set(err.message || 'Error cargando mercado');
     } finally {

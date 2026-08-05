@@ -42,7 +42,7 @@ export class BudgetOverviewComponent {
   loading = signal(true);
   error = signal('');
 
-  displayedColumns = ['team_name', 'balance', 'team_value', 'total_spent', 'total_income', 'ops', 'performance'];
+  displayedColumns = ['team_name', 'balance', 'team_value', 'total_spent', 'total_income', 'ops', 'performance', 'max_bid'];
 
   championshipBudget = computed(() => {
     const budget = this.championshipService.activeChampionship()?.initial_budget || 200000000;

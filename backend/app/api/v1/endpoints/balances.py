@@ -106,10 +106,10 @@ async def get_balances(
                 balance = initial_budget - spent + income
                 team_value = team_values.get(team_id, 0)
                 # Rendimiento: valor de equipo - gasto neto (gastado - ingresado)
-                # Si positivo = la plantilla vale más de lo que has gastado neto = buenos fichajes
-                # Si negativo = has gastado más de lo que vale tu plantilla = sobrepujar
                 net_spent = spent - income
                 performance = team_value - net_spent
+                # Puja máxima: saldo + 50% del valor del equipo
+                max_bid = balance + int(team_value * 0.5)
                 
                 result.append({
                     "team_id": team_id,
@@ -122,6 +122,7 @@ async def get_balances(
                     "sales_count": sales.get(team_id, {}).get("count", 0),
                     "team_value": team_value,
                     "performance": performance,
+                    "max_bid": max_bid,
                 })
             
             # Ordenar por saldo descendente
