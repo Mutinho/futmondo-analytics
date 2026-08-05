@@ -39,7 +39,6 @@
 .active-link {
   background: rgba(76, 175, 80, 0.1) !important;
   border-radius: 12px;
-  margin: 4px 12px;
   box-shadow: 0 2px 8px rgba(76, 175, 80, 0.15);
 
   mat-icon {
@@ -53,10 +52,14 @@
 }
 
 // Nav items normal state
-mat-nav-list a[mat-list-item] {
-  border-radius: 12px;
-  margin: 4px 12px;
-  transition: all 0.15s ease;
+mat-nav-list {
+  padding: 8px 12px;
+
+  a[mat-list-item] {
+    border-radius: 12px;
+    margin-bottom: 4px;
+    transition: all 0.15s ease;
+  }
 }
 
 // ===== MAIN CONTENT =====
