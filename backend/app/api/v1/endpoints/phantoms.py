@@ -6,7 +6,7 @@ from fastapi import APIRouter, Query, Depends, HTTPException
 from app.core.config import CHAMPIONSHIP_ID
 from app.services.futmondo_service import FutmondoService
 from app.services.futmondo_client import FutmondoClient
-from app.services.db_connection import DBConnection
+from app.services.db_connection import get_db
 
 router = APIRouter()
 
@@ -33,7 +33,7 @@ async def check_phantoms(
         client = service.client
         
         # Obtener config del campeonato para excluded_teams
-        db = DBConnection()
+        db = get_db()
         excluded_teams = set()
         with db.get_connection() as conn:
             cursor = db.get_cursor(conn)

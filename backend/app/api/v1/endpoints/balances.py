@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Query, HTTPException
 from app.core.config import CHAMPIONSHIP_ID
-from app.services.db_connection import DBConnection
+from app.services.db_connection import get_db
 
 router = APIRouter()
 
@@ -40,7 +40,7 @@ async def get_balances(
     - performance: rendimiento (teamValue + balance - initial_budget). Positivo = buenos fichajes.
     """
     try:
-        db = DBConnection()
+        db = get_db()
         
         # Obtener teamValue de la API de Futmondo (live)
         from app.services.futmondo_service import FutmondoService
@@ -145,7 +145,7 @@ async def get_team_transactions(
 ):
     """Detalle de altas (compras) y bajas (ventas) de un equipo específico."""
     try:
-        db = DBConnection()
+        db = get_db()
         with db.get_connection() as conn:
             cursor = db.get_cursor(conn)
             

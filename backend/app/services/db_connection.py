@@ -36,16 +36,27 @@ class DBConnection:
             self._init_sqlite()
     
     def _init_turso(self):
-        """Initialize Turso (LibSQL) remote connection"""
+        """Initialize Turso via libsql embedded replica (local reads, remote writes)"""
         from app.core.config import TURSO_DATABASE_URL, TURSO_AUTH_TOKEN
-        import turso_serverless
+        import libsql_experimental as libsql
         
-        self.connector = turso_serverless
+        self.connector = libsql
         self.turso_url = TURSO_DATABASE_URL
         self.turso_token = TURSO_AUTH_TOKEN
         
-        self._test_connection()
-        logger.info(f"✅ Using Turso database: {self.turso_url}")
+        # Local replica file inside the data volume
+        self._local_replica_path = "/app/data/turso_replica.db"
+        
+        # Create persistent connection with embedded replica
+        self._turso_conn = libsql.connect(
+            self._local_replica_path,
+            sync_url=self.turso_url,
+            auth_token=self.turso_token
+        )
+        
+        # Initial sync: pull remote data into local replica
+        self._turso_conn.sync()
+        logger.info(f"✅ Using Turso embedded replica: {self.turso_url} → {self._local_replica_path}")
     
     def _init_postgresql(self, database_url, host, port, db, user, password):
         """Initialize PostgreSQL connection with connection pool"""
@@ -96,18 +107,14 @@ class DBConnection:
     def get_connection(self):
         """Get a database connection (context manager)"""
         if self.db_type == "turso":
-            conn = self.connector.connect(
-                self.turso_url,
-                auth_token=self.turso_token
-            )
+            # Embedded replica: use persistent connection
+            # Reads are local (fast), writes go to remote automatically
             try:
-                yield conn
-                conn.commit()
+                yield self._turso_conn
+                self._turso_conn.commit()
             except Exception as e:
-                conn.rollback()
+                self._turso_conn.rollback()
                 raise
-            finally:
-                conn.close()
         elif self.db_type in ["postgresql", "postgres"]:
             if self._pool:
                 conn = self._pool.getconn()
@@ -181,3 +188,22 @@ class DBConnection:
             return sql.replace("?", "%s")
         # SQLite and Turso both use ?
         return sql
+    
+    def sync(self):
+        """Sync Turso embedded replica with remote (no-op for other backends)"""
+        if self.db_type == "turso" and hasattr(self, '_turso_conn'):
+            self._turso_conn.sync()
+            logger.info("🔄 Turso replica synced")
+
+
+
+# --- Singleton ---
+_db_instance: Optional[DBConnection] = None
+
+
+def get_db() -> DBConnection:
+    """Get or create the global DBConnection singleton."""
+    global _db_instance
+    if _db_instance is None:
+        _db_instance = DBConnection()
+    return _db_instance

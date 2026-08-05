@@ -2,7 +2,7 @@
 
 import json
 from fastapi import APIRouter, HTTPException
-from app.services.db_connection import DBConnection
+from app.services.db_connection import get_db
 
 router = APIRouter()
 
@@ -11,7 +11,7 @@ router = APIRouter()
 async def get_championships():
     """Devuelve la lista de campeonatos configurados con su metadata."""
     try:
-        db = DBConnection()
+        db = get_db()
         with db.get_connection() as conn:
             cursor = db.get_cursor(conn)
             cursor.execute("SELECT championship_id, name, has_clauses, initial_budget, excluded_teams FROM championships_config")

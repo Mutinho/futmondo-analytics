@@ -4,7 +4,7 @@ from typing import Dict, List
 from fastapi import APIRouter, Query, Depends, HTTPException
 from app.core.config import CHAMPIONSHIP_ID
 from app.services.futmondo_service import FutmondoService
-from app.services.db_connection import DBConnection
+from app.services.db_connection import get_db
 
 router = APIRouter()
 
@@ -234,7 +234,7 @@ async def get_market_today(
         computer_players = [p for p in all_players if p.get('computer') is True]
         
         # Calcular puja sugerida para cada jugador
-        db = DBConnection()
+        db = get_db()
         players_with_bid = []
         for p in computer_players:
             player_value = p.get('value', 0)

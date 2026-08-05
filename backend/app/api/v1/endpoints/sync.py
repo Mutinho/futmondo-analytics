@@ -101,8 +101,8 @@ async def get_last_sync_date(
 ) -> Dict:
     """Devuelve la fecha de la última sincronización completa para un campeonato."""
     try:
-        from app.services.db_connection import DBConnection
-        db = DBConnection()
+        from app.services.db_connection import get_db
+        db = get_db()
         with db.get_connection() as conn:
             cursor = db.get_cursor(conn)
             sql = "SELECT MAX(last_sync_date) FROM sync_metadata WHERE championship_id = ?"

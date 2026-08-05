@@ -3,7 +3,7 @@
 from typing import Dict
 from fastapi import APIRouter, Query, HTTPException
 from app.core.config import CHAMPIONSHIP_ID
-from app.services.db_connection import DBConnection
+from app.services.db_connection import get_db
 
 router = APIRouter()
 
@@ -14,7 +14,7 @@ async def get_sofascore_player_detail(
     championship_id: str = Query(default=CHAMPIONSHIP_ID),
 ) -> Dict:
     """Devuelve todas las estadísticas cacheadas de Sofascore para un jugador."""
-    db = DBConnection()
+    db = get_db()
 
     with db.get_connection() as conn:
         cursor = db.get_cursor(conn)

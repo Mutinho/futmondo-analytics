@@ -7,7 +7,7 @@ from fastapi import APIRouter, Query, Depends, HTTPException
 from app.core.config import CHAMPIONSHIP_ID
 from app.services.futmondo_service import FutmondoService
 from app.services.sofascore_client import get_sofascore_client
-from app.services.db_connection import DBConnection
+from app.services.db_connection import get_db
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -61,7 +61,7 @@ async def sync_sofascore(
 
         # Sincronizar con Sofascore
         sofascore = get_sofascore_client()
-        db = DBConnection()
+        db = get_db()
         synced = 0
         errors = 0
         now = datetime.now()
