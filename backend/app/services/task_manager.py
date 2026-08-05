@@ -71,10 +71,19 @@ class TaskManager:
             return self._tasks.get(task_id)
 
     def get_active_task(self, championship_id: str = None) -> Optional[Task]:
-        """Return the currently running task, optionally filtered by championship."""
+        """Return the currently running task, optionally filtered by championship.
+        Tasks older than 10 minutes are considered stale and ignored."""
         with self._lock:
+            now = datetime.now()
             for task in self._tasks.values():
                 if task.status in (TaskStatus.PENDING, TaskStatus.RUNNING):
+                    # Consider tasks stale after 10 minutes
+                    age = (now - task.created_at).total_seconds()
+                    if age > 600:
+                        task.status = TaskStatus.FAILED
+                        task.error = "Task timed out (>10 min)"
+                        task.completed_at = now
+                        continue
                     if championship_id is None or task.championship_id == championship_id:
                         return task
         return None
