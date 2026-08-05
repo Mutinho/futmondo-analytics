@@ -163,40 +163,41 @@ interface MarketPlayer {
     }
   `,
   styles: [`
-    .description { color: var(--mat-sys-on-surface-variant); font-size: 0.9em; margin-bottom: 16px; }
-    .loading { display: flex; align-items: center; gap: 16px; padding: 40px; justify-content: center; color: var(--mat-sys-on-surface-variant); }
-    .error-message { padding: 16px; background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); border-radius: 8px; }
-    .empty { text-align: center; padding: 60px 20px; color: var(--mat-sys-on-surface-variant); font-size: 1.1em; }
-    .count { color: var(--mat-sys-on-surface-variant); font-size: 0.85em; margin-bottom: 12px; }
+    .description { color: #666666; font-size: 13px; margin-bottom: 24px; }
+    .loading { display: flex; align-items: center; gap: 16px; padding: 60px; justify-content: center; color: #666666; }
+    .error-message { padding: 16px; background: #ffebee; color: #d32f2f; border-radius: 8px; }
+    .empty { text-align: center; padding: 60px 20px; color: #666666; font-size: 1.1em; }
+    .count { color: #666666; font-size: 13px; margin-bottom: 16px; }
     .user-info-banner {
-      display: flex; gap: 24px; flex-wrap: wrap; padding: 16px 20px;
-      background: var(--mat-sys-surface-container); border-radius: 12px; margin-bottom: 16px;
+      display: flex; gap: 32px; flex-wrap: wrap; padding: 20px 24px;
+      background: #ffffff; border-radius: 12px; margin-bottom: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
     }
-    .info-item { display: flex; flex-direction: column; gap: 2px; }
-    .info-label { font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.5px; color: var(--mat-sys-on-surface-variant); }
-    .info-value { font-size: 1.2em; font-weight: 700; }
-    .info-value.bids { color: #7c3aed; }
-    .info-value.max { color: #2563eb; }
-    .info-value.available { color: #16a34a; }
-    .info-value.danger { color: #dc2626; }
+    .info-item { display: flex; flex-direction: column; gap: 4px; }
+    .info-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #666666; font-weight: 600; }
+    .info-value { font-size: 1.3em; font-weight: 700; color: #1a1a1a; }
+    .info-value.bids { color: #7b1fa2; }
+    .info-value.max { color: #1565c0; }
+    .info-value.available { color: #2e7d32; }
+    .info-value.danger { color: #d32f2f; }
     .table-container { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
     table { width: 100%; }
-    .suggested { font-weight: 700; color: #4CAF50; }
-    .overpay { color: #d97706; font-weight: 600; }
+    .suggested { font-weight: 700; color: #2e7d32; }
+    .overpay { color: #f57c00; font-weight: 600; }
     .pos-chip { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600; color: #fff; text-transform: capitalize; }
     .pos-secondary { margin-left: 3px; opacity: 0.8; }
-    .pos-fwd { background: #dc2626; }
-    .pos-mid { background: #2563eb; }
-    .pos-def { background: #ca8a04; }
-    .pos-gk { background: #16a34a; }
-    .trend-up { color: #16a34a; font-weight: 600; }
-    .trend-down { color: #dc2626; font-weight: 600; }
-    .player-link { color: var(--mat-sys-primary); text-decoration: none; &:hover { text-decoration: underline; } }
-    .current-bid { color: #7c3aed; font-weight: 600; }
+    .pos-fwd { background: #e57373; }
+    .pos-mid { background: #64b5f6; }
+    .pos-def { background: #ffb74d; }
+    .pos-gk { background: #ffd54f; color: #5d4037; }
+    .trend-up { color: #2e7d32; font-weight: 600; }
+    .trend-down { color: #d32f2f; font-weight: 600; }
+    .player-link { color: #1565c0; text-decoration: none; &:hover { text-decoration: underline; } }
+    .current-bid { color: #7b1fa2; font-weight: 600; }
     .bid-btn { transform: scale(0.75); vertical-align: middle;  position: relative; padding: 0; }
     .cancel-btn { transform: scale(0.7); vertical-align: middle; position: relative; padding: 0; top:1px; }
     .confidence { margin-left: 4px; font-size: 0.9em; }
-    .legend { color: var(--mat-sys-on-surface-variant); font-size: 0.8em; margin-top: 12px; }
+    .legend { color: #666666; font-size: 12px; margin-top: 16px; }
     .sofascore-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.85em; font-weight: 700; color: #fff; cursor: pointer; transition: transform 0.15s; }
     .sofascore-badge:hover { transform: scale(1.1); }
     .sofascore-green { background: #16a34a; }

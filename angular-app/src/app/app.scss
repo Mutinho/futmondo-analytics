@@ -2,17 +2,19 @@
   height: 100%;
 }
 
+// ===== SIDEBAR =====
 .app-sidenav {
   width: 240px;
-  border-right: 1px solid var(--mat-sys-outline-variant);
+  background: #ffffff;
+  border-right: 1px solid #e0e0e0;
 }
 
 .sidenav-header {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  padding: 24px 20px;
+  border-bottom: 1px solid #e0e0e0;
 
   .logo {
     font-size: 1.8em;
@@ -20,30 +22,37 @@
 
   .app-name {
     font-size: 1.2em;
-    font-weight: 600;
-    color: var(--mat-sys-on-surface);
+    font-weight: 700;
+    color: #1a1a1a;
   }
 }
 
 .championship-selector {
-  padding: 12px 16px 0;
+  padding: 16px 16px 0;
 
   .championship-field {
     width: 100%;
   }
 }
 
+// Sidebar nav item active state
 .active-link {
-  background: var(--mat-sys-secondary-container) !important;
-  color: var(--mat-sys-on-secondary-container) !important;
-  border-radius: 8px;
-  margin: 2px 8px;
+  background: rgba(76, 175, 80, 0.1) !important;
+  border-left: 4px solid #4CAF50;
+  border-radius: 0 8px 8px 0;
+  margin: 2px 8px 2px 0;
 
   mat-icon {
-    color: var(--mat-sys-on-secondary-container);
+    color: #2e7d32;
+  }
+
+  span[matListItemTitle] {
+    color: #2e7d32;
+    font-weight: 600;
   }
 }
 
+// ===== MAIN CONTENT =====
 .app-content {
   display: flex;
   flex-direction: column;
@@ -54,12 +63,13 @@
   position: sticky;
   top: 0;
   z-index: 10;
-  background: var(--mat-sys-surface);
-  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  background: #ffffff;
+  border-bottom: 1px solid #e0e0e0;
 
   .toolbar-title {
-    font-weight: 600;
+    font-weight: 700;
     font-size: 1.1em;
+    color: #1a1a1a;
   }
 
   .spacer {
@@ -68,29 +78,29 @@
 
   .last-sync-label {
     font-size: 0.75em;
-    color: var(--mat-sys-on-surface-variant);
+    color: #666666;
     margin-right: 8px;
   }
 }
 
 .page-content {
   flex: 1;
-  padding: 24px;
+  padding: 32px;
   overflow-y: auto;
-  background: var(--mat-sys-surface-container-lowest);
+  background: #f8f9fa;
 }
 
-// Animación aplicada a los componentes hijos del router
+// Route transition animation
 ::ng-deep router-outlet + * {
   animation: fadeIn 0.25s ease-out;
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-// Mobile adjustments
+// ===== RESPONSIVE =====
 @media (max-width: 768px) {
   .page-content {
     padding: 16px;
@@ -134,7 +144,7 @@
 
       .sidenav-header {
         justify-content: flex-start;
-        padding: 16px 20px;
+        padding: 24px 20px;
 
         .app-name {
           display: inline;
@@ -153,5 +163,42 @@
         margin: 0;
       }
     }
+  }
+}
+
+// ===== DARK MODE =====
+body.dark-theme {
+  .app-sidenav {
+    background: var(--mat-sys-surface);
+    border-color: var(--mat-sys-outline-variant);
+  }
+
+  .sidenav-header {
+    border-color: var(--mat-sys-outline-variant);
+
+    .app-name {
+      color: var(--mat-sys-on-surface);
+    }
+  }
+
+  .app-toolbar {
+    background: var(--mat-sys-surface);
+    border-color: var(--mat-sys-outline-variant);
+
+    .toolbar-title {
+      color: var(--mat-sys-on-surface);
+    }
+
+    .last-sync-label {
+      color: var(--mat-sys-on-surface-variant);
+    }
+  }
+
+  .page-content {
+    background: var(--mat-sys-surface-container-lowest);
+  }
+
+  .active-link {
+    background: rgba(76, 175, 80, 0.15) !important;
   }
 }
