@@ -31,9 +31,9 @@ body {
 .clickable { cursor: pointer; &:hover { background: #f5f5f5; } }
 
 // Typography scale
-h1 { font-size: 28px; font-weight: 700; margin: 0 0 8px; color: #1a1a1a; }
-h2 { font-size: 20px; font-weight: 600; margin: 0 0 12px; color: #1a1a1a; }
-h3 { font-size: 16px; font-weight: 600; margin: 0 0 8px; color: #1a1a1a; }
+h1 { font-size: 28px; font-weight: 700; margin: 0 0 8px; color: var(--mat-sys-on-surface); }
+h2 { font-size: 20px; font-weight: 600; margin: 0 0 12px; color: var(--mat-sys-on-surface); }
+h3 { font-size: 16px; font-weight: 600; margin: 0 0 8px; color: var(--mat-sys-on-surface); }
 
 // Table global styles
 .mat-mdc-table {
@@ -41,17 +41,17 @@ h3 { font-size: 16px; font-weight: 600; margin: 0 0 8px; color: #1a1a1a; }
     font-size: 12px;
     font-weight: 600;
     text-transform: capitalize;
-    color: #666666;
+    color: var(--mat-sys-on-surface-variant);
     letter-spacing: 0.3px;
   }
 
   .mat-mdc-cell {
     font-size: 13px;
-    color: #1a1a1a;
+    color: var(--mat-sys-on-surface);
   }
 
   .mat-mdc-row:hover {
-    background: #f5f5f5;
+    background: var(--mat-sys-surface-container-high);
   }
 }
 
