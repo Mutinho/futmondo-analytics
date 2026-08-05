@@ -1,44 +1,34 @@
-# Backend Dockerfile - FastAPI
-FROM python:3.11-slim
+# ===========================================
+# Futmondo Analytics — Backend (FastAPI)
+# ===========================================
+FROM python:3.12-slim
 
-# Set working directory
 WORKDIR /app
 
-# Install system dependencies (including cron)
-RUN apt-get update && apt-get install -y \
+# Dependencias del sistema
+RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     sqlite3 \
-    cron \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first (for better Docker layer caching)
+# Instalar dependencias Python (layer caching)
 COPY requirements.txt .
+RUN pip install --no-cache-dir --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org -r requirements.txt
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Copiar código de la aplicación
+COPY app/ ./app/
+COPY scripts/ ./scripts/
+COPY run.py .
 
-# Copy application code
-COPY . .
-
-# Create directories for data and static files
+# Crear directorios necesarios
 RUN mkdir -p /app/data /app/static/photos/players
 
-# Create crontab file for daily sync at 02:00 AM
-RUN echo "0 2 * * * cd /app && /usr/local/bin/python scripts/sync_data.py >> /var/log/sync_data.log 2>&1" > /etc/cron.d/futmondo-sync
-RUN chmod 0644 /etc/cron.d/futmondo-sync
-RUN crontab /etc/cron.d/futmondo-sync
+# El .env se monta vía docker-compose, no se copia al imagen
+# La DB SQLite se persiste en un volumen montado en /app/data/
 
-# Copy entrypoint script
-COPY entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
-
-# Expose port
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Run entrypoint script
-CMD ["/app/entrypoint.sh"]
-
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

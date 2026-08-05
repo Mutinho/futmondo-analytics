@@ -8,7 +8,10 @@ Aplicación web para gestionar y analizar campeonatos de Futmondo (fantasy footb
 futmondo-analytics/
 ├── angular-app/          # Frontend Angular 22 + Material 22
 ├── backend/              # Backend FastAPI (Python)
+├── proxy/                # Nginx reverse proxy config
 ├── docs/                 # Documentación técnica
+├── docker-compose.yml    # Orquestación Docker
+├── .env.example          # Template de variables de entorno
 └── .env                  # Variables de entorno (no en git)
 ```
 
@@ -19,12 +22,48 @@ futmondo-analytics/
 
 ## 🚀 Arrancar el proyecto
 
-### Prerrequisitos
+### 🐳 Con Docker (recomendado)
+
+La forma más rápida. Solo necesitas Docker instalado:
+
+```bash
+# 1. Clonar el repo
+git clone https://github.com/Mutinho/futmondo-analytics.git
+cd futmondo-analytics
+
+# 2. Configurar credenciales
+cp .env.example .env
+# Edita .env con tus credenciales de Futmondo
+
+# 3. Arrancar todo
+docker compose up --build
+
+# ¡Listo! → http://futmondo.localhost
+```
+
+| Servicio | URL | Descripción |
+|----------|-----|-------------|
+| Frontend | http://futmondo.localhost | App Angular |
+| Backend API | http://futmondo-api.localhost | API FastAPI |
+
+> Los dominios `.localhost` resuelven automáticamente a 127.0.0.1 — no hace falta tocar `/etc/hosts`.
+
+Comandos útiles:
+```bash
+docker compose up -d          # Arrancar en background
+docker compose logs -f        # Ver logs en tiempo real
+docker compose down           # Parar todo
+docker compose down -v        # Parar y borrar volúmenes (resetear DB)
+```
+
+### 💻 Sin Docker (desarrollo local)
+
+#### Prerrequisitos
 - Node.js v24.15+ (usar `nvm use 24.15`)
 - Python 3.12+
 - SQLite
 
-### Backend
+#### Backend
 
 ```bash
 cd backend
@@ -34,7 +73,7 @@ pip install -r requirements.txt
 python -c "import uvicorn; uvicorn.run('app.main:app', host='0.0.0.0', port=8001, reload=False)"
 ```
 
-### Frontend
+#### Frontend
 
 ```bash
 cd angular-app
@@ -42,7 +81,7 @@ npm install
 NODE_TLS_REJECT_UNAUTHORIZED=0 npx ng serve --port 4200
 ```
 
-### Variables de entorno (.env en raíz)
+#### Variables de entorno (.env en raíz)
 
 ```
 FUTMONDO_EMAIL=tu_email

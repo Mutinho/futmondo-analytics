@@ -1,31 +1,39 @@
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
-.Python
-env/
 venv/
+.venv/
+env/
 ENV/
-.venv
+
+# Database (se monta como volumen)
 *.db
 *.sqlite
 *.sqlite3
 data/
+
+# Static photos (se monta como volumen)
 static/photos/
+
+# Logs
 *.log
+
+# Git & IDE
 .git/
 .gitignore
-.DS_Store
-*.md
 .vscode/
 .idea/
 *.swp
 *.swo
 
+# Docs
+*.md
 
+# Tests (no necesarios en producción)
+tests/
 
-
-
-
-
-
+# OS
+.DS_Store
+Thumbs.db
