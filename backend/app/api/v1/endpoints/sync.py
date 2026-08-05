@@ -3,7 +3,9 @@ Sync endpoints for data synchronization status and manual triggers
 """
 
 import logging
+import json
 import threading
+from datetime import datetime
 from typing import Dict, List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
@@ -11,11 +13,173 @@ from app.services.data_manager_v2 import DataManagerV2
 from app.services.data_sync_service import DataSyncService
 from app.services.futmondo_service import FutmondoService
 from app.services.task_manager import get_task_manager
+from app.services.db_connection import get_db
+from app.services.sofascore_client import get_sofascore_client
 from app.core.config import CHAMPIONSHIP_ID
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _check_phantoms(championship_id: str, client) -> Dict:
+    """Check for phantom players (players without registered purchase)."""
+    db = get_db()
+    
+    excluded_teams = set()
+    with db.get_connection() as conn:
+        cursor = db.get_cursor(conn)
+        sql = "SELECT excluded_teams FROM championships_config WHERE championship_id = ?"
+        sql = db.adapt_params(sql)
+        cursor.execute(sql, (championship_id,))
+        row = cursor.fetchone()
+        if row and row[0]:
+            excluded_teams = set(json.loads(row[0]))
+    
+    standings = client.get_matchday_standings(championship_id)
+    if not standings or standings.get('error'):
+        return {"total_phantoms": 0, "roster_phantoms": [], "sold_phantoms": []}
+    
+    teams = standings.get('teams', standings.get('ranking', []))
+    roster_phantoms = []
+    
+    with db.get_connection() as conn:
+        cursor = db.get_cursor(conn)
+        
+        for team in teams:
+            team_id = team.get('teamid') or team.get('id')
+            team_name = team.get('teamname') or team.get('name')
+            if team_id in excluded_teams:
+                continue
+            
+            roster = client.get_userteam_roster(championship_id, team_id)
+            if not roster:
+                continue
+            
+            sql = "SELECT DISTINCT player_id FROM transactions WHERE buyer_team_id = ? AND championship_id = ?"
+            sql = db.adapt_params(sql)
+            cursor.execute(sql, (team_id, championship_id))
+            bought_ids = {row[0] for row in cursor.fetchall()}
+            
+            for p in roster:
+                pid = p.get('id')
+                if pid and pid not in bought_ids:
+                    roster_phantoms.append({
+                        "team_name": team_name,
+                        "player_name": p.get('name', '?'),
+                        "value": p.get('value', 0),
+                        "type": "roster",
+                    })
+    
+    return {
+        "total_phantoms": len(roster_phantoms),
+        "roster_phantoms": roster_phantoms,
+        "sold_phantoms": [],
+    }
+
+
+def _sync_sofascore(championship_id: str, client) -> Dict:
+    """Sync Sofascore ratings for market players."""
+    standings = client.get_matchday_standings(championship_id)
+    if not standings or standings.get('error'):
+        return {"synced": 0, "errors": 0, "total_players": 0}
+    
+    teams = standings.get('teams', standings.get('ranking', []))
+    user_team_id = ""
+    for t in teams:
+        if t.get('userid') == client.user_id:
+            user_team_id = t.get('teamid') or t.get('id', '')
+            break
+    if not user_team_id and teams:
+        user_team_id = teams[0].get('teamid') or teams[0].get('id', '')
+    
+    # Get market players
+    data = {
+        'header': {'token': client.token, 'userid': client.user_id},
+        'query': {'championshipId': championship_id, 'userteamId': user_team_id},
+        'answer': {}
+    }
+    resp = client.session.post(f'{client.base_url}/1/market/players', json=data, timeout=15)
+    if resp.status_code != 200:
+        return {"synced": 0, "errors": 0, "total_players": 0}
+    
+    result = resp.json()
+    answer = result.get('answer', {})
+    all_players = answer if isinstance(answer, list) else answer.get('players', [])
+    computer_players = [p for p in all_players if p.get('computer') is True]
+    
+    sofascore = get_sofascore_client()
+    db = get_db()
+    synced = 0
+    errors = 0
+    now = datetime.now()
+    cache_rows = []
+    
+    for p in computer_players:
+        player_name = p.get('name', '')
+        if not player_name:
+            continue
+        try:
+            team_hint = p.get('team', '')
+            search_result = sofascore.search_player(player_name, team_hint=team_hint)
+            if not search_result or not search_result.get('id'):
+                errors += 1
+                continue
+            full_info = sofascore.get_player_full_info(search_result['id'])
+            if not full_info:
+                errors += 1
+                continue
+            cache_rows.append((
+                player_name, championship_id,
+                full_info.get('id'), full_info.get('name'), full_info.get('team'),
+                full_info.get('rating'), full_info.get('goals'), full_info.get('assists'),
+                full_info.get('appearances'), full_info.get('minutes_played'),
+                full_info.get('yellow_cards'), full_info.get('red_cards'),
+                full_info.get('tournament'), full_info.get('season'),
+                full_info.get('position'), full_info.get('nationality'),
+                full_info.get('age'), full_info.get('successful_dribbles'),
+                full_info.get('accurate_passes_pct'), full_info.get('shots_on_target'),
+                full_info.get('tackles'), full_info.get('interceptions'),
+                full_info.get('clean_sheets'), full_info.get('saves'),
+                full_info.get('sofascore_url', ''), now,
+            ))
+            synced += 1
+        except Exception as e:
+            logger.warning(f"Sofascore error for '{player_name}': {e}")
+            errors += 1
+    
+    if cache_rows:
+        with db.get_connection() as conn:
+            cursor = db.get_cursor(conn)
+            if db.db_type in ["postgresql", "postgres"]:
+                from psycopg2.extras import execute_values
+                raw_cursor = cursor._cursor if hasattr(cursor, '_cursor') else cursor
+                # Clear old cache first
+                raw_cursor.execute("DELETE FROM sofascore_cache WHERE championship_id = %s", (championship_id,))
+                execute_values(raw_cursor, """
+                    INSERT INTO sofascore_cache 
+                    (player_name, championship_id, sofascore_id, sofascore_name, team,
+                     rating, goals, assists, appearances, minutes_played,
+                     yellow_cards, red_cards, tournament, season, position,
+                     nationality, age, successful_dribbles, accurate_passes_pct,
+                     shots_on_target, tackles, interceptions, clean_sheets, saves,
+                     sofascore_url, synced_at)
+                    VALUES %s
+                """, cache_rows, page_size=50)
+            else:
+                cursor.execute("DELETE FROM sofascore_cache WHERE championship_id = ?", (championship_id,))
+                cursor.executemany("""
+                    INSERT INTO sofascore_cache 
+                    (player_name, championship_id, sofascore_id, sofascore_name, team,
+                     rating, goals, assists, appearances, minutes_played,
+                     yellow_cards, red_cards, tournament, season, position,
+                     nationality, age, successful_dribbles, accurate_passes_pct,
+                     shots_on_target, tackles, interceptions, clean_sheets, saves,
+                     sofascore_url, synced_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, cache_rows)
+    
+    return {"synced": synced, "errors": errors, "total_players": len(computer_players)}
 
 
 def ensure_authenticated(service: FutmondoService) -> FutmondoService:
@@ -99,6 +263,28 @@ def _run_sync_in_background(task_id: str, sync_type: str, championship_id: str, 
                 "team_standings": standings_result,
                 "match_odds": odds_result,
             }
+
+            # --- Check phantoms ---
+            tm.update_progress(task_id, "phantoms", {"status": "running"})
+            try:
+                phantoms_result = _check_phantoms(championship_id, client)
+                tm.update_progress(task_id, "phantoms", {"status": "done", **phantoms_result})
+                results["phantoms"] = phantoms_result
+            except Exception as ph_err:
+                logger.warning(f"Phantom check failed (non-critical): {ph_err}")
+                tm.update_progress(task_id, "phantoms", {"status": "done", "total_phantoms": 0, "error": str(ph_err)})
+                results["phantoms"] = {"total_phantoms": 0}
+
+            # --- Sync Sofascore ratings ---
+            tm.update_progress(task_id, "sofascore", {"status": "running"})
+            try:
+                sofascore_result = _sync_sofascore(championship_id, client)
+                tm.update_progress(task_id, "sofascore", {"status": "done", **sofascore_result})
+                results["sofascore"] = sofascore_result
+            except Exception as sf_err:
+                logger.warning(f"Sofascore sync failed (non-critical): {sf_err}")
+                tm.update_progress(task_id, "sofascore", {"status": "done", "synced": 0, "error": str(sf_err)})
+                results["sofascore"] = {"synced": 0}
         elif sync_type == "transactions":
             tm.update_progress(task_id, "transactions", {"status": "running"})
             results = {"transactions": sync_service.sync_transactions()}

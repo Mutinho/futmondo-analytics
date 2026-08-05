@@ -5,8 +5,6 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
-import { HttpClient, HttpParams } from '@angular/common/http';
-import { firstValueFrom } from 'rxjs';
 import { MoneyPipe } from '../../../shared/pipes/money.pipe';
 import { SyncService } from '../../../core/services/sync.service';
 import { ChampionshipService } from '../../../core/services/championship.service';
@@ -39,11 +37,14 @@ const STEP_LABELS: Record<string, string> = {
   rosters: 'Plantillas',
   team_standings: 'Clasificación',
   match_odds: 'Cuotas de partidos',
+  phantoms: 'Verificar fantasmas',
+  sofascore: 'Ratings Sofascore',
 };
 
 const ALL_STEPS = [
   'players', 'transactions', 'clauses', 'punishments_bonuses',
-  'dream_teams', 'player_performance', 'rosters', 'team_standings', 'match_odds'
+  'dream_teams', 'player_performance', 'rosters', 'team_standings', 'match_odds',
+  'phantoms', 'sofascore'
 ];
 
 @Component({
@@ -79,22 +80,6 @@ const ALL_STEPS = [
         <p class="progress-text">{{ completedSteps() }} de {{ allSteps.length }} pasos completados</p>
       }
 
-      <!-- Phase: Checking phantoms -->
-      @if (phase() === 'checking') {
-        <div class="sync-progress">
-          <mat-spinner diameter="36" />
-          <span>Verificando jugadores fantasma...</span>
-        </div>
-      }
-
-      <!-- Phase: Syncing sofascore -->
-      @if (phase() === 'syncing_sofascore') {
-        <div class="sync-progress">
-          <mat-spinner diameter="36" />
-          <span>Sincronizando ratings de Sofascore...</span>
-        </div>
-      }
-
       <!-- Phase: Error -->
       @if (phase() === 'error') {
         <div class="sync-result error">
@@ -109,8 +94,8 @@ const ALL_STEPS = [
           <mat-icon>check_circle</mat-icon>
           <div class="result-details">
             <p><strong>{{ totalRecords() }}</strong> registros sincronizados</p>
-            @if (sofascoreResult()) {
-              <p><strong>{{ sofascoreResult()!.players_synced }}</strong> jugadores con stats de Sofascore</p>
+            @if (sofascoreSynced() > 0) {
+              <p><strong>{{ sofascoreSynced() }}</strong> jugadores con ratings Sofascore</p>
             }
             <p class="duration">Duración: {{ duration().toFixed(1) }}s</p>
           </div>
@@ -185,17 +170,15 @@ const ALL_STEPS = [
   `]
 })
 export class SyncDialogComponent {
-  private http = inject(HttpClient);
   private syncService = inject(SyncService);
   private championshipService = inject(ChampionshipService);
   private dialogRef = inject(MatDialogRef<SyncDialogComponent>);
 
-  phase = signal<'syncing' | 'checking' | 'syncing_sofascore' | 'done' | 'error'>('syncing');
+  phase = signal<'syncing' | 'done' | 'error'>('syncing');
   error = signal('');
   currentStep = signal<string | null>(null);
   stepProgress = signal<Record<string, SyncTaskStepProgress>>({});
   finalResult = signal<SyncTaskResponse | null>(null);
-  sofascoreResult = signal<{ players_synced: number } | null>(null);
   phantoms = signal<PhantomPlayer[]>([]);
 
   allSteps = ALL_STEPS;
@@ -213,6 +196,13 @@ export class SyncDialogComponent {
     const result = this.finalResult()?.result;
     if (!result) return 0;
     return Object.values(result).reduce((sum, step) => sum + (step.records_synced || 0), 0);
+  });
+
+  sofascoreSynced = computed(() => {
+    const result = this.finalResult()?.result;
+    if (!result) return 0;
+    const sf = result['sofascore'] as any;
+    return sf?.synced || 0;
   });
 
   duration = computed(() => {
@@ -235,14 +225,13 @@ export class SyncDialogComponent {
   }
 
   stepRecords(step: string): number | null {
-    const s = this.stepProgress()[step];
-    return s?.records_synced ?? null;
+    const s = this.stepProgress()[step] as any;
+    return s?.records_synced ?? s?.synced ?? s?.total_phantoms ?? null;
   }
 
   async runSync() {
     const championshipId = this.championshipService.activeId();
 
-    // Phase 1: Async sync with progress polling
     try {
       const finalTask = await this.syncService.syncWithPolling(
         championshipId,
@@ -259,43 +248,20 @@ export class SyncDialogComponent {
       }
 
       this.finalResult.set(finalTask);
+
+      // Extract phantoms from result
+      const phantomsData = finalTask.result?.['phantoms'] as any;
+      if (phantomsData?.roster_phantoms?.length || phantomsData?.sold_phantoms?.length) {
+        const all = [...(phantomsData.roster_phantoms || []), ...(phantomsData.sold_phantoms || [])];
+        this.phantoms.set(all);
+      }
+
+      this.phase.set('done');
     } catch (err: any) {
       const detail = err?.error?.detail || err?.message || 'Error al sincronizar';
       this.error.set(detail);
       this.phase.set('error');
-      return;
     }
-
-    // Phase 2: Check phantoms
-    this.phase.set('checking');
-    try {
-      let params = new HttpParams();
-      if (championshipId) params = params.set('championship_id', championshipId);
-      const phantomData = await firstValueFrom(
-        this.http.post<PhantomsResponse>('/api/v1/sync/check-phantoms', {}, { params })
-      );
-      const all = [...(phantomData.roster_phantoms || []), ...(phantomData.sold_phantoms || [])];
-      this.phantoms.set(all);
-    } catch {
-      // Non-critical
-    }
-
-    // Phase 3: Sync Sofascore
-    this.phase.set('syncing_sofascore');
-    try {
-      let params = new HttpParams();
-      if (championshipId) params = params.set('championship_id', championshipId);
-      const sofaData = await firstValueFrom(
-        this.http.post<any>('/api/v1/sync/sofascore', {}, { params })
-      );
-      this.sofascoreResult.set({
-        players_synced: sofaData.players_synced || sofaData.synced_count || 0,
-      });
-    } catch {
-      // Non-critical
-    }
-
-    this.phase.set('done');
   }
 
   close() {
