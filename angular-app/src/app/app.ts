@@ -90,7 +90,7 @@ export class App {
       const resp = await firstValueFrom(this.http.get<any>(`/api/v1/sync/last-sync?championship_id=${id}`));
       if (resp.last_sync) {
         const date = new Date(resp.last_sync);
-        this.lastSync.set(date.toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }));
+        this.lastSync.set(date.toLocaleString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }));
       } else {
         this.lastSync.set('');
       }
