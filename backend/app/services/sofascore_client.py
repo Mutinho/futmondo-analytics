@@ -90,7 +90,12 @@ class SofascoreClient:
             return None
 
     def get_player_stats(self, player_id: int) -> Optional[Dict]:
-        """Obtiene estadísticas del jugador (prioriza liga de club sobre selecciones)."""
+        """Obtiene estadísticas del jugador con prioridad:
+        1. Temporada actual (25/26 o 26/27) en LaLiga / LaLiga 2
+        2. Temporada anterior en LaLiga / LaLiga 2
+        3. Cualquier liga de club de la temporada actual
+        4. Cualquier liga de club de la temporada anterior
+        """
         data = self._get(f"/player/{player_id}/statistics/seasons")
         if not data:
             return None
@@ -102,54 +107,66 @@ class SofascoreClient:
         # Torneos a excluir (selecciones/copas internacionales)
         EXCLUDED_KEYWORDS = {'world cup', 'euro ', 'copa america', 'nations league', 'friendlies', 'olympic'}
         
-        # Torneos prioritarios (ligas españolas primero)
-        PRIORITY_KEYWORDS = ['laliga', 'la liga', 'liga 2']
+        # Temporadas relevantes (actual y anterior)
+        CURRENT_SEASON_KEYWORDS = ['25/26', '26/27', '2026']
+        PREVIOUS_SEASON_KEYWORDS = ['24/25', '2025']
         
-        # Clasificar candidatos
-        priority_candidates = []
-        normal_candidates = []
-        
+        # Ligas prioritarias
+        PRIORITY_KEYWORDS = ['laliga', 'la liga']
+
+        # Clasificar candidatos por prioridad
+        # (prioridad, tournament, season)  — menor número = mayor prioridad
+        candidates = []
+
         for tournament_season in seasons:
             tournament = tournament_season.get("uniqueTournament", {})
             tournament_name = (tournament.get("name") or "").lower()
             
-            # Excluir torneos de selecciones
+            # Excluir selecciones
             if any(kw in tournament_name for kw in EXCLUDED_KEYWORDS):
                 continue
-            
+
             seasons_list = tournament_season.get("seasons", [])
-            if seasons_list:
-                entry = (tournament, seasons_list[0])
-                if any(kw in tournament_name for kw in PRIORITY_KEYWORDS):
-                    priority_candidates.append(entry)
+            for season in seasons_list[:2]:  # Solo las 2 temporadas más recientes de cada torneo
+                season_name = (season.get("name") or "").lower()
+                
+                is_priority_league = any(kw in tournament_name for kw in PRIORITY_KEYWORDS)
+                is_current = any(kw in season_name for kw in CURRENT_SEASON_KEYWORDS)
+                is_previous = any(kw in season_name for kw in PREVIOUS_SEASON_KEYWORDS)
+
+                if is_priority_league and is_current:
+                    priority = 1
+                elif is_priority_league and is_previous:
+                    priority = 2
+                elif is_current:
+                    priority = 3
+                elif is_previous:
+                    priority = 4
                 else:
-                    normal_candidates.append(entry)
+                    priority = 5
 
-        # Ordenar: primero prioritarios, luego normales
-        candidates = priority_candidates + normal_candidates
+                candidates.append((priority, tournament, season))
 
-        # Si no hay candidatos de club, usar todos
-        if not candidates:
-            for tournament_season in seasons:
-                tournament = tournament_season.get("uniqueTournament", {})
-                seasons_list = tournament_season.get("seasons", [])
-                if seasons_list:
-                    candidates.append((tournament, seasons_list[0]))
+        # Ordenar por prioridad
+        candidates.sort(key=lambda x: x[0])
 
-        # Probar cada candidato hasta encontrar stats
-        for tournament, latest_season in candidates:
-            season_id = latest_season.get("id")
+        # Probar cada candidato hasta encontrar stats con rating
+        for priority, tournament, season in candidates:
+            season_id = season.get("id")
             tournament_id = tournament.get("id")
 
             stats = self._get(
                 f"/player/{player_id}/unique-tournament/{tournament_id}/season/{season_id}/statistics/overall"
             )
             if stats and stats.get("statistics"):
-                return {
-                    "tournament": tournament.get("name", ""),
-                    "season": latest_season.get("name", ""),
-                    "stats": stats["statistics"],
-                }
+                stat_data = stats["statistics"]
+                # Solo aceptar si tiene rating o al menos partidos jugados
+                if stat_data.get("rating") or (stat_data.get("appearances") and stat_data["appearances"] >= 3):
+                    return {
+                        "tournament": tournament.get("name", ""),
+                        "season": season.get("name", ""),
+                        "stats": stat_data,
+                    }
 
         return None
 
@@ -164,7 +181,8 @@ class SofascoreClient:
         return self.get_player_rating_from_matches(player_id)
 
     def get_player_rating_from_matches(self, player_id: int) -> Optional[float]:
-        """Calcula rating medio a partir de los últimos partidos jugados."""
+        """Calcula rating medio a partir de los últimos partidos jugados (máximo 6 meses atrás)."""
+        import time as _time
         data = self._get(f"/player/{player_id}/events/last/0")
         if not data:
             return None
@@ -172,15 +190,23 @@ class SofascoreClient:
         stats_map = data.get("statisticsMap", {})
         events = data.get("events", [])
 
+        # Solo partidos de los últimos 6 meses
+        six_months_ago = _time.time() - (180 * 24 * 3600)
+
         ratings = []
-        for event in events[:20]:  # Máximo 20 partidos
+        for event in events[:20]:
+            # Verificar fecha del partido
+            start_timestamp = event.get("startTimestamp", 0)
+            if start_timestamp < six_months_ago:
+                break  # Los eventos están ordenados por fecha, podemos parar
+
             event_id = str(event.get("id"))
             stats = stats_map.get(event_id, {})
             rating = stats.get("rating")
             if rating:
                 ratings.append(rating)
 
-        if ratings:
+        if len(ratings) >= 3:  # Mínimo 3 partidos para que sea significativo
             return sum(ratings) / len(ratings)
         return None
 
