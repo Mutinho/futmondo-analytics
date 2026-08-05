@@ -2,13 +2,19 @@
 Main FastAPI application
 """
 
+import os
+import ssl
+
+# Disable SSL verification in Docker environments (corporate proxy / cert issues)
+if os.getenv("SSL_VERIFY", "1") == "0":
+    ssl._create_default_https_context = ssl._create_unverified_context
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import logging
-import os
 from pathlib import Path
 
 from app.core.config import FUTMONDO_EMAIL, FUTMONDO_PASSWORD
