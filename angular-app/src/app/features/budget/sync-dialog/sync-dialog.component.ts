@@ -144,7 +144,10 @@ const ALL_STEPS = [
       }
     </mat-dialog-content>
     <mat-dialog-actions align="end">
-      <button mat-button [disabled]="phase() === 'syncing' || phase() === 'checking' || phase() === 'syncing_sofascore'" (click)="close()">Cerrar</button>
+      @if (phase() === 'syncing') {
+        <span class="bg-hint">El sync continúa en segundo plano si cierras</span>
+      }
+      <button mat-button (click)="close()">{{ phase() === 'done' || phase() === 'error' ? 'Cerrar' : 'Minimizar' }}</button>
     </mat-dialog-actions>
   `,
   styles: [`
@@ -177,6 +180,7 @@ const ALL_STEPS = [
     .phantom-badge.sold { background: #fee2e2; color: #991b1b; }
     .no-phantoms { display: flex; align-items: center; gap: 8px; padding: 12px 0; color: #16a34a; }
     .no-phantoms mat-icon { font-size: 20px; width: 20px; height: 20px; }
+    .bg-hint { font-size: 0.8em; color: var(--mat-sys-on-surface-variant); margin-right: auto; }
     mat-dialog-content { min-width: 450px; }
   `]
 })

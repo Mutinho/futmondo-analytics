@@ -25,6 +25,7 @@ export class SyncService {
 
   /**
    * Trigger sync and poll until completed/failed.
+   * If a sync is already running (409), reconnects to that task.
    * Calls onProgress on every poll with the current task state.
    * Returns the final SyncTaskResponse.
    */
@@ -33,8 +34,19 @@ export class SyncService {
     onProgress: (task: SyncTaskResponse) => void,
     pollIntervalMs = 2000,
   ): Promise<SyncTaskResponse> {
-    const trigger = await this.triggerSync(championshipId);
-    const taskId = trigger.task_id;
+    let taskId: string;
+
+    try {
+      const trigger = await this.triggerSync(championshipId);
+      taskId = trigger.task_id;
+    } catch (err: any) {
+      // If 409 (already running), reconnect to existing task
+      if (err?.status === 409 && err?.error?.task_id) {
+        taskId = err.error.task_id;
+      } else {
+        throw err;
+      }
+    }
 
     while (true) {
       await this.delay(pollIntervalMs);

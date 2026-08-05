@@ -146,7 +146,7 @@ export class App {
   sync() {
     const dialogRef = this.dialog.open(SyncDialogComponent, {
       width: '500px',
-      disableClose: true,
+      disableClose: false,
     });
     dialogRef.afterClosed().subscribe(() => {
       this.loadLastSync();
