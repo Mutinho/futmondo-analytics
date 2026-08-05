@@ -27,6 +27,7 @@ from app.api.v1.endpoints.balances import router as balances_router
 from app.api.v1.endpoints.championships import router as championships_router
 from app.api.v1.endpoints.phantoms import router as phantoms_router
 from app.api.v1.endpoints.market import router as market_router
+from app.api.v1.endpoints.sofascore_sync import router as sofascore_sync_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -90,6 +91,7 @@ app.include_router(balances_router, prefix="/api/v1/analytics", tags=["balances"
 app.include_router(championships_router, prefix="/api/v1", tags=["championships"])
 app.include_router(phantoms_router, prefix="/api/v1/sync", tags=["phantoms"])
 app.include_router(market_router, prefix="/api/v1/market", tags=["market"])
+app.include_router(sofascore_sync_router, prefix="/api/v1/sync", tags=["sofascore"])
 
 # Also serve routes without /api prefix (to avoid redirect loops)
 # Include the same router with the old prefix
