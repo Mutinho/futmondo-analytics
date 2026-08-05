@@ -3,6 +3,8 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { SyncTriggerResponse, SyncTaskResponse } from '../models/budget.model';
 
+const SYNC_TASK_KEY = 'futmondo_sync_task_id';
+
 @Injectable({ providedIn: 'root' })
 export class SyncService {
   private http = inject(HttpClient);
@@ -23,11 +25,48 @@ export class SyncService {
     );
   }
 
+  /** Get saved task_id from localStorage (if any) */
+  getSavedTaskId(): string | null {
+    return localStorage.getItem(SYNC_TASK_KEY);
+  }
+
+  /** Save task_id to localStorage */
+  saveTaskId(taskId: string): void {
+    localStorage.setItem(SYNC_TASK_KEY, taskId);
+  }
+
+  /** Clear saved task_id */
+  clearTaskId(): void {
+    localStorage.removeItem(SYNC_TASK_KEY);
+  }
+
+  /**
+   * Check if there's a running sync we can reconnect to.
+   * Returns the task if still running/pending, otherwise null (and clears storage).
+   */
+  async getActiveTask(): Promise<SyncTaskResponse | null> {
+    const taskId = this.getSavedTaskId();
+    if (!taskId) return null;
+
+    try {
+      const task = await this.getTaskStatus(taskId);
+      if (task.status === 'running' || task.status === 'pending') {
+        return task;
+      }
+      // Task finished — clear it
+      this.clearTaskId();
+      return null;
+    } catch {
+      // Task not found (404) or error — clear
+      this.clearTaskId();
+      return null;
+    }
+  }
+
   /**
    * Trigger sync and poll until completed/failed.
-   * If a sync is already running (409), reconnects to that task.
+   * Saves task_id to localStorage. Clears on completion.
    * Calls onProgress on every poll with the current task state.
-   * Returns the final SyncTaskResponse.
    */
   async syncWithPolling(
     championshipId: string | undefined,
@@ -36,16 +75,15 @@ export class SyncService {
   ): Promise<SyncTaskResponse> {
     let taskId: string;
 
-    try {
+    // Check if there's already a running task saved
+    const existing = await this.getActiveTask();
+    if (existing) {
+      taskId = existing.task_id;
+      onProgress(existing);
+    } else {
       const trigger = await this.triggerSync(championshipId);
       taskId = trigger.task_id;
-    } catch (err: any) {
-      // If 409 (already running), reconnect to existing task
-      if (err?.status === 409 && err?.error?.task_id) {
-        taskId = err.error.task_id;
-      } else {
-        throw err;
-      }
+      this.saveTaskId(taskId);
     }
 
     while (true) {
@@ -54,6 +92,7 @@ export class SyncService {
       onProgress(task);
 
       if (task.status === 'completed' || task.status === 'failed') {
+        this.clearTaskId();
         return task;
       }
     }
