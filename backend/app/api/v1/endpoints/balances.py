@@ -29,14 +29,12 @@ async def get_balances(
     try:
         db = get_db()
         
-        # Obtener teamValue de la API de Futmondo (live)
-        from app.services.futmondo_service import FutmondoService
-        service = FutmondoService()
-        if not service.client or not service.client.is_authenticated():
-            service.login()
+        # Obtener teamValue de la API de Futmondo (via sesión del usuario)
+        from app.api.v1.endpoints._helpers import get_user_futmondo_client
+        client = get_user_futmondo_client(request)
         
         team_values = {}
-        standings = service.client.get_matchday_standings(championship_id)
+        standings = client.get_matchday_standings(championship_id)
         if standings:
             teams_list = standings.get('teams', standings.get('ranking', []))
             for t in teams_list:
