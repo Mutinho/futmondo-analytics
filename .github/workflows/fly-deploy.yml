@@ -16,7 +16,7 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy backend to Fly.io
-        run: flyctl deploy --config backend/fly.toml --dockerfile backend/Dockerfile
+        run: flyctl deploy
         working-directory: ./backend
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
@@ -31,7 +31,7 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy frontend to Fly.io
-        run: flyctl deploy --config angular-app/fly.toml --dockerfile angular-app/Dockerfile
+        run: flyctl deploy
         working-directory: ./angular-app
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
