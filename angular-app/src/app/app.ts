@@ -1,5 +1,5 @@
 import { Component, signal, inject, computed, effect } from '@angular/core';
-import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { Router, RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
@@ -14,6 +14,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs';
 import { ChampionshipService, Championship } from './core/services/championship.service';
+import { AuthService } from './core/services/auth.service';
 import { SyncDialogComponent } from './features/budget/sync-dialog/sync-dialog.component';
 
 interface NavItem {
@@ -44,9 +45,14 @@ export class App {
   private breakpointObserver = inject(BreakpointObserver);
   private dialog = inject(MatDialog);
   private http = inject(HttpClient);
+  private router = inject(Router);
+  private authService = inject(AuthService);
   championshipService = inject(ChampionshipService);
 
   sidenavOpened = signal(true);
+
+  /** True when on /login route — hides the app shell */
+  isLoginPage = signal(false);
 
   isMobile = toSignal(
     this.breakpointObserver.observe([Breakpoints.Handset]).pipe(map(result => result.matches)),
@@ -72,6 +78,11 @@ export class App {
     this.championshipService.load();
     this.loadTheme();
     this.loadLastSync();
+
+    // Track route to hide shell on login page
+    this.router.events.subscribe(() => {
+      this.isLoginPage.set(this.router.url === '/login');
+    });
 
     // Recargar lastSync al cambiar de campeonato
     effect(() => {
@@ -151,5 +162,9 @@ export class App {
     dialogRef.afterClosed().subscribe(() => {
       this.loadLastSync();
     });
+  }
+
+  logout() {
+    this.authService.logout();
   }
 }

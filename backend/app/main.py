@@ -84,6 +84,70 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# --- Auth middleware: protect /api/v1/* routes ---
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
+from app.auth.jwt_utils import verify_token
+from app.auth.token_store import init_auth_tables
+
+# Public paths that don't require authentication
+AUTH_EXCLUDED_PATHS = {"/auth/login", "/auth/refresh", "/auth/logout", "/health", "/", "/docs", "/openapi.json", "/redoc"}
+
+
+class AuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        path = request.url.path
+        
+        # Skip auth for non-API routes, auth routes, health, and docs
+        if not path.startswith("/api/v1") and not path.startswith("/auth"):
+            return await call_next(request)
+        
+        if any(path.endswith(excluded) for excluded in AUTH_EXCLUDED_PATHS):
+            return await call_next(request)
+        
+        if path.startswith("/auth"):
+            return await call_next(request)
+        
+        # Require Bearer token for all other /api/v1/* routes
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Not authenticated"},
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        token = auth_header.split(" ", 1)[1]
+        payload = verify_token(token, expected_type="access")
+        if not payload:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Token expired or invalid"},
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        # Attach user info to request state for downstream use
+        request.state.user = {
+            "user_id": payload["sub"],
+            "email": payload.get("email", ""),
+            "futmondo_uid": payload.get("futmondo_uid", ""),
+        }
+        
+        return await call_next(request)
+
+
+app.add_middleware(AuthMiddleware)
+
+# Initialize auth tables on startup
+try:
+    init_auth_tables()
+except Exception as e:
+    logger.warning(f"Could not init auth tables at import time: {e}")
+
+# Include auth router (no /api/v1 prefix — lives at /auth/*)
+from app.auth.routes import router as auth_router
+app.include_router(auth_router)
+
 # Include routers
 app.include_router(matchdays.router, prefix="/api/v1/matchdays", tags=["matchdays"])
 app.include_router(initialize_router, prefix="/api/v1/initialize", tags=["initialize"])

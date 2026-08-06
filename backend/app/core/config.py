@@ -73,3 +73,7 @@ else:
 API_HOST = os.getenv("API_HOST", "0.0.0.0")
 API_PORT = int(os.getenv("API_PORT", "8000"))
 
+
+
+# JWT Authentication
+JWT_SECRET = os.getenv("JWT_SECRET", "futmondo-dev-secret-change-in-prod")
