@@ -83,11 +83,20 @@
 
 .last-sync-label {
   position: absolute;
-  bottom: 10px;
+  bottom: 24px;
   font-size: 0.7em;
   color: var(--mat-sys-on-surface-variant);
   padding: 8px 16px;
   text-align: center;
+}
+
+.version-label {
+  position: absolute;
+  bottom: 8px;
+  font-size: 0.65em;
+  color: var(--mat-sys-on-surface-variant);
+  padding: 0 16px;
+  opacity: 0.6;
 }
 
 // ===== MAIN CONTENT =====

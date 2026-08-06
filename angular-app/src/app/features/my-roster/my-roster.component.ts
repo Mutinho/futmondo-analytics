@@ -299,9 +299,11 @@ interface RosterSummary {
     .player-link { color: #1565c0; text-decoration: none; &:hover { text-decoration: underline; } }
     .sofascore-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.85em; font-weight: 700; color: #fff; cursor: pointer; transition: transform 0.15s; }
     .sofascore-badge:hover { transform: scale(1.1); }
-    .sofascore-green { background: #16a34a; }
-    .sofascore-yellow { background: #ca8a04; }
-    .sofascore-red { background: #dc2626; }
+    .sofascore-s90 { background: #374DF5; }
+    .sofascore-s80 { background: #00ADC4; }
+    .sofascore-s70 { background: #00C424; }
+    .sofascore-s65 { background: #D9AF00; }
+    .sofascore-s60 { background: #ED7E07; }
     .sofascore-na { color: var(--mat-sys-on-surface-variant); }
     .starter-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.85em; font-weight: 700; color: #fff; }
     .starter-high { background: #16a34a; }
@@ -427,9 +429,11 @@ export class MyRosterComponent {
   }
 
   getSofascoreClass(rating: number): string {
-    if (rating >= 7) return 'sofascore-green';
-    if (rating >= 6) return 'sofascore-yellow';
-    return 'sofascore-red';
+    if (rating >= 9) return 'sofascore-s90';
+    if (rating >= 8) return 'sofascore-s80';
+    if (rating >= 7) return 'sofascore-s70';
+    if (rating >= 6.5) return 'sofascore-s65';
+    return 'sofascore-s60';
   }
 
   getStarterClass(pct: number): string {

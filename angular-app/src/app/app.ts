@@ -15,6 +15,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ChampionshipService } from './core/services/championship.service';
 import { AuthService } from './core/services/auth.service';
 import { SyncDialogComponent } from './features/budget/sync-dialog/sync-dialog.component';
+import { APP_VERSION } from './version';
 
 interface NavItem {
   label: string;
@@ -47,6 +48,8 @@ export class App {
   private router = inject(Router);
   private authService = inject(AuthService);
   championshipService = inject(ChampionshipService);
+
+  appVersion = APP_VERSION;
 
   sidenavOpened = signal(true);
 
