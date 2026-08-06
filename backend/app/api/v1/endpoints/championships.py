@@ -1,20 +1,26 @@
-"""Championships config endpoint — lista campeonatos configurados."""
+"""Championships endpoint — legacy, redirects to user championships."""
 
 import json
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from app.services.db_connection import get_db
 
 router = APIRouter()
 
 
 @router.get("/championships")
-async def get_championships():
-    """Devuelve la lista de campeonatos configurados con su metadata."""
+async def get_championships(request: Request):
+    """Devuelve la lista de campeonatos del usuario autenticado."""
     try:
+        user = getattr(request.state, "user", None)
+        if not user:
+            return {"success": True, "championships": []}
+        
         db = get_db()
         with db.get_connection() as conn:
             cursor = db.get_cursor(conn)
-            cursor.execute("SELECT championship_id, name, has_clauses, initial_budget, excluded_teams FROM championships_config")
+            sql = "SELECT championship_id, name, has_clauses, initial_budget, excluded_teams FROM user_championships WHERE user_id = ?"
+            sql = db.adapt_params(sql)
+            cursor.execute(sql, (user["user_id"],))
             rows = cursor.fetchall()
 
             championships = []

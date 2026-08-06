@@ -70,6 +70,12 @@ async def login(body: LoginRequest):
     refresh_token, token_hash, expires_at = create_refresh_token(user_id)
     save_refresh_token(token_hash, user_id, expires_at)
     
+    # Auto-detect championships on first login
+    try:
+        _auto_detect_championships(user_id, client)
+    except Exception as e:
+        logger.warning(f"Could not auto-detect championships: {e}")
+    
     logger.info(f"✅ User logged in: {body.email} (id={user_id})")
     
     return TokenResponse(
@@ -145,3 +151,117 @@ async def logout(body: RefreshRequest):
     
     logger.info("User logged out (token revoked)")
     return {"success": True, "message": "Sesión cerrada"}
+
+
+
+def _auto_detect_championships(user_id: str, client):
+    """Detect user's championships from Futmondo and save them if not yet configured."""
+    import json
+    from app.services.db_connection import get_db
+    
+    db = get_db()
+    
+    # Check if user already has championships configured
+    with db.get_connection() as conn:
+        cursor = db.get_cursor(conn)
+        sql = "SELECT COUNT(*) FROM user_championships WHERE user_id = ?"
+        sql = db.adapt_params(sql)
+        cursor.execute(sql, (user_id,))
+        count = cursor.fetchone()[0]
+    
+    if count > 0:
+        # Already configured — skip
+        return
+    
+    # Fetch active championships from Futmondo
+    request_data = {
+        "header": {"token": client.token, "userid": client.user_id},
+        "query": {"excludeGeneral": False, "includeProphets": True},
+        "answer": {}
+    }
+    
+    try:
+        resp = client.session.post(
+            f"{client.base_url}/2/user/activechampionships",
+            json=request_data,
+            timeout=15
+        )
+        if resp.status_code != 200:
+            logger.warning(f"Could not fetch active championships: HTTP {resp.status_code}")
+            return
+        
+        data = resp.json()
+        answer = data.get("answer", {})
+        championships = answer.get("championships", [])
+    except Exception as e:
+        logger.warning(f"Error fetching active championships: {e}")
+        return
+    
+    if not championships:
+        return
+    
+    # Get league budget info for default initial_budget
+    leagues = answer.get("leagues", [])
+    league_budgets = {}
+    for league in leagues:
+        league_id = league.get("_id")
+        budget = (league.get("generalSettings") or {}).get("budget", 200000000)
+        if league_id:
+            league_budgets[league_id] = budget
+    
+    # Check if there's existing config in user_championships from other users (for shared championships)
+    existing_config = {}
+    try:
+        with db.get_connection() as conn:
+            cursor = db.get_cursor(conn)
+            # Look for config from any user for these championship IDs (legacy migration)
+            sql = "SELECT championship_id, initial_budget, has_clauses, excluded_teams FROM user_championships WHERE championship_id IN ({}) LIMIT 10".format(
+                ",".join(["?" for _ in range(min(len(championships), 10))])
+            )
+            sql = db.adapt_params(sql)
+            champ_ids = [c.get("id") for c in championships[:10] if c.get("id")]
+            if champ_ids:
+                cursor.execute(sql, tuple(champ_ids))
+                for row in cursor.fetchall():
+                    existing_config[row[0]] = {
+                        "initial_budget": row[1],
+                        "has_clauses": bool(row[2]),
+                        "excluded_teams": row[3] or "[]",
+                    }
+    except Exception:
+        pass
+    
+    # Save detected championships with config from API or existing config
+    with db.get_connection() as conn:
+        cursor = db.get_cursor(conn)
+        for champ in championships:
+            champ_id = champ.get("id")
+            champ_name = champ.get("name", "")
+            league_id = champ.get("league", "")
+            
+            if not champ_id or not champ_name:
+                continue
+            
+            # Priority: existing config > league default > 200M
+            if champ_id in existing_config:
+                initial_budget = existing_config[champ_id]["initial_budget"]
+                has_clauses = existing_config[champ_id]["has_clauses"]
+                excluded_teams = existing_config[champ_id]["excluded_teams"]
+            else:
+                initial_budget = league_budgets.get(league_id, 200000000)
+                has_clauses = False
+                excluded_teams = "[]"
+            
+            if db.db_type in ["postgresql", "postgres"]:
+                cursor.execute("""
+                    INSERT INTO user_championships (user_id, championship_id, name, initial_budget, has_clauses, excluded_teams)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (user_id, championship_id) DO NOTHING
+                """, (user_id, champ_id, champ_name, initial_budget, has_clauses, excluded_teams))
+            else:
+                cursor.execute("""
+                    INSERT OR IGNORE INTO user_championships (user_id, championship_id, name, initial_budget, has_clauses, excluded_teams)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (user_id, champ_id, champ_name, initial_budget, has_clauses, excluded_teams))
+    
+    logger.info(f"Auto-detected {len(championships)} championships for user {user_id}")

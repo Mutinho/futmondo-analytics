@@ -36,6 +36,17 @@ def init_auth_tables():
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS user_championships (
+                    user_id TEXT NOT NULL REFERENCES app_users(id),
+                    championship_id TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    initial_budget BIGINT DEFAULT 200000000,
+                    has_clauses BOOLEAN DEFAULT FALSE,
+                    excluded_teams TEXT DEFAULT '[]',
+                    PRIMARY KEY (user_id, championship_id)
+                )
+            ''')
         else:
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS app_users (
@@ -54,6 +65,17 @@ def init_auth_tables():
                     expires_at TIMESTAMP NOT NULL,
                     revoked INTEGER DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS user_championships (
+                    user_id TEXT NOT NULL,
+                    championship_id TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    initial_budget INTEGER DEFAULT 200000000,
+                    has_clauses INTEGER DEFAULT 0,
+                    excluded_teams TEXT DEFAULT '[]',
+                    PRIMARY KEY (user_id, championship_id)
                 )
             ''')
         

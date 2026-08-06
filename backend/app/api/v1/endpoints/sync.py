@@ -7,7 +7,7 @@ import json
 import threading
 from datetime import datetime
 from typing import Dict, List
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from app.services.data_manager_v2 import DataManagerV2
 from app.services.data_sync_service import DataSyncService
@@ -22,19 +22,20 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def _check_phantoms(championship_id: str, client) -> Dict:
+def _check_phantoms(championship_id: str, client, user_id: str = None) -> Dict:
     """Check for phantom players (players without registered purchase)."""
     db = get_db()
     
     excluded_teams = set()
-    with db.get_connection() as conn:
-        cursor = db.get_cursor(conn)
-        sql = "SELECT excluded_teams FROM championships_config WHERE championship_id = ?"
-        sql = db.adapt_params(sql)
-        cursor.execute(sql, (championship_id,))
-        row = cursor.fetchone()
-        if row and row[0]:
-            excluded_teams = set(json.loads(row[0]))
+    if user_id:
+        with db.get_connection() as conn:
+            cursor = db.get_cursor(conn)
+            sql = "SELECT excluded_teams FROM user_championships WHERE user_id = ? AND championship_id = ?"
+            sql = db.adapt_params(sql)
+            cursor.execute(sql, (user_id, championship_id))
+            row = cursor.fetchone()
+            if row and row[0]:
+                excluded_teams = set(json.loads(row[0]))
     
     standings = client.get_matchday_standings(championship_id)
     if not standings or standings.get('error'):
@@ -205,7 +206,7 @@ def ensure_authenticated(service: FutmondoService) -> FutmondoService:
     return service
 
 
-def _run_sync_in_background(task_id: str, sync_type: str, championship_id: str, client):
+def _run_sync_in_background(task_id: str, sync_type: str, championship_id: str, client, user_id: str = ""):
     """Worker function that runs sync in a separate thread."""
     tm = get_task_manager()
     try:
@@ -267,7 +268,7 @@ def _run_sync_in_background(task_id: str, sync_type: str, championship_id: str, 
             # --- Check phantoms ---
             tm.update_progress(task_id, "phantoms", {"status": "running"})
             try:
-                phantoms_result = _check_phantoms(championship_id, client)
+                phantoms_result = _check_phantoms(championship_id, client, user_id)
                 tm.update_progress(task_id, "phantoms", {"status": "done", **phantoms_result})
                 results["phantoms"] = phantoms_result
             except Exception as ph_err:
@@ -391,6 +392,7 @@ async def get_last_sync_date(
 
 @router.post("/trigger")
 async def trigger_sync(
+    request: Request,
     sync_type: str = "all",
     championship_id: str = CHAMPIONSHIP_ID,
     service: FutmondoService = Depends(FutmondoService)
@@ -435,9 +437,10 @@ async def trigger_sync(
     task = tm.create_task(sync_type, championship_id)
 
     # Launch in background thread
+    user_id = getattr(request.state, "user", {}).get("user_id", "")
     thread = threading.Thread(
         target=_run_sync_in_background,
-        args=(task.task_id, sync_type, championship_id, service.client),
+        args=(task.task_id, sync_type, championship_id, service.client, user_id),
         daemon=True,
     )
     thread.start()

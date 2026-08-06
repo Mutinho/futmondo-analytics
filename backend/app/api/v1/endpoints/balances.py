@@ -1,31 +1,18 @@
 """Balances endpoint - Muestra saldo actual de cada equipo y sus altas/bajas."""
 
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Request
 from app.core.config import CHAMPIONSHIP_ID
 from app.services.db_connection import get_db
+from app.api.v1.endpoints._helpers import get_championship_config
 
 router = APIRouter()
 
 INITIAL_BUDGET = 200_000_000  # Default fallback
 
 
-def _get_championship_config(db, cursor, championship_id: str) -> dict:
-    """Lee la config del campeonato de la DB."""
-    sql = "SELECT initial_budget, excluded_teams FROM championships_config WHERE championship_id = ?"
-    sql = db.adapt_params(sql)
-    cursor.execute(sql, (championship_id,))
-    row = cursor.fetchone()
-    if row:
-        import json
-        return {
-            "initial_budget": row[0],
-            "excluded_teams": set(json.loads(row[1])) if row[1] else set(),
-        }
-    return {"initial_budget": INITIAL_BUDGET, "excluded_teams": set()}
-
-
 @router.get("/balances")
 async def get_balances(
+    request: Request,
     championship_id: str = Query(default=CHAMPIONSHIP_ID),
 ):
     """Calcula el saldo actual de cada equipo (200M - compras + ventas).
@@ -61,7 +48,7 @@ async def get_balances(
             cursor = db.get_cursor(conn)
             
             # Leer config del campeonato
-            config = _get_championship_config(db, cursor, championship_id)
+            config = get_championship_config(championship_id, request)
             initial_budget = config["initial_budget"]
             excluded_teams = config["excluded_teams"]
             sql_purchases = """
@@ -140,6 +127,7 @@ async def get_balances(
 
 @router.get("/balances/{team_id}")
 async def get_team_transactions(
+    request: Request,
     team_id: str,
     championship_id: str = Query(default=CHAMPIONSHIP_ID),
 ):
@@ -203,7 +191,7 @@ async def get_team_transactions(
             total_spent = sum(p["price"] for p in purchases)
             total_income = sum(s["price"] for s in sales)
             
-            config = _get_championship_config(db, cursor, championship_id)
+            config = get_championship_config(championship_id, request)
             initial_budget = config["initial_budget"]
             balance = initial_budget - total_spent + total_income
             

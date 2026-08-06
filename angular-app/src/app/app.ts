@@ -51,8 +51,8 @@ export class App {
 
   sidenavOpened = signal(true);
 
-  /** True when on /login route — hides the app shell */
-  isLoginPage = signal(false);
+  /** True when on login/splash — hides the app shell */
+  isLoginPage = signal(true);
 
   isMobile = toSignal(
     this.breakpointObserver.observe([Breakpoints.Handset]).pipe(map(result => result.matches)),
@@ -67,6 +67,7 @@ export class App {
     { label: 'Finanzas', icon: 'payments', route: '/finances' },
     { label: 'Clausulables', icon: 'sports_soccer', route: '/clausulable', requiresClauses: true },
     { label: 'Analytics', icon: 'analytics', route: '/analytics' },
+    { label: 'Ajustes', icon: 'settings', route: '/settings' },
   ];
 
   navItems = computed(() => {
@@ -79,9 +80,14 @@ export class App {
     this.loadTheme();
     this.loadLastSync();
 
-    // Track route to hide shell on login page
+    // Track route to hide shell on login/splash pages — also reset body bg
     this.router.events.subscribe(() => {
-      this.isLoginPage.set(this.router.url === '/login');
+      const url = this.router.url;
+      const hideShell = url === '/login' || url === '/';
+      this.isLoginPage.set(hideShell);
+      if (!hideShell) {
+        document.body.removeAttribute('style');
+      }
     });
 
     // Recargar lastSync al cambiar de campeonato

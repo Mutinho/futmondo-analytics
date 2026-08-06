@@ -67,10 +67,12 @@ import { AuthService } from '../../core/services/auth.service';
     </div>
   `,
   styles: [`
+    :host { display: block; margin: 0; padding: 0; }
     .login-wrapper {
       display: flex; align-items: center; justify-content: center;
-      min-height: 100vh; padding: 16px;
+      min-height: 100vh; height: 100vh; padding: 16px;
       background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 50%, #43a047 100%);
+      box-sizing: border-box; overflow: hidden;
     }
     .login-card {
       width: 100%; max-width: 400px; padding: 40px 32px;

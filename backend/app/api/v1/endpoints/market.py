@@ -1,22 +1,12 @@
 """Market endpoint — jugadores del computer en mercado hoy + puja sugerida."""
 
 from typing import Dict, List
-from fastapi import APIRouter, Query, Depends, HTTPException
+from fastapi import APIRouter, Query, Depends, HTTPException, Request
 from app.core.config import CHAMPIONSHIP_ID
 from app.services.futmondo_service import FutmondoService
 from app.services.db_connection import get_db
 
 router = APIRouter()
-
-
-def _get_championship_config_for_market(db, cursor, championship_id: str) -> dict:
-    """Lee la config del campeonato."""
-    import json as _json
-    sql = "SELECT initial_budget FROM championships_config WHERE championship_id = ?"
-    sql = db.adapt_params(sql)
-    cursor.execute(sql, (championship_id,))
-    row = cursor.fetchone()
-    return {"initial_budget": row[0] if row else 200000000}
 
 
 def _get_user_team_id(client, championship_id: str) -> str:
@@ -191,6 +181,7 @@ async def cancel_bid(
 
 @router.get("/today")
 async def get_market_today(
+    request: Request,
     championship_id: str = Query(default=CHAMPIONSHIP_ID),
     service: FutmondoService = Depends(FutmondoService),
 ) -> Dict:
@@ -328,7 +319,8 @@ async def get_market_today(
         # Calcular saldo del usuario
         with db.get_connection() as conn2:
             cursor2 = db.get_cursor(conn2)
-            config = _get_championship_config_for_market(db, cursor2, championship_id)
+            from app.api.v1.endpoints._helpers import get_championship_config
+            config = get_championship_config(championship_id, request)
             initial_budget = config["initial_budget"]
             
             sql_spent = "SELECT COALESCE(SUM(price), 0) FROM transactions WHERE championship_id = ? AND buyer_team_id = ?"

@@ -97,7 +97,7 @@ class DataSyncService:
         
         try:
             # Get last sync metadata
-            last_sync = self.dm.get_last_sync_metadata(self.championship_id, "transactions")
+            last_sync = self.dm.get_last_sync_metadata(self.championship_id, "transactions", user_id=self.user_id)
             previous_last_id = last_sync.get("last_sync_id", "") if last_sync else ""
             
             logger.info(f"Last sync ID: {previous_last_id or 'None (full sync)'}")

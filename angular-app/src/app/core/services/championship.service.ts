@@ -29,17 +29,28 @@ export class ChampionshipService {
   hasClauses = computed(() => this.activeChampionship()?.has_clauses || false);
 
   async load() {
-    const data = await firstValueFrom(this.http.get<ChampionshipsResponse>('/api/v1/championships'));
-    this.championships.set(data.championships);
+    try {
+      // Load user's own championships (requires auth)
+      const data = await firstValueFrom(this.http.get<ChampionshipsResponse>('/api/v1/user/championships'));
+      this.championships.set(data.championships);
+    } catch {
+      // Fallback to global championships if user endpoint fails
+      try {
+        const data = await firstValueFrom(this.http.get<ChampionshipsResponse>('/api/v1/championships'));
+        this.championships.set(data.championships);
+      } catch {
+        this.championships.set([]);
+      }
+    }
 
     // Recuperar selección de localStorage
     const savedId = localStorage.getItem(STORAGE_KEY);
-    const saved = savedId ? data.championships.find(c => c.championship_id === savedId) : null;
+    const saved = savedId ? this.championships().find(c => c.championship_id === savedId) : null;
 
     if (saved) {
       this.activeChampionship.set(saved);
-    } else if (data.championships.length) {
-      this.setActive(data.championships[0]);
+    } else if (this.championships().length) {
+      this.setActive(this.championships()[0]);
     }
   }
 

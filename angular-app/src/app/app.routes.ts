@@ -3,10 +3,14 @@ import { authGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
   {
+    path: '',
+    loadComponent: () => import('./features/splash/splash.component').then(m => m.SplashComponent),
+    pathMatch: 'full',
+  },
+  {
     path: 'login',
     loadComponent: () => import('./features/login/login.component').then(m => m.LoginComponent),
   },
-  { path: '', redirectTo: 'budget', pathMatch: 'full' },
   {
     path: 'budget',
     canActivate: [authGuard],
@@ -41,5 +45,10 @@ export const routes: Routes = [
     path: 'analytics',
     canActivate: [authGuard],
     loadChildren: () => import('./features/analytics/analytics.routes'),
+  },
+  {
+    path: 'settings',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/settings/championships-config.component').then(m => m.ChampionshipsConfigComponent),
   },
 ];

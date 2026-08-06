@@ -2,7 +2,7 @@
 
 import json
 from typing import Dict, List
-from fastapi import APIRouter, Query, Depends, HTTPException
+from fastapi import APIRouter, Query, Depends, HTTPException, Request
 from app.core.config import CHAMPIONSHIP_ID
 from app.services.futmondo_service import FutmondoService
 from app.services.futmondo_client import FutmondoClient
@@ -19,6 +19,7 @@ def ensure_authenticated(service: FutmondoService) -> FutmondoService:
 
 @router.post("/check-phantoms")
 async def check_phantoms(
+    request: Request,
     championship_id: str = Query(default=CHAMPIONSHIP_ID),
     service: FutmondoService = Depends(FutmondoService),
 ) -> Dict:
@@ -33,16 +34,11 @@ async def check_phantoms(
         client = service.client
         
         # Obtener config del campeonato para excluded_teams
+        from app.api.v1.endpoints._helpers import get_championship_config as _get_config
+        config = _get_config(championship_id, request)
+        excluded_teams = config["excluded_teams"]
+        
         db = get_db()
-        excluded_teams = set()
-        with db.get_connection() as conn:
-            cursor = db.get_cursor(conn)
-            sql = "SELECT excluded_teams FROM championships_config WHERE championship_id = ?"
-            sql = db.adapt_params(sql)
-            cursor.execute(sql, (championship_id,))
-            row = cursor.fetchone()
-            if row and row[0]:
-                excluded_teams = set(json.loads(row[0]))
         
         # Obtener equipos
         standings = client.get_matchday_standings(championship_id)
