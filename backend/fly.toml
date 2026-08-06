@@ -1,7 +1,7 @@
 # Fly.io configuration — Backend (FastAPI)
 # App name will be set on first deploy: fly launch --name futmondo-api
 app = "futmondo-api"
-primary_region = "mad"
+primary_region = "cdg"
 
 [build]
   dockerfile = "Dockerfile"

@@ -1,7 +1,7 @@
 # Fly.io configuration — Frontend (Angular + nginx)
 # App name will be set on first deploy: fly launch --name futmondo-app
 app = "futmondo-app"
-primary_region = "mad"
+primary_region = "cdg"
 
 [build]
   dockerfile = "Dockerfile"
