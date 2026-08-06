@@ -244,6 +244,7 @@ class SofascoreClient:
                 "goals": stats.get("goals"),
                 "assists": stats.get("assists", stats.get("goalAssist")),
                 "appearances": stats.get("appearances"),
+                "matches_started": stats.get("matchesStarted"),
                 "minutes_played": stats.get("minutesPlayed"),
                 "yellow_cards": stats.get("yellowCards"),
                 "red_cards": stats.get("redCards"),

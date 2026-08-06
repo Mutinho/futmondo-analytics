@@ -60,6 +60,7 @@ export class App {
 
   allNavItems: NavItem[] = [
     { label: 'Presupuesto', icon: 'account_balance_wallet', route: '/budget' },
+    { label: 'Mi Plantilla', icon: 'groups', route: '/my-roster' },
     { label: 'Mercado', icon: 'shopping_cart', route: '/market' },
     { label: 'Evolución', icon: 'trending_up', route: '/evolution' },
     { label: 'Estadísticas', icon: 'bar_chart', route: '/stats' },

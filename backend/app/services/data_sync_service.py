@@ -96,6 +96,19 @@ class DataSyncService:
         start_time = time.time()
         logger.info("Starting incremental transaction sync...")
         
+        # Ensure market_value_at_purchase column exists
+        try:
+            db = self.dm.db
+            with db.get_connection() as conn:
+                cursor = db.get_cursor(conn)
+                if db.db_type in ["postgresql", "postgres"]:
+                    raw = cursor._cursor if hasattr(cursor, '_cursor') else cursor
+                    raw.execute("ALTER TABLE transactions ADD COLUMN IF NOT EXISTS market_value_at_purchase INTEGER")
+                else:
+                    cursor.execute("ALTER TABLE transactions ADD COLUMN market_value_at_purchase INTEGER")
+        except Exception:
+            pass  # Column already exists
+        
         try:
             # Get last sync metadata
             last_sync = self.dm.get_last_sync_metadata(self.championship_id, "transactions")
@@ -193,6 +206,13 @@ class DataSyncService:
             
             logger.info(f"Transaction sync complete: {total_synced} records in {duration:.2f}s")
             
+            # Enrich transactions with market value at purchase date
+            try:
+                enriched = self._enrich_market_values()
+                logger.info(f"Enriched {enriched} transactions with market value")
+            except Exception as enrich_err:
+                logger.warning(f"Market value enrichment failed (non-critical): {enrich_err}")
+            
             return {
                 "status": status,
                 "records_synced": total_synced,
@@ -218,6 +238,133 @@ class DataSyncService:
                 "duration_seconds": duration
             }
     
+    def _enrich_market_values(self) -> int:
+        """Fill market_value_at_purchase for transactions that don't have it yet.
+        
+        For each transaction with NULL market_value_at_purchase:
+        1. Call /1/player/fullprofile to get price history
+        2. Find the price closest to the transaction date
+        3. Update the row
+        
+        Processes all pending transactions in batches of 20 with pauses between batches.
+        
+        Returns:
+            Number of transactions enriched
+        """
+        db = self.dm.db
+        enriched = 0
+        
+        with db.get_connection() as conn:
+            cursor = db.get_cursor(conn)
+            
+            # Find transactions missing market value (only purchases from market, not transfers)
+            sql = """
+                SELECT transaction_id, player_id, transaction_date 
+                FROM transactions 
+                WHERE championship_id = ? 
+                AND market_value_at_purchase IS NULL
+                AND buyer_team_id != 'market_team'
+                ORDER BY transaction_date DESC
+            """
+            sql = db.adapt_params(sql)
+            cursor.execute(sql, (self.championship_id,))
+            rows = cursor.fetchall()
+            
+            if not rows:
+                return 0
+            
+            logger.info(f"Enriching {len(rows)} transactions with market value...")
+            
+            # Cache fullprofiles to avoid duplicate calls for same player
+            profile_cache = {}
+            batch_count = 0
+            
+            for row in rows:
+                txn_id, player_id, txn_date = row[0], row[1], row[2]
+                
+                try:
+                    # Get or fetch profile
+                    if player_id not in profile_cache:
+                        profile = self.client.get_player_fullprofile(player_id)
+                        profile_cache[player_id] = profile
+                        batch_count += 1
+                        time.sleep(0.5)  # Rate limiting — 500ms between API calls
+                        
+                        # Pause between batches of 20 to avoid detection
+                        if batch_count % 20 == 0:
+                            logger.info(f"  Enriched batch ({batch_count} profiles fetched), pausing 5s...")
+                            time.sleep(5)
+                    else:
+                        profile = profile_cache[player_id]
+                    
+                    if not profile or 'prices' not in profile:
+                        continue
+                    
+                    prices = profile['prices']
+                    if not prices:
+                        continue
+                    
+                    # Find price closest to transaction date
+                    market_value = self._find_price_at_date(prices, txn_date)
+                    if market_value is None:
+                        continue
+                    
+                    # Update transaction
+                    update_sql = "UPDATE transactions SET market_value_at_purchase = ? WHERE transaction_id = ?"
+                    update_sql = db.adapt_params(update_sql)
+                    cursor.execute(update_sql, (market_value, txn_id))
+                    enriched += 1
+                    
+                except Exception as e:
+                    logger.debug(f"Could not enrich transaction {txn_id}: {e}")
+                    continue
+        
+        return enriched
+    
+    def _find_price_at_date(self, prices: list, txn_date) -> Optional[int]:
+        """Find the classic price closest to (and not after) a transaction date.
+        
+        Args:
+            prices: List of {date, social, classic} dicts from fullprofile
+            txn_date: Transaction date (datetime or string)
+        
+        Returns:
+            The classic price value, or None if not found
+        """
+        from datetime import datetime as dt
+        
+        # Normalize txn_date to date
+        if isinstance(txn_date, str):
+            try:
+                txn_dt = dt.fromisoformat(txn_date.replace("Z", "+00:00")).date()
+            except Exception:
+                return None
+        elif hasattr(txn_date, 'date'):
+            txn_dt = txn_date.date()
+        else:
+            txn_dt = txn_date
+        
+        best_price = None
+        best_diff = None
+        
+        for entry in prices:
+            try:
+                entry_date_str = entry.get('date', '')
+                entry_dt = dt.fromisoformat(entry_date_str.replace("Z", "+00:00")).date()
+                diff = abs((txn_dt - entry_dt).days)
+                
+                if best_diff is None or diff < best_diff:
+                    best_diff = diff
+                    best_price = entry.get('social', entry.get('classic', 0))
+            except Exception:
+                continue
+        
+        # Only use if within 3 days of the transaction
+        if best_diff is not None and best_diff <= 3:
+            return best_price
+        
+        return None
+
     def sync_clauses(self) -> Dict:
         """Sync clauses incrementally from locker news endpoint
 

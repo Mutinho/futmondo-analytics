@@ -107,6 +107,19 @@ def _sync_sofascore(championship_id: str, client) -> Dict:
     answer = result.get('answer', {})
     all_players = answer if isinstance(answer, list) else answer.get('players', [])
     computer_players = [p for p in all_players if p.get('computer') is True]
+
+    # Also include user's roster players for Sofascore enrichment
+    players_to_sync = [{"name": p.get("name", ""), "team": p.get("team", "")} for p in computer_players]
+    try:
+        roster = client.get_userteam_roster(championship_id, user_team_id)
+        if roster:
+            existing_names = {p["name"].lower() for p in players_to_sync}
+            for p in roster:
+                pname = p.get("name", "")
+                if pname.lower() not in existing_names:
+                    players_to_sync.append({"name": pname, "team": p.get("team", "")})
+    except Exception as roster_err:
+        logger.warning(f"Could not fetch roster for Sofascore sync: {roster_err}")
     
     sofascore = get_sofascore_client()
     db = get_db()
@@ -115,7 +128,7 @@ def _sync_sofascore(championship_id: str, client) -> Dict:
     now = datetime.now()
     cache_rows = []
     
-    for p in computer_players:
+    for p in players_to_sync:
         player_name = p.get('name', '')
         if not player_name:
             continue
@@ -133,7 +146,8 @@ def _sync_sofascore(championship_id: str, client) -> Dict:
                 player_name, championship_id,
                 full_info.get('id'), full_info.get('name'), full_info.get('team'),
                 full_info.get('rating'), full_info.get('goals'), full_info.get('assists'),
-                full_info.get('appearances'), full_info.get('minutes_played'),
+                full_info.get('appearances'), full_info.get('matches_started'),
+                full_info.get('minutes_played'),
                 full_info.get('yellow_cards'), full_info.get('red_cards'),
                 full_info.get('tournament'), full_info.get('season'),
                 full_info.get('position'), full_info.get('nationality'),
@@ -151,6 +165,15 @@ def _sync_sofascore(championship_id: str, client) -> Dict:
     if cache_rows:
         with db.get_connection() as conn:
             cursor = db.get_cursor(conn)
+            # Ensure matches_started column exists
+            try:
+                if db.db_type in ["postgresql", "postgres"]:
+                    cursor._cursor.execute("ALTER TABLE sofascore_cache ADD COLUMN IF NOT EXISTS matches_started INTEGER DEFAULT 0") if hasattr(cursor, '_cursor') else cursor.execute("ALTER TABLE sofascore_cache ADD COLUMN IF NOT EXISTS matches_started INTEGER DEFAULT 0")
+                else:
+                    cursor.execute("ALTER TABLE sofascore_cache ADD COLUMN matches_started INTEGER DEFAULT 0")
+            except Exception:
+                pass  # Column already exists
+
             if db.db_type in ["postgresql", "postgres"]:
                 from psycopg2.extras import execute_values
                 raw_cursor = cursor._cursor if hasattr(cursor, '_cursor') else cursor
@@ -159,7 +182,7 @@ def _sync_sofascore(championship_id: str, client) -> Dict:
                 execute_values(raw_cursor, """
                     INSERT INTO sofascore_cache 
                     (player_name, championship_id, sofascore_id, sofascore_name, team,
-                     rating, goals, assists, appearances, minutes_played,
+                     rating, goals, assists, appearances, matches_started, minutes_played,
                      yellow_cards, red_cards, tournament, season, position,
                      nationality, age, successful_dribbles, accurate_passes_pct,
                      shots_on_target, tackles, interceptions, clean_sheets, saves,
@@ -171,12 +194,12 @@ def _sync_sofascore(championship_id: str, client) -> Dict:
                 cursor.executemany("""
                     INSERT INTO sofascore_cache 
                     (player_name, championship_id, sofascore_id, sofascore_name, team,
-                     rating, goals, assists, appearances, minutes_played,
+                     rating, goals, assists, appearances, matches_started, minutes_played,
                      yellow_cards, red_cards, tournament, season, position,
                      nationality, age, successful_dribbles, accurate_passes_pct,
                      shots_on_target, tackles, interceptions, clean_sheets, saves,
                      sofascore_url, synced_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, cache_rows)
     
     return {"synced": synced, "errors": errors, "total_players": len(computer_players)}

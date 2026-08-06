@@ -31,6 +31,7 @@ from app.api.v1.endpoints.balances import router as balances_router
 from app.api.v1.endpoints.championships import router as championships_router
 from app.api.v1.endpoints.phantoms import router as phantoms_router
 from app.api.v1.endpoints.market import router as market_router
+from app.api.v1.endpoints.roster import router as roster_router
 from app.api.v1.endpoints.sofascore_sync import router as sofascore_sync_router
 from app.api.v1.endpoints.sofascore_detail import router as sofascore_detail_router
 from app.api.v1.endpoints.user import router as user_router
@@ -142,6 +143,7 @@ app.include_router(balances_router, prefix="/api/v1/analytics", tags=["balances"
 app.include_router(championships_router, prefix="/api/v1", tags=["championships"])
 app.include_router(phantoms_router, prefix="/api/v1/sync", tags=["phantoms"])
 app.include_router(market_router, prefix="/api/v1/market", tags=["market"])
+app.include_router(roster_router, prefix="/api/v1/roster", tags=["roster"])
 app.include_router(sofascore_sync_router, prefix="/api/v1/sync", tags=["sofascore"])
 app.include_router(sofascore_detail_router, prefix="/api/v1/sofascore", tags=["sofascore"])
 app.include_router(user_router, prefix="/api/v1/user", tags=["user"])

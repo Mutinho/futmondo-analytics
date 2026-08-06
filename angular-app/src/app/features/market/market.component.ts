@@ -20,6 +20,7 @@ interface MarketPlayer {
   slug: string;
   name: string;
   team: string;
+  team_logo: string;
   position: string;
   position2: string;
   value: number;
@@ -35,6 +36,7 @@ interface MarketPlayer {
   expiration: string;
   sofascore_rating: number | null;
   sofascore_url: string | null;
+  starter_pct: number | null;
 }
 
 @Component({
@@ -80,17 +82,27 @@ interface MarketPlayer {
         <table mat-table [dataSource]="dataSource" matSort>
           <ng-container matColumnDef="name">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>Jugador</th>
-            <td mat-cell *matCellDef="let p">
-              @if (p.sofascore_url) {
-                <a [href]="p.sofascore_url" target="_blank" class="player-link"><strong>{{ p.name }}</strong></a>
-              } @else {
-                <strong>{{ p.name }}</strong>
-              }
+            <td mat-cell *matCellDef="let p" class="player-cell">
+              <div class="player-wrapper">
+                <img [src]="getPlayerPhoto(p.slug)" class="player-photo" [alt]="p.name" loading="lazy"
+                     (error)="$event.target.style.display='none'" />
+                @if (p.sofascore_url) {
+                  <a [href]="p.sofascore_url" target="_blank" class="player-link"><strong>{{ p.name }}</strong></a>
+                } @else {
+                  <strong>{{ p.name }}</strong>
+                }
+              </div>
             </td>
           </ng-container>
           <ng-container matColumnDef="team">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>Equipo</th>
-            <td mat-cell *matCellDef="let p">{{ p.team }}</td>
+            <td mat-cell *matCellDef="let p" class="team-cell">
+              <div class="team-wrapper">
+                <img [src]="getTeamLogo(p.team_logo)" class="team-logo" [alt]="p.team" loading="lazy"
+                     (error)="$event.target.style.display='none'" />
+                <span>{{ p.team }}</span>
+              </div>
+            </td>
           </ng-container>
           <ng-container matColumnDef="position">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>Pos</th>
@@ -109,6 +121,16 @@ interface MarketPlayer {
                       (click)="openSofascoreDetail(p, $event)">
                   {{ p.sofascore_rating.toFixed(1) }}
                 </span>
+              } @else {
+                <span class="sofascore-na">-</span>
+              }
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="starter_pct">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>% Titular</th>
+            <td mat-cell *matCellDef="let p">
+              @if (p.starter_pct != null) {
+                <span class="starter-badge" [class]="getStarterClass(p.starter_pct)">{{ p.starter_pct }}%</span>
               } @else {
                 <span class="sofascore-na">-</span>
               }
@@ -182,6 +204,13 @@ interface MarketPlayer {
     .info-value.danger { color: #d32f2f; }
     .table-container { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
     table { width: 100%; }
+    .player-cell { }
+    .player-cell .player-wrapper { display: inline-flex; align-items: center; gap: 10px; }
+    .player-photo { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; background: #f0f0f0; flex-shrink: 0; vertical-align: middle; }
+    .player-info { display: inline; }
+    .team-cell { }
+    .team-cell .team-wrapper { display: inline-flex; align-items: center; gap: 8px; }
+    .team-logo { width: 40px; height: 40px; object-fit: contain; flex-shrink: 0; vertical-align: middle; }
     .suggested { font-weight: 700; color: #2e7d32; }
     .overpay { color: #f57c00; font-weight: 600; }
     .pos-chip { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600; color: #fff; text-transform: capitalize; }
@@ -204,6 +233,10 @@ interface MarketPlayer {
     .sofascore-yellow { background: #ca8a04; }
     .sofascore-red { background: #dc2626; }
     .sofascore-na { color: var(--mat-sys-on-surface-variant); }
+    .starter-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.85em; font-weight: 700; color: #fff; }
+    .starter-high { background: #16a34a; }
+    .starter-mid { background: #ca8a04; }
+    .starter-low { background: #dc2626; }
   `]
 })
 export class MarketComponent {
@@ -222,7 +255,7 @@ export class MarketComponent {
   error = signal('');
   bidding = signal(false);
   userInfo = signal<{ balance: number; team_value: number; max_bid: number; active_bids_total: number; available_for_bids: number } | null>(null);
-  columns = ['name', 'team', 'position', 'sofascore_rating', 'value', 'change', 'market_price', 'current_bid', 'suggested_bid'];
+  columns = ['name', 'team', 'position', 'sofascore_rating', 'starter_pct', 'value', 'change', 'market_price', 'current_bid', 'suggested_bid'];
 
   getPositionKey(position: string): string {
     const p = (position || '').toLowerCase();
@@ -231,6 +264,14 @@ export class MarketComponent {
     if (p.includes('defensa') || p.includes('defender')) return 'def';
     if (p.includes('portero') || p.includes('keeper')) return 'gk';
     return 'mid';
+  }
+
+  getPlayerPhoto(slug: string): string {
+    return `https://static01.mondocore.com/futmondo/img/faces/64/${slug}.png`;
+  }
+
+  getTeamLogo(logo: string): string {
+    return `https://static02.mondocore.com/futmondo/img/teams/64/${logo}`;
   }
 
   getPositionLabel(position: string): string {
@@ -349,6 +390,12 @@ export class MarketComponent {
     if (rating >= 7) return 'sofascore-green';
     if (rating >= 6) return 'sofascore-yellow';
     return 'sofascore-red';
+  }
+
+  getStarterClass(pct: number): string {
+    if (pct >= 75) return 'starter-high';
+    if (pct >= 40) return 'starter-mid';
+    return 'starter-low';
   }
 
   openSofascoreDetail(player: MarketPlayer, event: Event) {

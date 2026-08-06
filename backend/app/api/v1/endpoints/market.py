@@ -22,12 +22,11 @@ def _get_user_team_id(client, championship_id: str) -> str:
 
 
 def _calculate_suggested_bid(player_value: int, championship_id: str, db) -> Dict:
-    """Calcula puja sugerida basándose en cuánto se ha sobrepujado históricamente.
+    """Calcula puja sugerida basándose en el % real de sobrepago histórico.
     
-    Busca compras al mercado (seller = market_team) de jugadores con valor similar (±25%)
-    y calcula el % medio de sobrepuja respecto al valor del jugador.
-    Ejemplo: si jugadores de ~20M se han comprado de media por 22M → sobrepuja media = 10%
-    → para un jugador de 20M sugiere 22M.
+    Usa transacciones enriquecidas (con market_value_at_purchase) para calcular
+    cuánto se sobrepuja de media respecto al valor de mercado del jugador.
+    Fallback: si no hay datos enriquecidos, usa el método anterior (precio pagado en rango similar).
     """
     margin = 0.25  # ±25%
     min_value = int(player_value * (1 - margin))
@@ -36,9 +35,45 @@ def _calculate_suggested_bid(player_value: int, championship_id: str, db) -> Dic
     with db.get_connection() as conn:
         cursor = db.get_cursor(conn)
         
-        # Buscar transacciones del mercado con precio pagado en rango similar al valor del jugador
-        # Esto nos da "cuánto se pagó por jugadores de este rango de precio"
-        sql = """
+        # Método principal: usar transacciones con market_value_at_purchase para calcular % sobrepago real
+        sql_enriched = """
+            SELECT t.price, t.market_value_at_purchase
+            FROM transactions t
+            WHERE t.championship_id = ?
+            AND t.seller_team_id = 'market_team'
+            AND t.market_value_at_purchase IS NOT NULL
+            AND t.market_value_at_purchase > 0
+            AND t.market_value_at_purchase BETWEEN ? AND ?
+            ORDER BY t.transaction_date DESC
+            LIMIT 50
+        """
+        sql_enriched = db.adapt_params(sql_enriched)
+        cursor.execute(sql_enriched, (championship_id, min_value, max_value))
+        enriched_rows = cursor.fetchall()
+        
+        if enriched_rows and len(enriched_rows) >= 3:
+            # Calculate real overpay % from enriched data
+            overpay_ratios = []
+            for price_paid, market_val in enriched_rows:
+                if market_val > 0:
+                    ratio = price_paid / market_val
+                    overpay_ratios.append(ratio)
+            
+            if overpay_ratios:
+                avg_ratio = sum(overpay_ratios) / len(overpay_ratios)
+                suggested = int(player_value * avg_ratio)
+                overpay_pct = (avg_ratio - 1) * 100
+                confidence = "high" if len(overpay_ratios) >= 10 else "medium"
+                
+                return {
+                    "suggested_bid": suggested,
+                    "confidence": confidence,
+                    "based_on": len(overpay_ratios),
+                    "overpay_pct": round(max(overpay_pct, 0), 1),
+                }
+        
+        # Fallback: buscar por precio pagado en rango similar (método anterior)
+        sql_fallback = """
             SELECT t.price
             FROM transactions t
             WHERE t.championship_id = ?
@@ -48,8 +83,8 @@ def _calculate_suggested_bid(player_value: int, championship_id: str, db) -> Dic
             ORDER BY t.transaction_date DESC
             LIMIT 50
         """
-        sql = db.adapt_params(sql)
-        cursor.execute(sql, (championship_id, min_value, max_value))
+        sql_fallback = db.adapt_params(sql_fallback)
+        cursor.execute(sql_fallback, (championship_id, min_value, max_value))
         prices = [row[0] for row in cursor.fetchall()]
     
     if not prices:
@@ -64,10 +99,9 @@ def _calculate_suggested_bid(player_value: int, championship_id: str, db) -> Dic
     # Media de lo pagado en transacciones similares
     avg_price = sum(prices) / len(prices)
     suggested = int(avg_price)
-    # % que supone la puja sugerida respecto al valor del jugador
     overpay_pct = ((suggested - player_value) / player_value) * 100 if player_value > 0 else 0
     
-    confidence = "high" if len(prices) >= 10 else "medium" if len(prices) >= 3 else "low"
+    confidence = "medium" if len(prices) >= 3 else "low"
     
     return {
         "suggested_bid": suggested,
@@ -241,6 +275,7 @@ async def get_market_today(
                 "slug": p.get('slug', ''),
                 "name": p.get('name', ''),
                 "team": p.get('team', ''),
+                "team_logo": p.get('logo', ''),
                 "position": p.get('role', ''),
                 "position2": p.get('role2', ''),
                 "value": player_value,
@@ -261,7 +296,7 @@ async def get_market_today(
         with db.get_connection() as conn_sf:
             cursor_sf = db.get_cursor(conn_sf)
             sql_sf = """
-                SELECT player_name, sofascore_id, rating, goals, assists, appearances, sofascore_url
+                SELECT player_name, sofascore_id, rating, goals, assists, appearances, sofascore_url, matches_started
                 FROM sofascore_cache
                 WHERE championship_id = ?
             """
@@ -271,6 +306,9 @@ async def get_market_today(
 
         sf_map = {}
         for row in sf_rows:
+            appearances_sf = row[5] or 0
+            matches_started = row[7] or 0 if len(row) > 7 else 0
+            starter_pct = round((matches_started / appearances_sf) * 100) if appearances_sf > 0 else None
             sf_map[row[0]] = {
                 "sofascore_id": row[1],
                 "sofascore_rating": row[2],
@@ -278,6 +316,7 @@ async def get_market_today(
                 "sofascore_assists": row[4],
                 "sofascore_appearances": row[5],
                 "sofascore_url": row[6] or None,
+                "starter_pct": starter_pct,
             }
 
         for player in players_with_bid:

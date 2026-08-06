@@ -565,6 +565,31 @@ class FutmondoClient:
                 return {"news": answer}
         return None
     
+    def get_player_fullprofile(self, player_id: str) -> Optional[Dict]:
+        """Fetch full player profile including historical prices.
+        
+        Args:
+            player_id: Futmondo player ID
+        
+        Returns:
+            Dict with player info and 'prices' array (date + classic/social values), or None
+        """
+        request_data = {
+            "header": {
+                "token": self.token,
+                "userid": self.user_id
+            },
+            "query": {
+                "playerId": player_id
+            },
+            "answer": {}
+        }
+        
+        response = self._make_request("/1/player/fullprofile", request_data)
+        if response:
+            return response.get("answer", {})
+        return None
+
     def get_locker_news(self, championship_id: str, from_id: Optional[str] = None) -> Optional[Dict]:
         """Fetch locker news (punishments and bonuses) with pagination support
         
