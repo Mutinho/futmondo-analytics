@@ -65,6 +65,7 @@ export class App {
     { label: 'Presupuesto', icon: 'account_balance_wallet', route: '/budget' },
     { label: 'Mi Plantilla', icon: 'groups', route: '/my-roster' },
     { label: 'Mercado', icon: 'shopping_cart', route: '/market' },
+    { label: 'Favoritos', icon: 'star', route: '/favorites' },
     { label: 'Evolución', icon: 'trending_up', route: '/evolution' },
     { label: 'Estadísticas', icon: 'bar_chart', route: '/stats' },
     { label: 'Finanzas', icon: 'payments', route: '/finances' },

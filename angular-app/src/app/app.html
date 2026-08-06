@@ -63,10 +63,12 @@
       </a>
     </mat-nav-list>
 
-    @if (lastSync()) {
-      <div class="last-sync-label">Última sync: {{ lastSync() }}</div>
-    }
-    <div class="version-label">v{{ appVersion }}</div>
+    <div class="sidebar-footer">
+      @if (lastSync()) {
+        <div class="last-sync-label">Última sync: {{ lastSync() }}</div>
+      }
+      <div class="version-label">v{{ appVersion }}</div>
+    </div>
   </mat-sidenav>
 
   <!-- Main content -->

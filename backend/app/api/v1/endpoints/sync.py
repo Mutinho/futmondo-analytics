@@ -120,6 +120,41 @@ def _sync_sofascore(championship_id: str, client) -> Dict:
                     players_to_sync.append({"name": pname, "team": p.get("team", "")})
     except Exception as roster_err:
         logger.warning(f"Could not fetch roster for Sofascore sync: {roster_err}")
+
+    # Also include favorite players for Sofascore enrichment
+    try:
+        with get_db().get_connection() as conn:
+            cursor = get_db().get_cursor(conn)
+            sql = "SELECT player_id FROM player_favorites WHERE championship_id = %s AND user_id = %s"
+            cursor.execute(sql, (championship_id, client.user_id))
+            fav_ids = {row[0] for row in cursor.fetchall()}
+        if fav_ids:
+            # Get names from championship players data
+            champ_data = client.get_championship_players(championship_id)
+            if champ_data and champ_data.get("players"):
+                existing_names = {p["name"].lower() for p in players_to_sync}
+                # Use LALIGA_TEAMS map for team hints
+                LALIGA_TEAMS = {
+                    "504e581e4d8bec9a670000c6": "Real Madrid", "504e581e4d8bec9a670000c7": "Barcelona",
+                    "504e581e4d8bec9a670000c8": "Atlético de Madrid", "504e581e4d8bec9a670000c9": "Athletic de Bilbao",
+                    "504e581e4d8bec9a670000ca": "Rayo Vallecano", "504e581e4d8bec9a670000cb": "Valencia",
+                    "504e581e4d8bec9a670000cc": "Betis", "504e581e4d8bec9a670000cd": "Getafe",
+                    "504e581e4d8bec9a670000ce": "Real Sociedad", "504e581e4d8bec9a670000cf": "Levante",
+                    "504e581e4d8bec9a670000d0": "Espanyol", "504e581e4d8bec9a670000d1": "Osasuna",
+                    "504e581e4d8bec9a670000d5": "Sevilla", "504e581e4d8bec9a670000d6": "Málaga",
+                    "504e581e4d8bec9a670000d8": "Deportivo de la Coruña", "504e581e4d8bec9a670000d9": "Celta de Vigo",
+                    "51b889b1e401a15f2c0000f0": "Elche", "51b890f5b986415a2c000012": "Villarreal",
+                    "52038563b8d07d930b00008a": "Alavés", "520e4ee4a776cc826b00004b": "Racing",
+                }
+                for p in champ_data["players"]:
+                    if p.get("id") in fav_ids and not p.get("userteamId"):
+                        pname = p.get("name", "")
+                        if pname.lower() not in existing_names:
+                            team_hint = LALIGA_TEAMS.get(p.get("teamId", ""), "")
+                            players_to_sync.append({"name": pname, "team": team_hint})
+                            existing_names.add(pname.lower())
+    except Exception as fav_err:
+        logger.warning(f"Could not fetch favorites for Sofascore sync: {fav_err}")
     
     sofascore = get_sofascore_client()
     db = get_db()

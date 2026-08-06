@@ -1284,6 +1284,63 @@ class DataSyncService:
                 "duration_seconds": duration
             }
     
+    def _save_favorites(self, player_ids: list):
+        """Save user's favorite player IDs for the current championship.
+        
+        Replaces existing favorites with the new list (full refresh each sync).
+        """
+        db = self.dm.db
+        with db.get_connection() as conn:
+            cursor = db.get_cursor(conn)
+            
+            # Ensure table exists
+            if db.db_type in ["postgresql", "postgres"]:
+                raw = cursor._cursor if hasattr(cursor, '_cursor') else cursor
+                raw.execute("""
+                    CREATE TABLE IF NOT EXISTS player_favorites (
+                        id SERIAL PRIMARY KEY,
+                        championship_id TEXT NOT NULL,
+                        user_id TEXT NOT NULL,
+                        player_id TEXT NOT NULL,
+                        synced_at TIMESTAMP DEFAULT NOW(),
+                        UNIQUE(championship_id, user_id, player_id)
+                    )
+                """)
+            else:
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS player_favorites (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        championship_id TEXT NOT NULL,
+                        user_id TEXT NOT NULL,
+                        player_id TEXT NOT NULL,
+                        synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE(championship_id, user_id, player_id)
+                    )
+                """)
+            
+            # Clear existing favorites for this user+championship
+            sql_del = "DELETE FROM player_favorites WHERE championship_id = ? AND user_id = ?"
+            sql_del = db.adapt_params(sql_del)
+            cursor.execute(sql_del, (self.championship_id, self.client.user_id or ''))
+            
+            # Insert new favorites
+            if player_ids:
+                if db.db_type in ["postgresql", "postgres"]:
+                    from psycopg2.extras import execute_values
+                    raw = cursor._cursor if hasattr(cursor, '_cursor') else cursor
+                    values = [(self.championship_id, self.client.user_id or '', pid) for pid in player_ids]
+                    execute_values(raw, """
+                        INSERT INTO player_favorites (championship_id, user_id, player_id)
+                        VALUES %s
+                        ON CONFLICT (championship_id, user_id, player_id) DO NOTHING
+                    """, values)
+                else:
+                    for pid in player_ids:
+                        cursor.execute(
+                            "INSERT OR IGNORE INTO player_favorites (championship_id, user_id, player_id) VALUES (?, ?, ?)",
+                            (self.championship_id, self.client.user_id or '', pid)
+                        )
+
     def sync_players_full(self) -> Dict:
         """Sync all players (full update - players can change basic data)
         
@@ -1351,6 +1408,17 @@ class DataSyncService:
                     self.dm.save_player_championship_stats(self.championship_id, stats_payload)
                 except Exception as stats_err:
                     logger.warning(f"Failed to persist player championship stats: {stats_err}")
+            
+            # Sync favorites — store which players the user has marked as fav
+            try:
+                favorites = []
+                for player in players:
+                    if player.get("fav") is True and not player.get("userteamId"):
+                        favorites.append(player.get("id"))
+                self._save_favorites(favorites)
+                logger.info(f"Synced {len(favorites)} favorites")
+            except Exception as fav_err:
+                logger.warning(f"Failed to sync favorites: {fav_err}")
             
             duration = time.time() - start_time
             status = "success"

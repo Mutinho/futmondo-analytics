@@ -42,6 +42,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/market/market.component').then(m => m.MarketComponent),
   },
   {
+    path: 'favorites',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/favorites/favorites.component').then(m => m.FavoritesComponent),
+  },
+  {
     path: 'my-roster',
     canActivate: [authGuard],
     loadComponent: () => import('./features/my-roster/my-roster.component').then(m => m.MyRosterComponent),
