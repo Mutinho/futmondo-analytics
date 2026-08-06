@@ -21,11 +21,11 @@
         <mat-form-field appearance="outline" class="championship-field">
           <mat-label>Campeonato</mat-label>
           <mat-select
-            [value]="championshipService.activeChampionship()"
+            [value]="championshipService.activeId()"
             (selectionChange)="onChampionshipChange($event.value)"
           >
             @for (c of championshipService.championships(); track c.championship_id) {
-              <mat-option [value]="c">{{ c.name }}</mat-option>
+              <mat-option [value]="c.championship_id">{{ c.name }}</mat-option>
             }
           </mat-select>
         </mat-form-field>

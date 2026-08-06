@@ -20,42 +20,51 @@ const STORAGE_KEY = 'futmondo_active_championship';
 @Injectable({ providedIn: 'root' })
 export class ChampionshipService {
   private http = inject(HttpClient);
+  private loading = false;
 
   championships = signal<Championship[]>([]);
   activeChampionship = signal<Championship | null>(null);
 
-  // Computed helpers
-  activeId = computed(() => this.activeChampionship()?.championship_id || '');
+  // Se inicializa directo de localStorage — disponible inmediatamente sin esperar HTTP
+  activeId = signal<string>(localStorage.getItem(STORAGE_KEY) || '');
+
   hasClauses = computed(() => this.activeChampionship()?.has_clauses || false);
 
   async load() {
+    if (this.loading) return;
+    this.loading = true;
+
     try {
-      // Load user's own championships (requires auth)
       const data = await firstValueFrom(this.http.get<ChampionshipsResponse>('/api/v1/user/championships'));
       this.championships.set(data.championships);
     } catch {
-      // Fallback to global championships if user endpoint fails
       try {
         const data = await firstValueFrom(this.http.get<ChampionshipsResponse>('/api/v1/championships'));
         this.championships.set(data.championships);
       } catch {
         this.championships.set([]);
+        this.loading = false;
+        return;
       }
     }
 
     // Recuperar selección de localStorage
-    const savedId = localStorage.getItem(STORAGE_KEY);
-    const saved = savedId ? this.championships().find(c => c.championship_id === savedId) : null;
+    const saved = this.activeId()
+      ? this.championships().find(c => c.championship_id === this.activeId())
+      : null;
 
     if (saved) {
       this.activeChampionship.set(saved);
     } else if (this.championships().length) {
       this.setActive(this.championships()[0]);
     }
+
+    this.loading = false;
   }
 
   setActive(championship: Championship) {
     this.activeChampionship.set(championship);
+    this.activeId.set(championship.championship_id);
     localStorage.setItem(STORAGE_KEY, championship.championship_id);
   }
 }

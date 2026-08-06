@@ -181,3 +181,20 @@ Se calcula por cada jornada jugada y se acumula.
 4. **Sync metadata**: Compartido entre usuarios (quien sincroniza, beneficia a todos).
 5. **PWA**: Service worker con strategy freshness para API, prefetch para app shell.
 6. **Cookie auth**: COOKIE_SECURE=false en local (HTTP), true en producción (HTTPS).
+
+
+---
+
+## Desarrollo Local (Docker)
+
+### Comandos
+- **Build + deploy local**: `echo "javi" | sudo -S docker compose up -d --build`
+- **Solo frontend**: `echo "javi" | sudo -S docker compose up -d --build frontend`
+- **Ver logs**: `echo "javi" | sudo -S docker compose logs -f frontend`
+- **Parar todo**: `echo "javi" | sudo -S docker compose down`
+
+### Notas
+- Docker requiere `sudo` — la contraseña del usuario es `javi`.
+- Siempre usar `up -d --build` (no solo `build`) para que el contenedor se recree con la nueva imagen.
+- URLs locales: `futmondo.localhost` (frontend) / `futmondo-api.localhost` (backend).
+- El proxy nginx (compose service `proxy`) rutea por `server_name`.

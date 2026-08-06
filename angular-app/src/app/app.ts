@@ -1,7 +1,7 @@
-import { Component, signal, inject, computed, effect } from '@angular/core';
-import { Router, RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { Component, signal, inject, computed, effect, untracked } from '@angular/core';
+import { Router, RouterOutlet, RouterLink, RouterLinkActive, NavigationEnd } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, filter, map } from 'rxjs';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -12,8 +12,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatDialog } from '@angular/material/dialog';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { map } from 'rxjs';
-import { ChampionshipService, Championship } from './core/services/championship.service';
+import { ChampionshipService } from './core/services/championship.service';
 import { AuthService } from './core/services/auth.service';
 import { SyncDialogComponent } from './features/budget/sync-dialog/sync-dialog.component';
 
@@ -78,8 +77,10 @@ export class App {
   constructor() {
     this.loadTheme();
 
-    // Track route to hide shell on login/splash pages — also reset body bg
-    this.router.events.subscribe(() => {
+    // Track route to hide shell on login/splash pages
+    this.router.events.pipe(
+      filter(e => e instanceof NavigationEnd)
+    ).subscribe(() => {
       const url = this.router.url;
       const hideShell = url === '/login' || url === '/';
       this.isLoginPage.set(hideShell);
@@ -91,15 +92,17 @@ export class App {
     // Load data only after auth is initialized (session recovered)
     effect(() => {
       if (this.authService.initialized() && this.authService.getAccessToken()) {
-        this.championshipService.load();
-        this.loadLastSync();
+        untracked(() => {
+          this.championshipService.load();
+          this.loadLastSync();
+        });
       }
     });
 
     // Recargar lastSync al cambiar de campeonato
     effect(() => {
       const id = this.championshipService.activeId();
-      if (id) this.loadLastSync();
+      if (id) untracked(() => this.loadLastSync());
     });
   }
 
@@ -108,7 +111,7 @@ export class App {
 
   private async loadLastSync() {
     const id = this.championshipService.activeId();
-    if (!id) return;
+    if (!id || !this.authService.getAccessToken()) return;
     try {
       const resp = await firstValueFrom(this.http.get<any>(`/api/v1/sync/last-sync?championship_id=${id}`));
       if (resp.last_sync) {
@@ -138,7 +141,6 @@ export class App {
     } else if (saved === 'light') {
       this.darkMode.set(false);
     } else {
-      // Usar preferencia del sistema
       this.darkMode.set(window.matchMedia('(prefers-color-scheme: dark)').matches);
     }
     this.applyTheme();
@@ -158,8 +160,11 @@ export class App {
     }
   }
 
-  onChampionshipChange(championship: Championship) {
-    this.championshipService.setActive(championship);
+  onChampionshipChange(championshipId: string) {
+    const championship = this.championshipService.championships().find(c => c.championship_id === championshipId);
+    if (championship) {
+      this.championshipService.setActive(championship);
+    }
   }
 
   toggleSidenav() {

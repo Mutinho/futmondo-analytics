@@ -56,6 +56,9 @@ export class AuthService {
     };
     localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
     this._user.set(user);
+
+    // Reset initialized so the effect in App re-fires after splash/tryRecoverSession
+    this._initialized.set(false);
   }
 
   /** Refresh the access token using the HttpOnly cookie */
