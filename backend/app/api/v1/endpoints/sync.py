@@ -285,6 +285,21 @@ def _run_sync_in_background(task_id: str, sync_type: str, championship_id: str, 
         tm.mark_completed(task_id, results)
         logger.info(f"✅ Sync task {task_id} completed ({sync_type})")
 
+        # Update last sync date for the championship (regardless of individual step results)
+        try:
+            from datetime import datetime
+            sync_service.dm.update_sync_metadata(
+                championship_id=championship_id,
+                data_type="all",
+                last_sync_id="",
+                last_sync_date=datetime.now(),
+                records_synced=0,
+                sync_duration_seconds=0,
+                sync_status="success",
+            )
+        except Exception:
+            pass
+
     except Exception as e:
         logger.error(f"❌ Sync task {task_id} failed: {e}", exc_info=True)
         tm.mark_failed(task_id, str(e))
