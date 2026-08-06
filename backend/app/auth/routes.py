@@ -2,9 +2,11 @@
 Auth endpoints — login, refresh, logout.
 """
 
+import os
 import uuid
 import logging
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Request, Response, status, Cookie
+from typing import Optional
 
 from app.auth.models import LoginRequest, TokenResponse, RefreshRequest, RefreshResponse
 from app.auth.jwt_utils import (
@@ -22,6 +24,7 @@ from app.auth.token_store import (
     upsert_user,
     get_user_by_email,
 )
+from app.auth.session_store import get_session_store
 from app.services.futmondo_client import FutmondoClient
 from app.core.config import BASE_URL
 
@@ -29,9 +32,37 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+REFRESH_COOKIE_NAME = "futmondo_refresh_token"
+REFRESH_COOKIE_MAX_AGE = 30 * 24 * 60 * 60  # 30 days in seconds
+COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() == "true"
 
-@router.post("/login", response_model=TokenResponse)
-async def login(body: LoginRequest):
+
+def _set_refresh_cookie(response: Response, refresh_token: str):
+    """Set refresh token as HttpOnly secure cookie."""
+    response.set_cookie(
+        key=REFRESH_COOKIE_NAME,
+        value=refresh_token,
+        httponly=True,
+        secure=COOKIE_SECURE,
+        samesite="lax",
+        max_age=REFRESH_COOKIE_MAX_AGE,
+        path="/auth",
+    )
+
+
+def _clear_refresh_cookie(response: Response):
+    """Clear the refresh token cookie."""
+    response.delete_cookie(
+        key=REFRESH_COOKIE_NAME,
+        httponly=True,
+        secure=COOKIE_SECURE,
+        samesite="lax",
+        path="/auth",
+    )
+
+
+@router.post("/login")
+async def login(body: LoginRequest, response: Response):
     """Authenticate with Futmondo credentials and get JWT tokens."""
     
     # Validate credentials against Futmondo API
@@ -70,6 +101,10 @@ async def login(body: LoginRequest):
     refresh_token, token_hash, expires_at = create_refresh_token(user_id)
     save_refresh_token(token_hash, user_id, expires_at)
     
+    # Store Futmondo session for this user (used by API endpoints)
+    store = get_session_store()
+    store.store_session(user_id, client, body.email, body.password)
+    
     # Auto-detect championships on first login
     try:
         _auto_detect_championships(user_id, client)
@@ -78,22 +113,31 @@ async def login(body: LoginRequest):
     
     logger.info(f"✅ User logged in: {body.email} (id={user_id})")
     
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        user_id=user_id,
-        email=body.email,
-        display_name=display_name,
-    )
+    # Set refresh token as HttpOnly cookie
+    _set_refresh_cookie(response, refresh_token)
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        "user_id": user_id,
+        "email": body.email,
+        "display_name": display_name,
+    }
 
 
-@router.post("/refresh", response_model=RefreshResponse)
-async def refresh(body: RefreshRequest):
-    """Get a new access token using a refresh token."""
+@router.post("/refresh")
+async def refresh(request: Request, futmondo_refresh_token: Optional[str] = Cookie(default=None)):
+    """Get a new access token using the refresh token cookie."""
+    
+    if not futmondo_refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No refresh token",
+        )
     
     # Verify the refresh token signature
-    payload = verify_token(body.refresh_token, expected_type="refresh")
+    payload = verify_token(futmondo_refresh_token, expected_type="refresh")
     if not payload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -101,7 +145,7 @@ async def refresh(body: RefreshRequest):
         )
     
     # Check if token is revoked
-    token_hash = hash_token(body.refresh_token)
+    token_hash = hash_token(futmondo_refresh_token)
     if not is_refresh_token_valid(token_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -136,18 +180,30 @@ async def refresh(body: RefreshRequest):
         futmondo_user_id=futmondo_uid,
     )
     
-    return RefreshResponse(
-        access_token=access_token,
-        expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-    )
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    }
 
 
 @router.post("/logout")
-async def logout(body: RefreshRequest):
-    """Revoke the refresh token (logout)."""
+async def logout(response: Response, futmondo_refresh_token: Optional[str] = Cookie(default=None)):
+    """Revoke the refresh token and clear cookie."""
     
-    token_hash = hash_token(body.refresh_token)
-    revoke_refresh_token(token_hash)
+    if futmondo_refresh_token:
+        # Revoke refresh token
+        token_hash = hash_token(futmondo_refresh_token)
+        revoke_refresh_token(token_hash)
+        
+        # Remove Futmondo session
+        payload = verify_token(futmondo_refresh_token, expected_type="refresh")
+        if payload:
+            store = get_session_store()
+            store.remove_session(payload["sub"])
+    
+    # Clear the cookie
+    _clear_refresh_cookie(response)
     
     logger.info("User logged out (token revoked)")
     return {"success": True, "message": "Sesión cerrada"}
@@ -231,7 +287,7 @@ def _auto_detect_championships(user_id: str, client):
     except Exception:
         pass
     
-    # Save detected championships with config from API or existing config
+    # Save detected championships with config from API
     with db.get_connection() as conn:
         cursor = db.get_cursor(conn)
         for champ in championships:
@@ -252,16 +308,47 @@ def _auto_detect_championships(user_id: str, client):
                 has_clauses = False
                 excluded_teams = "[]"
             
+            # Fetch championship-specific configuration
+            money_per_point = 0
+            money_per_ranking = 0
+            dream_team_bonus = 0
+            mvp_bonus = 0
+            try:
+                config_data = {
+                    "header": {"token": client.token, "userid": client.user_id},
+                    "query": {"championshipId": champ_id},
+                    "answer": {}
+                }
+                config_resp = client.session.post(
+                    f"{client.base_url}/2/championship/teams",
+                    json=config_data, timeout=15
+                )
+                if config_resp.status_code == 200:
+                    config_answer = config_resp.json().get("answer", {})
+                    configuration = config_answer.get("configuration", {})
+                    money_per_point = configuration.get("moneyPerPoint", 0)
+                    money_per_ranking = configuration.get("moneyPerRanking", 0)
+                    dream_team_bonus = configuration.get("dreamTeamPlayer", 0)
+                    mvp_bonus = configuration.get("mvpPlayer", 0)
+                    ranking_mode = configuration.get("rankingMode", "flop")
+                    users_to_rank = configuration.get("usersToRank", -1)
+                    # Also get budget and clauses from real config
+                    if configuration.get("budget"):
+                        initial_budget = configuration["budget"]
+                    has_clauses = configuration.get("enableAutomaticClauses", False)
+            except Exception as cfg_err:
+                logger.debug(f"Could not fetch config for {champ_id}: {cfg_err}")
+            
             if db.db_type in ["postgresql", "postgres"]:
                 cursor.execute("""
-                    INSERT INTO user_championships (user_id, championship_id, name, initial_budget, has_clauses, excluded_teams)
-                    VALUES (%s, %s, %s, %s, %s, %s)
+                    INSERT INTO user_championships (user_id, championship_id, name, initial_budget, has_clauses, excluded_teams, money_per_point, money_per_ranking, dream_team_bonus, mvp_bonus, ranking_mode, users_to_rank)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (user_id, championship_id) DO NOTHING
-                """, (user_id, champ_id, champ_name, initial_budget, has_clauses, excluded_teams))
+                """, (user_id, champ_id, champ_name, initial_budget, has_clauses, excluded_teams, money_per_point, money_per_ranking, dream_team_bonus, mvp_bonus, ranking_mode, users_to_rank))
             else:
                 cursor.execute("""
-                    INSERT OR IGNORE INTO user_championships (user_id, championship_id, name, initial_budget, has_clauses, excluded_teams)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, (user_id, champ_id, champ_name, initial_budget, has_clauses, excluded_teams))
+                    INSERT OR IGNORE INTO user_championships (user_id, championship_id, name, initial_budget, has_clauses, excluded_teams, money_per_point, money_per_ranking, dream_team_bonus, mvp_bonus, ranking_mode, users_to_rank)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (user_id, champ_id, champ_name, initial_budget, has_clauses, excluded_teams, money_per_point, money_per_ranking, dream_team_bonus, mvp_bonus, ranking_mode, users_to_rank))
     
     logger.info(f"Auto-detected {len(championships)} championships for user {user_id}")

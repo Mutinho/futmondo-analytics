@@ -2,11 +2,11 @@
 API endpoints for user finances calculation
 """
 
-from fastapi import APIRouter, HTTPException, Query, Depends
+from fastapi import APIRouter, HTTPException, Query, Request
 from typing import Dict, List
 import logging
 from app.services.data_manager_v2 import DataManagerV2
-from app.services.futmondo_service import FutmondoService
+from app.services.db_connection import get_db
 from app.core.config import CHAMPIONSHIP_ID
 
 logger = logging.getLogger(__name__)
@@ -14,25 +14,74 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def get_service() -> FutmondoService:
-    """Dependency to get FutmondoService instance"""
-    from app.main import futmondo_service
-    if futmondo_service is None:
-        raise HTTPException(status_code=503, detail="Futmondo service not initialized")
-    return futmondo_service
+def _get_finance_config(championship_id: str, user_id: str) -> dict:
+    """Get money configuration for a championship from user_championships."""
+    db = get_db()
+    with db.get_connection() as conn:
+        cursor = db.get_cursor(conn)
+        sql = """SELECT initial_budget, money_per_point, money_per_ranking, dream_team_bonus, mvp_bonus, ranking_mode, users_to_rank 
+                 FROM user_championships WHERE user_id = ? AND championship_id = ?"""
+        sql = db.adapt_params(sql)
+        cursor.execute(sql, (user_id, championship_id))
+        row = cursor.fetchone()
+    
+    if row:
+        return {
+            "initial_budget": row[0] or 200000000,
+            "money_per_point": row[1] or 0,
+            "money_per_ranking": row[2] or 0,
+            "dream_team_bonus": row[3] or 0,
+            "mvp_bonus": row[4] or 0,
+            "ranking_mode": row[5] or "flop",
+            "users_to_rank": row[6] if row[6] is not None else -1,
+        }
+    
+    return {
+        "initial_budget": 200000000,
+        "money_per_point": 0,
+        "money_per_ranking": 0,
+        "dream_team_bonus": 0,
+        "mvp_bonus": 0,
+        "ranking_mode": "flop",
+        "users_to_rank": -1,
+    }
 
-# Constants for money calculation
-POINTS_TO_EUROS = 40000  # Cada punto = 40,000 euros
-IDEAL_TEAM_BONUS = 300000  # 300k por tener jugador en equipo ideal
-MVP_BONUS = 800000  # 800k por tener al MVP
-INITIAL_BUDGET = 270000000  # 270 millones de presupuesto inicial
+
+def _calculate_ranking_prize(position: int, total_members: int, money_per_ranking: int, users_to_rank: int) -> int:
+    """Calculate ranking prize using Futmondo's formula.
+    
+    Formula (from Futmondo's calculator):
+    - totalPct = sum(1..N) where N = number of users to rank
+    - Each position gets a ratio = (N - position + 1) / totalPct
+    - Prize = money_per_ranking * ratio
+    
+    Args:
+        position: 1-based position (1 = first place)
+        total_members: total number of teams in championship
+        money_per_ranking: total money pool per round
+        users_to_rank: how many users get ranked (-1 = all)
+    """
+    if money_per_ranking <= 0:
+        return 0
+    
+    members = users_to_rank if users_to_rank > 0 else total_members
+    if position > members:
+        return 0
+    
+    # Sum of 1..members
+    total_pct = members * (members + 1) // 2
+    
+    # Position 1 gets ratio = members/totalPct, position 2 = (members-1)/totalPct, etc.
+    ratio = (members - position + 1) / total_pct
+    
+    return round(money_per_ranking * ratio)
 
 
 @router.get("/")
 async def get_player_finances(
+    request: Request,
     championship_id: str = Query(default=CHAMPIONSHIP_ID, description="Championship ID"),
     matchday: int = Query(default=None, description="Matchday number (optional, uses current if not provided)"),
-    service: FutmondoService = Depends(get_service)
 ):
     """
     Calculate money for each USER (fantasy team) based on:
@@ -45,8 +94,20 @@ async def get_player_finances(
     they achieved the bonus.
     """
     try:
-        dm = DataManagerV2()
-        _ = service  # Dependency retained for compatibility, not used directly
+        # Get finance config from user's championship settings
+        user = getattr(request.state, "user", None)
+        user_id = user["user_id"] if user else ""
+        config = _get_finance_config(championship_id, user_id)
+        
+        INITIAL_BUDGET = config["initial_budget"]
+        POINTS_TO_EUROS = config["money_per_point"]
+        IDEAL_TEAM_BONUS = config["dream_team_bonus"]
+        MVP_BONUS = config["mvp_bonus"]
+        MONEY_PER_RANKING = config["money_per_ranking"]
+        RANKING_MODE = config["ranking_mode"]
+        USERS_TO_RANK = config["users_to_rank"]
+        
+        dm = DataManagerV2(skip_init=True)
         
         users_data = dm.get_all_users_with_points(championship_id)
         logger.info(f"Found {len(users_data)} users in championship {championship_id}")
@@ -66,6 +127,27 @@ async def get_player_finances(
         user_punishments_bonuses = dm.get_user_punishments_bonuses(championship_id)
         logger.info(f"Found punishments/bonuses for {len(user_punishments_bonuses)} users")
         user_bonuses = dm.get_dream_team_bonus_stats(championship_id)
+
+        # Calculate ranking money from team_standings
+        ranking_money_by_team: Dict[str, int] = {}
+        if MONEY_PER_RANKING > 0:
+            db_local = get_db()
+            with db_local.get_connection() as conn:
+                cursor = db_local.get_cursor(conn)
+                sql = "SELECT team_id, matchday, position FROM team_standings WHERE championship_id = ? ORDER BY matchday"
+                sql = db_local.adapt_params(sql)
+                cursor.execute(sql, (championship_id,))
+                standings_rows = cursor.fetchall()
+            
+            # Count total members for the formula
+            total_members = len(users_data)
+            
+            for row in standings_rows:
+                team_id = row[0]
+                position = row[2]
+                if position and position > 0:
+                    prize = _calculate_ranking_prize(position, total_members, MONEY_PER_RANKING, USERS_TO_RANK)
+                    ranking_money_by_team[team_id] = ranking_money_by_team.get(team_id, 0) + prize
 
         team_lookup: Dict[str, Dict] = {}
         name_lookup: Dict[str, Dict] = {}
@@ -159,6 +241,11 @@ async def get_player_finances(
             mvp_bonus = mvp_count * MVP_BONUS
             total_bonus = ideal_team_bonus + mvp_bonus
             
+            # Ranking money (accumulated from all rounds)
+            ranking_money = ranking_money_by_team.get(userteam_id, 0)
+            if not ranking_money and user_id:
+                ranking_money = ranking_money_by_team.get(user_id, 0)
+            
             adjustment_data = resolve_mapping_entry(user_punishments_bonuses, keys_to_try, team_name, username)
             if adjustment_data is None:
                 adjustment_data = {
@@ -193,7 +280,7 @@ async def get_player_finances(
             punishment_count = adjustment_data.get("punishment_count", 0)
             bonus_count = adjustment_data.get("bonus_count", 0)
             
-            total_money = INITIAL_BUDGET + points_money + transaction_profit + total_bonus + net_adjustment
+            total_money = INITIAL_BUDGET + points_money + transaction_profit + total_bonus + ranking_money + net_adjustment
             
             user_finances.append({
                 "userteam_id": userteam_id,
@@ -211,6 +298,7 @@ async def get_player_finances(
                 "ideal_team_bonus": ideal_team_bonus,
                 "mvp_bonus": mvp_bonus,
                 "total_bonus": total_bonus,
+                "ranking_money": ranking_money,
                 "total_punishments": total_punishments,
                 "total_bonuses": total_bonuses,
                 "net_adjustment": net_adjustment,

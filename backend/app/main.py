@@ -17,8 +17,6 @@ from contextlib import asynccontextmanager
 import logging
 from pathlib import Path
 
-from app.core.config import FUTMONDO_EMAIL, FUTMONDO_PASSWORD
-from app.services.futmondo_service import FutmondoService
 from app.services.photo_service import PhotoService
 from app.api.v1.endpoints import matchdays
 from app.api.v1.endpoints.initialize import router as initialize_router
@@ -40,31 +38,12 @@ from app.api.v1.endpoints.user import router as user_router
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Global service instance
-futmondo_service = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager"""
-    global futmondo_service
-    
-    # Startup
     logger.info("Starting Futmondo API service...")
-    futmondo_service = FutmondoService()
-    
-    # Try to auto-login with configured credentials
-    try:
-        logger.info("Attempting auto-login...")
-        if futmondo_service.login():
-            logger.info("✅ Auto-login successful!")
-        else:
-            logger.warning("⚠️ Auto-login failed - manual login required")
-    except Exception as e:
-        logger.warning(f"⚠️ Auto-login failed: {e}")
-    
     yield
-    
-    # Shutdown
     logger.info("Shutting down Futmondo API service...")
 
 # Create FastAPI app
@@ -313,10 +292,7 @@ async def root():
 @app.get("/health")
 async def health():
     """Health check endpoint"""
-    global futmondo_service
-    is_authenticated = futmondo_service.client.is_authenticated() if futmondo_service else False
     return {
         "status": "healthy",
-        "authenticated": is_authenticated
     }
 

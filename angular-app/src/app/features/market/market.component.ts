@@ -160,7 +160,6 @@ interface MarketPlayer {
           <tr mat-row *matRowDef="let row; columns: columns"></tr>
         </table>
       </div>
-      <p class="legend">🎯 Alta confianza (10+ transacciones similares) · 📊 Media (3-9) · ❓ Baja (&lt;3)</p>
     }
   `,
   styles: [`

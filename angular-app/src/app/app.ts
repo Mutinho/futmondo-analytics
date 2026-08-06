@@ -76,9 +76,7 @@ export class App {
   });
 
   constructor() {
-    this.championshipService.load();
     this.loadTheme();
-    this.loadLastSync();
 
     // Track route to hide shell on login/splash pages — also reset body bg
     this.router.events.subscribe(() => {
@@ -87,6 +85,14 @@ export class App {
       this.isLoginPage.set(hideShell);
       if (!hideShell) {
         document.body.removeAttribute('style');
+      }
+    });
+
+    // Load data only after auth is initialized (session recovered)
+    effect(() => {
+      if (this.authService.initialized() && this.authService.getAccessToken()) {
+        this.championshipService.load();
+        this.loadLastSync();
       }
     });
 

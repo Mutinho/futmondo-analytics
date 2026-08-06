@@ -4,17 +4,57 @@
 
 // ===== SIDEBAR =====
 .app-sidenav {
-  width: 240px;
+  width: 250px;
   background: var(--mat-sys-surface);
   border-right: 1px solid var(--mat-sys-outline-variant);
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 20px 16px;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+}
+
+.sidebar-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+}
+
+.sidebar-title {
+  font-weight: 700;
+  font-size: 1.1em;
+  color: var(--mat-sys-on-surface);
 }
 
 .championship-selector {
-  padding: 24px 16px 0;
+  padding: 16px 16px 0;
 
   .championship-field {
     width: 100%;
   }
+}
+
+// Navigation
+.nav-list {
+  flex: 1;
+  display: flex !important;
+  flex-direction: column;
+  padding: 8px 12px !important;
+
+  a[mat-list-item] {
+    border-radius: 12px;
+    margin-bottom: 4px;
+    transition: all 0.15s ease;
+  }
+}
+
+.nav-spacer {
+  flex: 1;
 }
 
 // Sidebar nav item active state
@@ -31,15 +71,23 @@
   }
 }
 
-// Nav items normal state
-mat-nav-list {
-  padding: 8px 12px;
+// Sidebar spacer pushes footer to bottom
+.sidebar-spacer {
+  flex: 1;
+}
 
-  a[mat-list-item] {
-    border-radius: 12px;
-    margin-bottom: 4px;
-    transition: all 0.15s ease;
-  }
+// Sidebar bottom nav
+.nav-bottom {
+  padding-top: 8px !important;
+}
+
+.last-sync-label {
+  position: absolute;
+  bottom: 10px;
+  font-size: 0.7em;
+  color: var(--mat-sys-on-surface-variant);
+  padding: 8px 16px;
+  text-align: center;
 }
 
 // ===== MAIN CONTENT =====
@@ -49,7 +97,7 @@ mat-nav-list {
   height: 100%;
 }
 
-.app-toolbar {
+.mobile-toolbar {
   position: sticky;
   top: 0;
   z-index: 10;
@@ -59,23 +107,7 @@ mat-nav-list {
   .toolbar-title {
     font-weight: 700;
     font-size: 1.1em;
-  }
-
-  .toolbar-logo {
-    width: 28px;
-    height: 28px;
-    margin-right: 8px;
-    border-radius: 4px;
-  }
-
-  .spacer {
-    flex: 1;
-  }
-
-  .last-sync-label {
-    font-size: 0.75em;
-    color: var(--mat-sys-on-surface-variant);
-    margin-right: 8px;
+    margin-left: 8px;
   }
 }
 
@@ -101,10 +133,6 @@ mat-nav-list {
   .page-content {
     padding: 16px;
   }
-
-  .app-toolbar .toolbar-title {
-    font-size: 1em;
-  }
 }
 
 // Tablet: sidebar mini mode
@@ -114,7 +142,9 @@ mat-nav-list {
     overflow-x: hidden;
     transition: width 0.2s ease;
 
-    .championship-selector {
+    .championship-selector,
+    .sidebar-header .sidebar-title,
+    .nav-bottom .last-sync-label {
       display: none;
     }
 
@@ -127,9 +157,11 @@ mat-nav-list {
     }
 
     &:hover {
-      width: 240px;
+      width: 250px;
 
-      .championship-selector {
+      .championship-selector,
+      .sidebar-header .sidebar-title,
+      .nav-bottom .last-sync-label {
         display: block;
       }
 

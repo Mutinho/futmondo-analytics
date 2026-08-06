@@ -44,6 +44,12 @@ def init_auth_tables():
                     initial_budget BIGINT DEFAULT 200000000,
                     has_clauses BOOLEAN DEFAULT FALSE,
                     excluded_teams TEXT DEFAULT '[]',
+                    money_per_point INTEGER DEFAULT 0,
+                    money_per_ranking INTEGER DEFAULT 0,
+                    dream_team_bonus INTEGER DEFAULT 0,
+                    mvp_bonus INTEGER DEFAULT 0,
+                    ranking_mode TEXT DEFAULT 'flop',
+                    users_to_rank INTEGER DEFAULT -1,
                     PRIMARY KEY (user_id, championship_id)
                 )
             ''')
@@ -75,6 +81,12 @@ def init_auth_tables():
                     initial_budget INTEGER DEFAULT 200000000,
                     has_clauses INTEGER DEFAULT 0,
                     excluded_teams TEXT DEFAULT '[]',
+                    money_per_point INTEGER DEFAULT 0,
+                    money_per_ranking INTEGER DEFAULT 0,
+                    dream_team_bonus INTEGER DEFAULT 0,
+                    mvp_bonus INTEGER DEFAULT 0,
+                    ranking_mode TEXT DEFAULT 'flop',
+                    users_to_rank INTEGER DEFAULT -1,
                     PRIMARY KEY (user_id, championship_id)
                 )
             ''')

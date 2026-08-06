@@ -27,14 +27,14 @@ export class SplashComponent implements OnInit {
   private router = inject(Router);
   private authService = inject(AuthService);
 
-  ngOnInit() {
-    // Small delay for visual smoothness, then redirect
-    setTimeout(() => {
-      if (this.authService.getAccessToken()) {
-        this.router.navigate(['/budget'], { replaceUrl: true });
-      } else {
-        this.router.navigate(['/login'], { replaceUrl: true });
-      }
-    }, 300);
+  async ngOnInit() {
+    // Try to recover session from HttpOnly cookie
+    const recovered = await this.authService.tryRecoverSession();
+    
+    if (recovered) {
+      this.router.navigate(['/budget'], { replaceUrl: true });
+    } else {
+      this.router.navigate(['/login'], { replaceUrl: true });
+    }
   }
 }

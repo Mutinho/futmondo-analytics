@@ -1,9 +1,8 @@
 """Market endpoint — jugadores del computer en mercado hoy + puja sugerida."""
 
 from typing import Dict, List
-from fastapi import APIRouter, Query, Depends, HTTPException, Request
+from fastapi import APIRouter, Query, HTTPException, Request
 from app.core.config import CHAMPIONSHIP_ID
-from app.services.futmondo_service import FutmondoService
 from app.services.db_connection import get_db
 
 router = APIRouter()
@@ -80,18 +79,17 @@ def _calculate_suggested_bid(player_value: int, championship_id: str, db) -> Dic
 
 @router.post("/bid")
 async def place_bid(
+    request: Request,
     championship_id: str = Query(...),
     player_id: str = Query(...),
     player_slug: str = Query(...),
     price: int = Query(...),
     is_clause: bool = Query(default=False),
-    service: FutmondoService = Depends(FutmondoService),
 ) -> Dict:
     """Realiza una puja por un jugador en el mercado de Futmondo."""
     try:
-        if not service.client or not service.client.is_authenticated():
-            service.login()
-        client = service.client
+        from app.api.v1.endpoints._helpers import get_user_futmondo_client
+        client = get_user_futmondo_client(request)
 
         user_team_id = _get_user_team_id(client, championship_id)
         if not user_team_id:
@@ -138,15 +136,14 @@ async def place_bid(
 
 @router.post("/cancelbid")
 async def cancel_bid(
+    request: Request,
     championship_id: str = Query(...),
     bid_id: str = Query(...),
-    service: FutmondoService = Depends(FutmondoService),
 ) -> Dict:
     """Cancela una puja activa en el mercado de Futmondo."""
     try:
-        if not service.client or not service.client.is_authenticated():
-            service.login()
-        client = service.client
+        from app.api.v1.endpoints._helpers import get_user_futmondo_client
+        client = get_user_futmondo_client(request)
 
         user_team_id = _get_user_team_id(client, championship_id)
         if not user_team_id:
@@ -183,14 +180,12 @@ async def cancel_bid(
 async def get_market_today(
     request: Request,
     championship_id: str = Query(default=CHAMPIONSHIP_ID),
-    service: FutmondoService = Depends(FutmondoService),
 ) -> Dict:
     """Devuelve los jugadores del computer disponibles hoy en el mercado con puja sugerida."""
     try:
-        # Autenticar
-        if not service.client or not service.client.is_authenticated():
-            service.login()
-        client = service.client
+        # Get user's Futmondo client
+        from app.api.v1.endpoints._helpers import get_user_futmondo_client
+        client = get_user_futmondo_client(request)
         
         # Obtener team_id del usuario para el request
         user_team_id = _get_user_team_id(client, championship_id)

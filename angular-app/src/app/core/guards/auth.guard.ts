@@ -6,10 +6,11 @@ export const authGuard: CanActivateFn = () => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
+  // Check if access token is in memory (set after login or session recovery)
   if (authService.getAccessToken()) {
     return true;
   }
 
-  router.navigate(['/login']);
+  router.navigate(['/']);
   return false;
 };

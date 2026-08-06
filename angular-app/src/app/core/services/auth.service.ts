@@ -3,9 +3,8 @@ import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 
-interface TokenResponse {
+interface LoginResponse {
   access_token: string;
-  refresh_token: string;
   token_type: string;
   expires_in: number;
   user_id: string;
@@ -19,101 +18,107 @@ interface RefreshResponse {
   expires_in: number;
 }
 
-const STORAGE_KEYS = {
-  accessToken: 'futmondo_access_token',
-  refreshToken: 'futmondo_refresh_token',
-  user: 'futmondo_user',
-};
+const USER_STORAGE_KEY = 'futmondo_user';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private http = inject(HttpClient);
   private router = inject(Router);
 
+  /** Access token stored only in memory — never in localStorage */
+  private accessToken: string | null = null;
+
   private _user = signal<{ user_id: string; email: string; display_name?: string } | null>(
     this.loadUser()
   );
+
+  /** Whether initial session recovery has completed */
+  private _initialized = signal(false);
+  initialized = this._initialized.asReadonly();
 
   /** Current authenticated user (null if not logged in) */
   user = this._user.asReadonly();
 
   /** Whether the user is authenticated */
-  isAuthenticated = computed(() => !!this._user() && !!this.getAccessToken());
+  isAuthenticated = computed(() => !!this._user() && !!this.accessToken);
 
   /** Login with Futmondo credentials */
   async login(email: string, password: string): Promise<void> {
     const response = await firstValueFrom(
-      this.http.post<TokenResponse>('/auth/login', { email, password })
+      this.http.post<LoginResponse>('/auth/login', { email, password }, { withCredentials: true })
     );
 
-    this.saveTokens(response.access_token, response.refresh_token);
+    this.accessToken = response.access_token;
     const user = {
       user_id: response.user_id,
       email: response.email,
       display_name: response.display_name,
     };
-    localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(user));
+    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
     this._user.set(user);
   }
 
-  /** Refresh the access token using the stored refresh token */
+  /** Refresh the access token using the HttpOnly cookie */
   async refresh(): Promise<string | null> {
-    const refreshToken = this.getRefreshToken();
-    if (!refreshToken) return null;
-
     try {
       const response = await firstValueFrom(
-        this.http.post<RefreshResponse>('/auth/refresh', { refresh_token: refreshToken })
+        this.http.post<RefreshResponse>('/auth/refresh', {}, { withCredentials: true })
       );
-      localStorage.setItem(STORAGE_KEYS.accessToken, response.access_token);
+      this.accessToken = response.access_token;
       return response.access_token;
     } catch {
-      // Refresh failed — force logout
+      // Refresh failed — session expired
       this.clearSession();
       return null;
     }
   }
 
-  /** Logout — revoke refresh token and clear local state */
+  /** Try to recover session on app startup (page refresh) */
+  async tryRecoverSession(): Promise<boolean> {
+    const user = this.loadUser();
+    if (!user) {
+      this._initialized.set(true);
+      return false;
+    }
+
+    const token = await this.refresh();
+    if (token) {
+      this._user.set(user);
+      this._initialized.set(true);
+      return true;
+    }
+
+    this.clearSession();
+    this._initialized.set(true);
+    return false;
+  }
+
+  /** Logout — revoke refresh token cookie and clear local state */
   async logout(): Promise<void> {
-    const refreshToken = this.getRefreshToken();
-    if (refreshToken) {
-      try {
-        await firstValueFrom(
-          this.http.post('/auth/logout', { refresh_token: refreshToken })
-        );
-      } catch {
-        // Server-side revoke failed — still clear locally
-      }
+    try {
+      await firstValueFrom(
+        this.http.post('/auth/logout', {}, { withCredentials: true })
+      );
+    } catch {
+      // Server-side revoke failed — still clear locally
     }
     this.clearSession();
     this.router.navigate(['/login']);
   }
 
-  /** Get the current access token */
+  /** Get the current access token (from memory) */
   getAccessToken(): string | null {
-    return localStorage.getItem(STORAGE_KEYS.accessToken);
-  }
-
-  /** Get the current refresh token */
-  getRefreshToken(): string | null {
-    return localStorage.getItem(STORAGE_KEYS.refreshToken);
-  }
-
-  private saveTokens(access: string, refresh: string): void {
-    localStorage.setItem(STORAGE_KEYS.accessToken, access);
-    localStorage.setItem(STORAGE_KEYS.refreshToken, refresh);
+    return this.accessToken;
   }
 
   private clearSession(): void {
-    localStorage.removeItem(STORAGE_KEYS.accessToken);
-    localStorage.removeItem(STORAGE_KEYS.refreshToken);
-    localStorage.removeItem(STORAGE_KEYS.user);
+    this.accessToken = null;
+    localStorage.removeItem(USER_STORAGE_KEY);
     this._user.set(null);
   }
 
   private loadUser(): { user_id: string; email: string; display_name?: string } | null {
-    const stored = localStorage.getItem(STORAGE_KEYS.user);
+    const stored = localStorage.getItem(USER_STORAGE_KEY);
     if (!stored) return null;
     try {
       return JSON.parse(stored);

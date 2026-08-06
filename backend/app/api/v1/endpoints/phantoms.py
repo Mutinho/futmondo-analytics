@@ -2,26 +2,18 @@
 
 import json
 from typing import Dict, List
-from fastapi import APIRouter, Query, Depends, HTTPException, Request
+from fastapi import APIRouter, Query, HTTPException, Request
 from app.core.config import CHAMPIONSHIP_ID
-from app.services.futmondo_service import FutmondoService
-from app.services.futmondo_client import FutmondoClient
 from app.services.db_connection import get_db
+from app.api.v1.endpoints._helpers import get_user_futmondo_client
 
 router = APIRouter()
-
-
-def ensure_authenticated(service: FutmondoService) -> FutmondoService:
-    if not service.client or not service.client.is_authenticated():
-        service.login()
-    return service
 
 
 @router.post("/check-phantoms")
 async def check_phantoms(
     request: Request,
     championship_id: str = Query(default=CHAMPIONSHIP_ID),
-    service: FutmondoService = Depends(FutmondoService),
 ) -> Dict:
     """Detecta jugadores fantasma (en plantilla o vendidos sin compra registrada).
     
@@ -30,8 +22,7 @@ async def check_phantoms(
         - sold_phantoms: jugadores vendidos por un equipo sin compra previa
     """
     try:
-        service = ensure_authenticated(service)
-        client = service.client
+        client = get_user_futmondo_client(request)
         
         # Obtener config del campeonato para excluded_teams
         from app.api.v1.endpoints._helpers import get_championship_config as _get_config

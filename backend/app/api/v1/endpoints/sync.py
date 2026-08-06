@@ -7,11 +7,10 @@ import json
 import threading
 from datetime import datetime
 from typing import Dict, List
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from app.services.data_manager_v2 import DataManagerV2
 from app.services.data_sync_service import DataSyncService
-from app.services.futmondo_service import FutmondoService
 from app.services.task_manager import get_task_manager
 from app.services.db_connection import get_db
 from app.services.sofascore_client import get_sofascore_client
@@ -181,29 +180,6 @@ def _sync_sofascore(championship_id: str, client) -> Dict:
                 """, cache_rows)
     
     return {"synced": synced, "errors": errors, "total_players": len(computer_players)}
-
-
-def ensure_authenticated(service: FutmondoService) -> FutmondoService:
-    """Ensure service is authenticated"""
-    if not service.client.is_authenticated():
-        logger.info("Service not authenticated, attempting auto-login...")
-        try:
-            if not service.login():
-                logger.warning("⚠️ Auto-login failed")
-                raise HTTPException(
-                    status_code=401, 
-                    detail="Not authenticated. Please login first."
-                )
-            logger.info("✅ Auto-login successful!")
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Auto-login error: {e}")
-            raise HTTPException(
-                status_code=401, 
-                detail=f"Authentication failed: {str(e)}"
-            )
-    return service
 
 
 def _run_sync_in_background(task_id: str, sync_type: str, championship_id: str, client, user_id: str = ""):
@@ -395,7 +371,6 @@ async def trigger_sync(
     request: Request,
     sync_type: str = "all",
     championship_id: str = CHAMPIONSHIP_ID,
-    service: FutmondoService = Depends(FutmondoService)
 ) -> JSONResponse:
     """Trigger async data synchronization. Returns immediately with a task_id.
     
@@ -415,10 +390,9 @@ async def trigger_sync(
             detail=f"Invalid sync_type: {sync_type}. Must be one of: {', '.join(valid_types)}"
         )
 
-    try:
-        service = ensure_authenticated(service)
-    except HTTPException:
-        raise
+    # Get user's Futmondo client from session store
+    from app.api.v1.endpoints._helpers import get_user_futmondo_client
+    client = get_user_futmondo_client(request)
 
     tm = get_task_manager()
 
@@ -440,7 +414,7 @@ async def trigger_sync(
     user_id = getattr(request.state, "user", {}).get("user_id", "")
     thread = threading.Thread(
         target=_run_sync_in_background,
-        args=(task.task_id, sync_type, championship_id, service.client, user_id),
+        args=(task.task_id, sync_type, championship_id, client, user_id),
         daemon=True,
     )
     thread.start()

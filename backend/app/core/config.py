@@ -8,16 +8,9 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
-# Futmondo API Credentials
-# These MUST be provided via environment variables (.env); do not hardcode real credentials in code.
-FUTMONDO_EMAIL = os.getenv("FUTMONDO_EMAIL")
-FUTMONDO_PASSWORD = os.getenv("FUTMONDO_PASSWORD")
-
-if not FUTMONDO_EMAIL or not FUTMONDO_PASSWORD:
-    raise RuntimeError(
-        "FUTMONDO_EMAIL and FUTMONDO_PASSWORD must be set in environment variables (e.g. in your .env file). "
-        "Do NOT hardcode real credentials in config.py."
-    )
+# Futmondo API Credentials (optional — users authenticate individually via /auth/login)
+FUTMONDO_EMAIL = os.getenv("FUTMONDO_EMAIL", "")
+FUTMONDO_PASSWORD = os.getenv("FUTMONDO_PASSWORD", "")
 
 # API Configuration
 BASE_URL = os.getenv("BASE_URL", "https://api.futmondo.com")
