@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Transfer Market - KINETIC MARKET</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "tertiary-fixed": "#ffd9e1",
+                    "inverse-on-surface": "#313030",
+                    "on-tertiary-fixed": "#3f001b",
+                    "on-primary": "#023a00",
+                    "surface-container-lowest": "#0e0e0e",
+                    "surface-container-highest": "#353534",
+                    "on-error-container": "#ffdad6",
+                    "inverse-primary": "#066e00",
+                    "outline": "#84967c",
+                    "error-container": "#93000a",
+                    "primary-container": "#14ff00",
+                    "primary-fixed-dim": "#12e600",
+                    "on-secondary-fixed-variant": "#005228",
+                    "on-primary-fixed": "#012200",
+                    "on-secondary-fixed": "#00210c",
+                    "on-tertiary-fixed-variant": "#8b0e45",
+                    "on-tertiary-container": "#ae2e5f",
+                    "on-primary-fixed-variant": "#035300",
+                    "tertiary-fixed-dim": "#ffb1c5",
+                    "tertiary-container": "#ffd0da",
+                    "on-surface": "#e5e2e1",
+                    "tertiary": "#fff7f7",
+                    "on-surface-variant": "#baccaf",
+                    "secondary-container": "#06bb63",
+                    "outline-variant": "#3b4b35",
+                    "on-primary-container": "#067100",
+                    "surface-bright": "#393939",
+                    "surface-container-low": "#1c1b1b",
+                    "surface-dim": "#131313",
+                    "secondary-fixed": "#6bfe9c",
+                    "on-secondary-container": "#00431f",
+                    "surface-tint": "#12e600",
+                    "inverse-surface": "#e5e2e1",
+                    "secondary": "#4ae183",
+                    "surface-variant": "#353534",
+                    "on-background": "#e5e2e1",
+                    "background": "#131313",
+                    "surface-container": "#201f1f",
+                    "surface": "#131313",
+                    "primary-fixed": "#77ff5f",
+                    "surface-container-high": "#2a2a2a",
+                    "error": "#ffb4ab",
+                    "primary": "#ebffdf",
+                    "on-secondary": "#003919",
+                    "on-error": "#690005",
+                    "secondary-fixed-dim": "#4ae183",
+                    "on-tertiary": "#65002f"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "gutter": "12px",
+                    "lg": "24px",
+                    "unit": "4px",
+                    "xl": "32px",
+                    "xs": "4px",
+                    "md": "16px",
+                    "sm": "8px",
+                    "container-margin": "16px"
+            },
+            "fontFamily": {
+                    "label-caps": ["Inter"],
+                    "headline-lg-mobile": ["Inter"],
+                    "body-sm": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "body-md": ["Inter"],
+                    "stat-value": ["Inter"],
+                    "headline-lg": ["Inter"],
+                    "headline-md": ["Inter"],
+                    "headline-sm": ["Inter"]
+            },
+            "fontSize": {
+                    "label-caps": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "800"}],
+                    "headline-lg-mobile": ["28px", {"lineHeight": "34px", "fontWeight": "800"}],
+                    "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "body-lg": ["18px", {"lineHeight": "26px", "fontWeight": "600"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "500"}],
+                    "stat-value": ["18px", {"lineHeight": "22px", "fontWeight": "800"}],
+                    "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "800"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                    "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "700"}]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        /* Custom styles for specific component details not perfectly mapped to tokens */
+        .tendencia-up { color: #14FF00; }
+        .bid-active-text { color: #d946ef; } /* Fuchsia/Purple tone from image */
+        .divider { border-color: #333333; }
+        .card-bg { background-color: #2a2a2a; } /* surface-container-high approx */
+        .btn-primary { background-color: #14FF00; color: #000; }
+        .badge-green { background-color: rgba(20, 255, 0, 0.15); color: #14FF00; }
+        .pos-dl { background-color: rgba(255, 180, 171, 0.15); color: #ffb4ab; border: 1px solid rgba(255, 180, 171, 0.3); }
+        .pos-mc { background-color: rgba(165, 243, 252, 0.15); color: #a5f3fc; border: 1px solid rgba(165, 243, 252, 0.3); }
+        .neon-border { border-color: rgba(20, 255, 0, 0.3); }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md antialiased pt-16 pb-24">
+<!-- TopAppBar -->
+<header class="bg-background dark:bg-background border-b border-outline-variant flex justify-between items-center w-full h-16 px-container-margin z-50 fixed top-0 left-0">
+<button aria-label="Menu" class="text-secondary dark:text-secondary hover:bg-surface-container-highest transition-colors rounded-full p-2">
+<span class="material-symbols-outlined scale-95 duration-100">menu</span>
+</button>
+<h1 class="text-headline-md font-headline-md text-secondary-fixed tracking-tight italic">KINETIC MARKET</h1>
+<div class="w-8 h-8 rounded-full bg-surface-variant overflow-hidden hover:bg-surface-container-highest transition-colors">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="A small circular avatar profile picture of a male user with short dark hair, wearing a generic grey sports t-shirt, set against a dark grey background in a modern sports UI style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA2LxvVRCdcYF2TlQmaux7TVb_QClZQXXqt7GuO19YOc2HLP1S12GQfrHxezKyAtD7b8--olOGsuKah5WE_e8T2JHMraI_VRdobpHBK7il7fD4Vatq1ktmIqy8aYT9P6xLQhA030XRrf9vxC9PDuSYXRai-w1DAWBY9QmQsgVje1p8yuwbMD4aFxh5Ccqh1MIq3NBel92RXTzSjsHZvVjCBagnqQb-MQj7nxGF6xH4Li7plF_oVCcHNaA"/>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="max-w-3xl mx-auto px-4 py-6 space-y-6">
+<!-- Player Card 1: Vinícius Jr -->
+<article class="bg-surface-container border neon-border rounded-xl p-5 shadow-lg flex flex-col gap-5 relative overflow-hidden">
+<!-- Subtle background accent -->
+<div class="absolute top-0 right-0 w-32 h-32 bg-primary-container/5 rounded-full blur-2xl -mr-16 -mt-16 pointer-events-none"></div>
+<!-- Header & Stats Combo -->
+<div class="flex items-start justify-between relative z-10">
+<div class="flex items-start gap-4">
+<div class="w-14 h-14 rounded-full overflow-hidden border-2 border-primary-container/40 p-0.5">
+<img alt="Vinícius Jr" class="w-full h-full object-cover rounded-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA7ZlE1GmnPFFg9PArijS7WICeQ8ThwykSYlfAiozsGMC3v3J5qJfW-U1BSG6ZgQIDfm36e6KtSMuOeUhZ2QDPvP-Fx34pjLeqiKu4dB1qA5lFrZRCuaaCURhn0-u3_koNhRmV_urIjGE-tS0hKc5HiV47Vgj7Us11MjNXMFJuObnUCk814Cm5kc5Us-P6teC_lmgfaajJiiaormyG8OrGVwqqHg3teJUrqBf8po8eDTN-cd3oO3975DXOkUBbK4yB_1tE"/>
+</div>
+<div class="flex flex-col">
+<h2 class="text-headline-sm font-headline-sm text-on-surface">Vinícius</h2>
+<div class="flex items-center gap-2 mt-1">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px] text-surface-variant">shield</span>
+<span class="text-body-sm font-body-sm text-on-surface-variant">Real Madrid</span>
+</div>
+<span class="w-1 h-1 rounded-full bg-surface-variant"></span>
+<span class="pos-dl text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">DL</span>
+</div>
+<!-- Mini Stats row moved up here -->
+<div class="flex items-center gap-3 mt-2">
+<div class="flex items-center gap-1.5 badge-green px-2 py-0.5 rounded border border-primary-container/20">
+<span class="text-[10px] font-bold uppercase tracking-wider opacity-80">Sofa</span>
+<span class="text-xs font-bold">7.5</span>
+</div>
+<div class="flex items-center gap-1.5 badge-green px-2 py-0.5 rounded border border-primary-container/20">
+<span class="text-[10px] font-bold uppercase tracking-wider opacity-80">Tit</span>
+<span class="text-xs font-bold">89%</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-highest/50 rounded-lg p-3 border border-outline-variant/30">
+<!-- Financial Data Grid -->
+<div class="grid grid-cols-2 gap-y-4 gap-x-4">
+<div class="flex flex-col gap-0.5">
+<span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">VALOR</span>
+<span class="text-body-md font-semibold text-on-surface">78.362.267 €</span>
+</div>
+<div class="flex flex-col gap-0.5">
+<span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">TENDENCIA</span>
+<div class="flex items-center gap-0.5 text-primary-container font-semibold text-sm">
+<span class="material-symbols-outlined text-[16px]">trending_up</span>
+                        253.861 €
+                    </div>
+</div>
+<div class="flex flex-col gap-0.5">
+<span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">PRECIO MERCADO</span>
+<span class="text-body-md font-semibold text-on-surface">78.362.267 €</span>
+</div>
+<div class="flex flex-col gap-0.5">
+<span class="text-[10px] font-bold uppercase tracking-wider text-primary-container">SUGERIDA</span>
+<span class="font-stat-value text-primary-container text-[18px]">85.153.296 €</span>
+</div>
+</div>
+</div>
+<!-- Action -->
+<div class="pt-1">
+<button class="w-full btn-primary text-label-caps font-label-caps px-6 py-3.5 rounded-lg flex items-center justify-center gap-2 hover:opacity-90 transition-opacity shadow-[0_0_15px_rgba(20,255,0,0.2)]">
+<span class="material-symbols-outlined text-[18px]">gavel</span>
+                    PUJAR 85.153.296 €
+                </button>
+</div>
+</article>
+<!-- Player Card 2: Pablo Barrios -->
+<article class="bg-surface-container border border-outline-variant/50 rounded-xl p-5 shadow-lg flex flex-col gap-5 relative overflow-hidden">
+<!-- Header & Stats Combo -->
+<div class="flex items-start justify-between relative z-10">
+<div class="flex items-start gap-4">
+<div class="w-14 h-14 rounded-full overflow-hidden border border-outline-variant p-0.5 bg-surface">
+<img alt="Pablo Barrios" class="w-full h-full object-cover rounded-full" data-alt="A portrait shot of a young male football player, Pablo Barrios, wearing an Atletico Madrid jersey. The background is a clean, dark studio setting to fit a modern high-contrast sports UI." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCgH8meppiZk2IrfHPPO9YGwT6-wv-BPhFxIMk64_hjgajXC9e-tErh6Ev4EtBoFY5Sf2ovTdCqw-PmPKVNpQH2Gxc-f0JjQHp__sWfYr7UZalXTff_ULZS2wk79U5hfvh48vvsSdaQw8Srr6hwLYQT6C-GzaMsDMgZbgrFtgkm88FP86ZByBI2K9JcOOavVnLtoREV7xVIg_5pzhB_MFAKEEcNJXVlriGNyNkAS79bWOVrtU4-MOLe_A"/>
+</div>
+<div class="flex flex-col">
+<h2 class="text-headline-sm font-headline-sm text-on-surface">Pablo Barrios</h2>
+<div class="flex items-center gap-2 mt-1">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px] text-surface-variant">shield</span>
+<span class="text-body-sm font-body-sm text-on-surface-variant">Atlético de Madrid</span>
+</div>
+<span class="w-1 h-1 rounded-full bg-surface-variant"></span>
+<span class="pos-mc text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">MC</span>
+</div>
+<!-- Mini Stats row moved up here -->
+<div class="flex items-center gap-3 mt-2">
+<div class="flex items-center gap-1.5 bg-surface-container-highest px-2 py-0.5 rounded border border-outline-variant/30 text-on-surface">
+<span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Sofa</span>
+<span class="text-xs font-bold">7.0</span>
+</div>
+<div class="flex items-center gap-1.5 bg-surface-container-highest px-2 py-0.5 rounded border border-outline-variant/30 text-on-surface">
+<span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Tit</span>
+<span class="text-xs font-bold">87%</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-highest/50 rounded-lg p-3 border border-outline-variant/30">
+<!-- Financial Data Grid -->
+<div class="grid grid-cols-2 gap-y-4 gap-x-4">
+<div class="flex flex-col gap-0.5">
+<span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">VALOR</span>
+<span class="text-body-md font-semibold text-on-surface">33.884.242 €</span>
+</div>
+<div class="flex flex-col gap-0.5">
+<span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">TENDENCIA</span>
+<div class="flex items-center gap-0.5 text-primary-container font-semibold text-sm">
+<span class="material-symbols-outlined text-[16px]">trending_up</span>
+                        264.160 €
+                    </div>
+</div>
+<div class="flex flex-col gap-0.5">
+<span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">PRECIO MERCADO</span>
+<span class="text-body-md font-semibold text-on-surface">33.884.242 €</span>
+</div>
+<div class="flex flex-col gap-0.5">
+<span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">SUGERIDA</span>
+<span class="font-stat-value text-outline-variant text-[18px]">36.206.582 €</span>
+</div>
+</div>
+</div>
+<!-- Active Bid State -->
+<div class="flex items-center justify-between p-3 bg-[#d946ef]/10 border border-[#d946ef]/20 rounded-lg">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[#d946ef] text-[18px]">sell</span>
+<span class="bid-active-text font-bold text-[14px]">Puja activa: 34.000.002 €</span>
+</div>
+<button aria-label="Cancel bid" class="text-on-surface-variant hover:text-white transition-colors">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+</article>
+</main>
+<!-- BottomNavBar -->
+<nav class="bg-surface-container-low dark:bg-surface-container-low shadow-lg fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-2 pb-safe md:hidden">
+<button class="flex flex-col items-center justify-center text-secondary-fixed bg-secondary-container/20 rounded-xl p-1 scale-90 transition-transform duration-150">
+<span class="material-symbols-outlined mb-1">storefront</span>
+<span class="text-label-caps font-label-caps">Market</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant p-1 hover:text-secondary">
+<span class="material-symbols-outlined mb-1">strategy</span>
+<span class="text-label-caps font-label-caps">Lineup</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant p-1 hover:text-secondary">
+<span class="material-symbols-outlined mb-1">trophy</span>
+<span class="text-label-caps font-label-caps">Leagues</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant p-1 hover:text-secondary">
+<span class="material-symbols-outlined mb-1">analytics</span>
+<span class="text-label-caps font-label-caps">Stats</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant p-1 hover:text-secondary">
+<span class="material-symbols-outlined mb-1">person</span>
+<span class="text-label-caps font-label-caps">Profile</span>
+</button>
+</nav>
+</body></html>

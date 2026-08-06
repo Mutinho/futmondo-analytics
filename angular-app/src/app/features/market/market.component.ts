@@ -1,11 +1,15 @@
 import { Component, inject, signal, effect, ViewChild } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
+import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { map } from 'rxjs';
 import { MatTableModule, MatTableDataSource } from '@angular/material/table';
 import { MatSortModule, MatSort } from '@angular/material/sort';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatButtonModule } from '@angular/material/button';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
@@ -29,6 +33,10 @@ interface MarketPlayer {
   current_bid: number;
   current_bid_id: string;
   average: number;
+  points: number;
+  home_average: number | null;
+  away_average: number | null;
+  matches: number;
   suggested_bid: number;
   bid_confidence: string;
   bid_based_on: number;
@@ -42,7 +50,7 @@ interface MarketPlayer {
 @Component({
   selector: 'app-market',
   standalone: true,
-  imports: [MatTableModule, MatSortModule, MatProgressSpinnerModule, MatChipsModule, MatButtonModule, MatIconModule, MatSnackBarModule, MoneyPipe],
+  imports: [MatTableModule, MatSortModule, MatProgressSpinnerModule, MatChipsModule, MatButtonModule, MatButtonToggleModule, MatIconModule, MatSnackBarModule, MoneyPipe],
   template: `
     <h1>🛒 Mercado de Hoy</h1>
     <p class="description">Jugadores del computer disponibles para fichar. La puja sugerida se basa en el historial de compras similares.</p>
@@ -78,6 +86,25 @@ interface MarketPlayer {
         </div>
       }
       <p class="count">{{ dataSource.data.length }} jugadores disponibles</p>
+      <!-- View toggle + sort -->
+      <div class="view-toggle">
+        @if (viewMode() === 'cards') {
+          <select class="sort-select" [value]="sortField()" (change)="onSortChange($event)">
+            <option value="value">Valor</option>
+            <option value="change">Tendencia</option>
+            <option value="sofascore_rating">Sofascore</option>
+            <option value="starter_pct">Titularidad</option>
+            <option value="suggested_bid">Puja sugerida</option>
+            <option value="points">Puntos</option>
+            <option value="average">Media</option>
+          </select>
+        }
+        <mat-button-toggle-group [value]="viewMode()" (change)="setViewMode($event.value)" hideSingleSelectionIndicator>
+          <mat-button-toggle value="cards"><mat-icon>grid_view</mat-icon></mat-button-toggle>
+          <mat-button-toggle value="table"><mat-icon>table_rows</mat-icon></mat-button-toggle>
+        </mat-button-toggle-group>
+      </div>
+      @if (viewMode() === 'table') {
       <div class="table-container">
         <table mat-table [dataSource]="dataSource" matSort>
           <ng-container matColumnDef="name">
@@ -146,6 +173,25 @@ interface MarketPlayer {
               {{ p.change >= 0 ? '▲' : '▼' }} {{ p.change | money }}
             </td>
           </ng-container>
+          <ng-container matColumnDef="points">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Puntos</th>
+            <td mat-cell *matCellDef="let p">
+              <strong>{{ p.points }}</strong>
+              @if (p.matches > 0) {
+                <span class="matches-info">({{ p.matches }}J)</span>
+              }
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="average">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Media</th>
+            <td mat-cell *matCellDef="let p">
+              @if (p.average > 0) {
+                <strong>{{ p.average.toFixed(1) }}</strong>
+              } @else {
+                <span class="sofascore-na">-</span>
+              }
+            </td>
+          </ng-container>
           <ng-container matColumnDef="market_price">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>Precio Mercado</th>
             <td mat-cell *matCellDef="let p">{{ p.market_price | money }}</td>
@@ -182,6 +228,110 @@ interface MarketPlayer {
           <tr mat-row *matRowDef="let row; columns: columns"></tr>
         </table>
       </div>
+      }
+
+      @if (viewMode() === 'cards') {
+      <div class="cards-container">
+        @for (p of dataSource.data; track p.player_id) {
+          <article class="player-card">
+            <!-- Header -->
+            <div class="card-header">
+              @if (p.sofascore_url) {
+                <a [href]="p.sofascore_url" target="_blank" class="card-avatar">
+                  <img [src]="getPlayerPhoto(p.slug)" [alt]="p.name" loading="lazy"
+                       (error)="$event.target.style.display='none'" />
+                </a>
+              } @else {
+                <div class="card-avatar">
+                  <img [src]="getPlayerPhoto(p.slug)" [alt]="p.name" loading="lazy"
+                       (error)="$event.target.style.display='none'" />
+                </div>
+              }
+              <div class="card-name-block">
+                <h3 class="card-player-name">
+                  @if (p.sofascore_url) {
+                    <a [href]="p.sofascore_url" target="_blank" class="player-link">{{ p.name }}</a>
+                  } @else {
+                    {{ p.name }}
+                  }
+                </h3>
+                <div class="card-team-row">
+                  <img [src]="getTeamLogo(p.team_logo)" class="card-team-logo" [alt]="p.team" loading="lazy"
+                       (error)="$event.target.style.display='none'" />
+                  <span class="card-team-name">{{ p.team }}</span>
+                </div>
+                <div class="card-badges">
+                  @if (p.sofascore_rating != null) {
+                    <span class="card-badge sofascore" (click)="openSofascoreDetail(p, $event)">
+                      <span class="card-badge-label">Sofa</span>
+                      <span class="card-badge-value">{{ p.sofascore_rating.toFixed(1) }}</span>
+                    </span>
+                  }
+                  @if (p.starter_pct != null) {
+                    <span class="card-badge starter">
+                      <span class="card-badge-label">Tit</span>
+                      <span class="card-badge-value">{{ p.starter_pct }}%</span>
+                    </span>
+                  }
+                </div>
+              </div>
+              <span class="pos-chip card-pos-top" [class]="'pos-' + getPositionKey(p.position)">{{ getPositionLabel(p.position) }}</span>
+              @if (p.position2) {
+                <span class="pos-chip card-pos-top card-pos-secondary" [class]="'pos-' + getPositionKey(p.position2)">{{ getPositionLabel(p.position2) }}</span>
+              }
+            </div>
+            <!-- Stats grid -->
+            <div class="card-stats-box">
+              <div class="card-stats-grid">
+                <div class="card-stat-item">
+                  <span class="card-stat-label">VALOR</span>
+                  <span class="card-stat-val">{{ p.value | money }}</span>
+                </div>
+                <div class="card-stat-item">
+                  <span class="card-stat-label">TENDENCIA</span>
+                  <span class="card-stat-val trend" [class.up]="p.change >= 0" [class.down]="p.change < 0">
+                    {{ p.change >= 0 ? '↗' : '↘' }} {{ p.change | money }}
+                  </span>
+                </div>
+                <div class="card-stat-item">
+                  <span class="card-stat-label">PRECIO MERCADO</span>
+                  <span class="card-stat-val">{{ p.market_price | money }}</span>
+                </div>
+                <div class="card-stat-item">
+                  <span class="card-stat-label accent">SUGERIDA</span>
+                  <span class="card-stat-val accent">{{ p.suggested_bid | money }}</span>
+                </div>
+              </div>
+              <div class="card-stats-grid" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--mat-sys-outline-variant);">
+                <div class="card-stat-item">
+                  <span class="card-stat-label">PUNTOS</span>
+                  <span class="card-stat-val">{{ p.points > 0 ? p.points : '-' }}@if (p.matches > 0) { ({{ p.matches }}J) }</span>
+                </div>
+                <div class="card-stat-item">
+                  <span class="card-stat-label">MEDIA</span>
+                  <span class="card-stat-val">{{ p.average > 0 ? p.average.toFixed(1) : '-' }}</span>
+                </div>
+              </div>
+            </div>
+            <!-- Actions -->
+            @if (p.current_bid) {
+              <div class="card-bid-active-row">
+                <mat-icon class="bid-icon">sell</mat-icon>
+                <span class="bid-active-text">Puja activa: {{ p.current_bid | money }}</span>
+                <button mat-icon-button class="bid-cancel" (click)="cancelBid(p, $event)" [disabled]="bidding()">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+            } @else {
+              <button class="card-bid-btn" (click)="confirmBid(p, $event)" [disabled]="bidding()">
+                <mat-icon>gavel</mat-icon>
+                PUJAR {{ p.suggested_bid | money }}
+              </button>
+            }
+          </article>
+        }
+      </div>
+      }
     }
   `,
   styles: [`
@@ -213,21 +363,22 @@ interface MarketPlayer {
     .team-logo { width: 40px; height: 40px; object-fit: contain; flex-shrink: 0; vertical-align: middle; }
     .suggested { font-weight: 700; color: #2e7d32; }
     .overpay { color: #f57c00; font-weight: 600; }
-    .pos-chip { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600; color: #fff; text-transform: capitalize; }
+    .pos-chip { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600; color: #333; text-transform: capitalize; }
     .pos-secondary { margin-left: 3px; opacity: 0.8; }
     .pos-fwd { background: #e57373; }
     .pos-mid { background: #64b5f6; }
     .pos-def { background: #ffb74d; }
-    .pos-gk { background: #ffd54f; color: #5d4037; }
+    .pos-gk { background: #4caf50; }
     .trend-up { color: #2e7d32; font-weight: 600; }
     .trend-down { color: #d32f2f; font-weight: 600; }
-    .player-link { color: #1565c0; text-decoration: none; &:hover { text-decoration: underline; } }
+    .player-link { color: var(--mat-sys-on-surface); text-decoration: none; }
+    .player-link:hover { text-decoration: underline; }
     .current-bid { color: #7b1fa2; font-weight: 600; }
     .bid-btn { transform: scale(0.75); vertical-align: middle;  position: relative; padding: 0; }
     .cancel-btn { transform: scale(0.7); vertical-align: middle; position: relative; padding: 0; top:1px; }
     .confidence { margin-left: 4px; font-size: 0.9em; }
     .legend { color: #666666; font-size: 12px; margin-top: 16px; }
-    .sofascore-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.85em; font-weight: 700; color: #fff; cursor: pointer; transition: transform 0.15s; }
+    .sofascore-badge { display: inline-block; padding: 6px 8px; border-radius: 8px; font-size: 0.8em; font-weight: 700; color: #fff; cursor: pointer; transition: transform 0.15s; width: fit-content; text-align: center; line-height: 1; }
     .sofascore-badge:hover { transform: scale(1.1); }
     .sofascore-s90 { background: #374DF5; }
     .sofascore-s80 { background: #00ADC4; }
@@ -235,18 +386,81 @@ interface MarketPlayer {
     .sofascore-s65 { background: #D9AF00; }
     .sofascore-s60 { background: #ED7E07; }
     .sofascore-na { color: var(--mat-sys-on-surface-variant); }
-    .starter-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.85em; font-weight: 700; color: #fff; }
+    .matches-info { font-size: 0.8em; color: var(--mat-sys-on-surface-variant); margin-left: 4px; }
+    .starter-badge { display: inline-block; padding: 6px 8px; border-radius: 8px; font-size: 0.8em; font-weight: 700; color: #fff; width: fit-content; text-align: center; line-height: 1; }
     .starter-high { background: #16a34a; }
     .starter-mid { background: #ca8a04; }
     .starter-low { background: #dc2626; }
+    .view-toggle { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-bottom: 16px; }
+    .sort-select { flex: 1; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface-container); color: var(--mat-sys-on-surface); font-size: 0.85em; font-weight: 600; cursor: pointer; }
+    .cards-container { display: grid; grid-template-columns: 1fr; gap: 16px; }
+    @media (min-width: 900px) { .cards-container { grid-template-columns: repeat(2, 1fr); } }
+    @media (min-width: 1300px) { .cards-container { grid-template-columns: repeat(3, 1fr); } }
+    @media (min-width: 1700px) { .cards-container { grid-template-columns: repeat(4, 1fr); } }
+    .player-card {
+      padding: 20px; border-radius: 16px;
+      background: var(--mat-sys-surface-container);
+      border: 1px solid var(--mat-sys-outline-variant);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .dark-theme .player-card { border-color: rgba(20, 255, 0, 0.15); }
+    .card-header { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 16px; position: relative; }
+    .card-avatar { width: 56px; height: 56px; border-radius: 50%; overflow: hidden; border: 2px solid var(--mat-sys-primary); padding: 2px; flex-shrink: 0; display: block; }
+    .card-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+    .card-name-block { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+    .card-player-name { font-size: 1.25em; font-weight: 700; margin: 0; color: var(--mat-sys-on-surface); }
+    .card-team-row { display: flex; align-items: center; gap: 8px; }
+    .card-team-logo { width: 22px; height: 22px; object-fit: contain; }
+    .card-team-name { font-size: 0.95em; color: var(--mat-sys-on-surface-variant); font-weight: 500; }
+    .card-pos-top { position: absolute; top: 0; right: 0; }
+    .card-pos-secondary { top: 28px; opacity: 0.8; }
+    .card-badges { display: flex; gap: 10px; margin-top: 8px; }
+    .card-badge { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 8px; font-size: 0.85em; font-weight: 700; border: 1px solid; }
+    .card-badge.sofascore { background: rgba(0, 196, 36, 0.1); color: #00C424; border-color: rgba(0, 196, 36, 0.25); cursor: pointer; }
+    .card-badge.starter { background: rgba(0, 196, 36, 0.1); color: #00C424; border-color: rgba(0, 196, 36, 0.25); }
+    .card-badge-label { font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.03em; opacity: 0.8; }
+    .card-badge-value { font-weight: 800; font-size: 1.1em; }
+    .card-stats-box { background: var(--mat-sys-surface-container-highest); border-radius: 12px; padding: 14px; border: 1px solid var(--mat-sys-outline-variant); margin-bottom: 16px; }
+    .dark-theme .card-stats-box { background: rgba(53,53,52,0.5); border-color: rgba(132,150,124,0.2); }
+    .card-stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .card-stat-item { display: flex; flex-direction: column; gap: 2px; }
+    .card-stat-label { font-size: 0.65em; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--mat-sys-on-surface-variant); }
+    .card-stat-label.accent { color: var(--mat-sys-primary); }
+    .dark-theme .card-stat-label.accent { color: #14FF00; }
+    .card-stat-val { font-size: 1.05em; font-weight: 600; color: var(--mat-sys-on-surface); }
+    .card-stat-val.accent { font-weight: 800; color: var(--mat-sys-primary); }
+    .dark-theme .card-stat-val.accent { color: #14FF00; }
+    .card-stat-val.trend.up { color: #00C424; }
+    .dark-theme .card-stat-val.trend.up { color: #14FF00; }
+    .card-stat-val.trend.down { color: #d32f2f; }
+    .card-bid-btn { width: 100%; padding: 14px; border-radius: 12px; border: none; background: var(--mat-sys-primary); color: var(--mat-sys-on-primary); font-weight: 800; font-size: 0.85em; letter-spacing: 0.03em; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: opacity 0.15s; }
+    .dark-theme .card-bid-btn { background: #14FF00; color: #000; box-shadow: 0 0 15px rgba(20,255,0,0.2); }
+    .card-bid-btn:hover { opacity: 0.9; }
+    .card-bid-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .card-bid-btn mat-icon { font-size: 18px; width: 18px; height: 18px; }
+    .card-bid-active-row { display: flex; align-items: center; gap: 8px; padding: 4px 12px; border-radius: 12px; background: rgba(217, 70, 239, 0.08); border: 1px solid rgba(217, 70, 239, 0.2); }
+    .bid-icon { color: #d946ef; font-size: 18px; width: 18px; height: 18px; }
+    .bid-active-text { flex: 1; color: #d946ef; font-weight: 700; font-size: 0.9em; }
+    .bid-cancel { margin-left: auto; }
+    .card-actions { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
   `]
 })
 export class MarketComponent {
   private http = inject(HttpClient);
   private championshipService = inject(ChampionshipService);
-
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
+  private breakpointObserver = inject(BreakpointObserver);
+
+  isMobile = toSignal(
+    this.breakpointObserver.observe([Breakpoints.Handset]).pipe(map(r => r.matches)),
+    { initialValue: false }
+  );
+
+  viewMode = signal<'cards' | 'table'>(
+    (localStorage.getItem('futmondo_view_market') as 'cards' | 'table') || 'table'
+  );
+  sortField = signal<string>('value');
 
   @ViewChild(MatSort) set matSort(sort: MatSort) {
     if (sort) this.dataSource.sort = sort;
@@ -257,7 +471,7 @@ export class MarketComponent {
   error = signal('');
   bidding = signal(false);
   userInfo = signal<{ balance: number; team_value: number; max_bid: number; active_bids_total: number; available_for_bids: number } | null>(null);
-  columns = ['name', 'team', 'position', 'sofascore_rating', 'starter_pct', 'value', 'change', 'market_price', 'current_bid', 'suggested_bid'];
+  columns = ['name', 'team', 'position', 'sofascore_rating', 'starter_pct', 'value', 'change', 'points', 'average', 'market_price', 'current_bid', 'suggested_bid'];
 
   getPositionKey(position: string): string {
     const p = (position || '').toLowerCase();
@@ -276,6 +490,26 @@ export class MarketComponent {
     return `https://static02.mondocore.com/futmondo/img/teams/64/${logo}`;
   }
 
+  sortCards() {
+    const field = this.sortField();
+    const sorted = [...this.dataSource.data].sort((a: any, b: any) => {
+      const va = a[field] ?? -Infinity;
+      const vb = b[field] ?? -Infinity;
+      return vb - va;
+    });
+    this.dataSource.data = sorted;
+  }
+
+  onSortChange(event: Event) {
+    this.sortField.set((event.target as HTMLSelectElement).value);
+    this.sortCards();
+  }
+
+  setViewMode(mode: 'cards' | 'table') {
+    this.viewMode.set(mode);
+    localStorage.setItem('futmondo_view_market', mode);
+  }
+
   getPositionLabel(position: string): string {
     const p = (position || '').toLowerCase();
     if (p.includes('delantero')) return 'DL';
@@ -286,6 +520,8 @@ export class MarketComponent {
   }
 
   constructor() {
+    if (this.isMobile() && !localStorage.getItem('futmondo_view_market')) this.viewMode.set('cards');
+
     effect(() => {
       const id = this.championshipService.activeId();
       if (id) this.loadData();

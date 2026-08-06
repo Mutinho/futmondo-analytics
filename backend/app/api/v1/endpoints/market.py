@@ -8,6 +8,16 @@ from app.services.db_connection import get_db
 router = APIRouter()
 
 
+def _clean_avg(val):
+    """Clean average values — returns float or None."""
+    if val is None or val == "NaN":
+        return None
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return None
+
+
 def _get_user_team_id(client, championship_id: str) -> str:
     """Obtiene el team_id del usuario autenticado en el campeonato."""
     standings = client.get_matchday_standings(championship_id)
@@ -284,6 +294,10 @@ async def get_market_today(
                 "current_bid": p.get('bid', {}).get('price', 0) if isinstance(p.get('bid'), dict) else 0,
                 "current_bid_id": p.get('bid', {}).get('id', '') if isinstance(p.get('bid'), dict) else '',
                 "average": p.get('average', {}).get('average', 0) if isinstance(p.get('average'), dict) else 0,
+                "points": p.get('points', 0),
+                "home_average": _clean_avg(p.get('average', {}).get('homeAverage') if isinstance(p.get('average'), dict) else None),
+                "away_average": _clean_avg(p.get('average', {}).get('awayAverage') if isinstance(p.get('average'), dict) else None),
+                "matches": p.get('average', {}).get('matches', 0) if isinstance(p.get('average'), dict) else 0,
                 "photo": p.get('photo', ''),
                 "expiration": p.get('expirationDate', ''),
                 "suggested_bid": suggested,
