@@ -182,7 +182,7 @@ def _sync_sofascore(championship_id: str, client) -> Dict:
     return {"synced": synced, "errors": errors, "total_players": len(computer_players)}
 
 
-def _run_sync_in_background(task_id: str, sync_type: str, championship_id: str, client, user_id: str = ""):
+def _run_sync_in_background(task_id: str, sync_type: str, championship_id: str, client, user_id: str = "", skip_sofascore: bool = False):
     """Worker function that runs sync in a separate thread."""
     tm = get_task_manager()
     try:
@@ -253,15 +253,16 @@ def _run_sync_in_background(task_id: str, sync_type: str, championship_id: str, 
                 results["phantoms"] = {"total_phantoms": 0}
 
             # --- Sync Sofascore ratings ---
-            tm.update_progress(task_id, "sofascore", {"status": "running"})
-            try:
-                sofascore_result = _sync_sofascore(championship_id, client)
-                tm.update_progress(task_id, "sofascore", {"status": "done", **sofascore_result})
-                results["sofascore"] = sofascore_result
-            except Exception as sf_err:
-                logger.warning(f"Sofascore sync failed (non-critical): {sf_err}")
-                tm.update_progress(task_id, "sofascore", {"status": "done", "synced": 0, "error": str(sf_err)})
-                results["sofascore"] = {"synced": 0}
+            if not skip_sofascore:
+                tm.update_progress(task_id, "sofascore", {"status": "running"})
+                try:
+                    sofascore_result = _sync_sofascore(championship_id, client)
+                    tm.update_progress(task_id, "sofascore", {"status": "done", **sofascore_result})
+                    results["sofascore"] = sofascore_result
+                except Exception as sf_err:
+                    logger.warning(f"Sofascore sync failed (non-critical): {sf_err}")
+                    tm.update_progress(task_id, "sofascore", {"status": "done", "synced": 0, "error": str(sf_err)})
+                    results["sofascore"] = {"synced": 0}
         elif sync_type == "transactions":
             tm.update_progress(task_id, "transactions", {"status": "running"})
             results = {"transactions": sync_service.sync_transactions()}
@@ -371,6 +372,7 @@ async def trigger_sync(
     request: Request,
     sync_type: str = "all",
     championship_id: str = CHAMPIONSHIP_ID,
+    skip_sofascore: bool = False,
 ) -> JSONResponse:
     """Trigger async data synchronization. Returns immediately with a task_id.
     
@@ -414,7 +416,7 @@ async def trigger_sync(
     user_id = getattr(request.state, "user", {}).get("user_id", "")
     thread = threading.Thread(
         target=_run_sync_in_background,
-        args=(task.task_id, sync_type, championship_id, client, user_id),
+        args=(task.task_id, sync_type, championship_id, client, user_id, skip_sofascore),
         daemon=True,
     )
     thread.start()

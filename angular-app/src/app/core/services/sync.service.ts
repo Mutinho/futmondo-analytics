@@ -10,9 +10,10 @@ export class SyncService {
   private http = inject(HttpClient);
 
   /** Trigger async sync — returns immediately with task_id */
-  triggerSync(championshipId?: string, syncType = 'all'): Promise<SyncTriggerResponse> {
+  triggerSync(championshipId?: string, syncType = 'all', includeSofascore = true): Promise<SyncTriggerResponse> {
     let params = new HttpParams().set('sync_type', syncType);
     if (championshipId) params = params.set('championship_id', championshipId);
+    if (!includeSofascore) params = params.set('skip_sofascore', 'true');
     return firstValueFrom(
       this.http.post<SyncTriggerResponse>('/api/v1/sync/trigger', {}, { params })
     );
@@ -72,6 +73,7 @@ export class SyncService {
     championshipId: string | undefined,
     onProgress: (task: SyncTaskResponse) => void,
     pollIntervalMs = 2000,
+    includeSofascore = true,
   ): Promise<SyncTaskResponse> {
     let taskId: string;
 
@@ -81,7 +83,7 @@ export class SyncService {
       taskId = existing.task_id;
       onProgress(existing);
     } else {
-      const trigger = await this.triggerSync(championshipId);
+      const trigger = await this.triggerSync(championshipId, 'all', includeSofascore);
       taskId = trigger.task_id;
       this.saveTaskId(taskId);
     }
