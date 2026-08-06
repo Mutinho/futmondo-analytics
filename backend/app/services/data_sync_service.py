@@ -29,6 +29,7 @@ class DataSyncService:
         self.dm = DataManagerV2(skip_init=True)
         self.championship_id = CHAMPIONSHIP_ID
         self.league_id = LEAGUE_ID
+        self.user_id = ""  # Set externally for per-user sync tracking
         
         # Ensure championship record exists before any sync runs
         try:
@@ -97,7 +98,7 @@ class DataSyncService:
         
         try:
             # Get last sync metadata
-            last_sync = self.dm.get_last_sync_metadata(self.championship_id, "transactions", user_id=self.user_id)
+            last_sync = self.dm.get_last_sync_metadata(self.championship_id, "transactions")
             previous_last_id = last_sync.get("last_sync_id", "") if last_sync else ""
             
             logger.info(f"Last sync ID: {previous_last_id or 'None (full sync)'}")
