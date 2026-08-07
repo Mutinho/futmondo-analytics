@@ -47,6 +47,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/favorites/favorites.component').then(m => m.FavoritesComponent),
   },
   {
+    path: 'transactions',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/transactions/transactions.component').then(m => m.TransactionsComponent),
+  },
+  {
     path: 'my-roster',
     canActivate: [authGuard],
     loadComponent: () => import('./features/my-roster/my-roster.component').then(m => m.MyRosterComponent),

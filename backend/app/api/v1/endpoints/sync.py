@@ -78,6 +78,59 @@ def _check_phantoms(championship_id: str, client, user_id: str = None) -> Dict:
     }
 
 
+def _write_sofascore_batch(db, championship_id: str, rows: list):
+    """Write a batch of Sofascore cache rows using UPSERT."""
+    if not rows:
+        return
+    with db.get_connection() as conn:
+        cursor = db.get_cursor(conn)
+        if db.db_type in ["postgresql", "postgres"]:
+            from psycopg2.extras import execute_values
+            raw_cursor = cursor._cursor if hasattr(cursor, '_cursor') else cursor
+            try:
+                raw_cursor.execute("ALTER TABLE sofascore_cache ADD COLUMN IF NOT EXISTS matches_started INTEGER DEFAULT 0")
+            except Exception:
+                pass
+            # Remove championship_id from each row (index 1)
+            clean_rows = [(r[0],) + r[2:] for r in rows]
+            execute_values(raw_cursor, """
+                INSERT INTO sofascore_cache 
+                (player_name, sofascore_id, sofascore_name, team,
+                 rating, goals, assists, appearances, matches_started, minutes_played,
+                 yellow_cards, red_cards, tournament, season, position,
+                 nationality, age, successful_dribbles, accurate_passes_pct,
+                 shots_on_target, tackles, interceptions, clean_sheets, saves,
+                 sofascore_url, synced_at)
+                VALUES %s
+                ON CONFLICT (player_name) DO UPDATE SET
+                    sofascore_id = EXCLUDED.sofascore_id, sofascore_name = EXCLUDED.sofascore_name,
+                    team = EXCLUDED.team, rating = EXCLUDED.rating, goals = EXCLUDED.goals,
+                    assists = EXCLUDED.assists, appearances = EXCLUDED.appearances,
+                    matches_started = EXCLUDED.matches_started, minutes_played = EXCLUDED.minutes_played,
+                    yellow_cards = EXCLUDED.yellow_cards, red_cards = EXCLUDED.red_cards,
+                    tournament = EXCLUDED.tournament, season = EXCLUDED.season,
+                    position = EXCLUDED.position, nationality = EXCLUDED.nationality,
+                    age = EXCLUDED.age, successful_dribbles = EXCLUDED.successful_dribbles,
+                    accurate_passes_pct = EXCLUDED.accurate_passes_pct,
+                    shots_on_target = EXCLUDED.shots_on_target, tackles = EXCLUDED.tackles,
+                    interceptions = EXCLUDED.interceptions, clean_sheets = EXCLUDED.clean_sheets,
+                    saves = EXCLUDED.saves, sofascore_url = EXCLUDED.sofascore_url,
+                    synced_at = EXCLUDED.synced_at
+            """, clean_rows, page_size=50)
+        else:
+            clean_rows = [(r[0],) + r[2:] for r in rows]
+            cursor.executemany("""
+                INSERT OR REPLACE INTO sofascore_cache 
+                (player_name, sofascore_id, sofascore_name, team,
+                 rating, goals, assists, appearances, matches_started, minutes_played,
+                 yellow_cards, red_cards, tournament, season, position,
+                 nationality, age, successful_dribbles, accurate_passes_pct,
+                 shots_on_target, tackles, interceptions, clean_sheets, saves,
+                 sofascore_url, synced_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, clean_rows)
+
+
 def _sync_sofascore(championship_id: str, client) -> Dict:
     """Sync Sofascore ratings for market players."""
     standings = client.get_matchday_standings(championship_id)
@@ -93,68 +146,37 @@ def _sync_sofascore(championship_id: str, client) -> Dict:
     if not user_team_id and teams:
         user_team_id = teams[0].get('teamid') or teams[0].get('id', '')
     
-    # Get market players
-    data = {
-        'header': {'token': client.token, 'userid': client.user_id},
-        'query': {'championshipId': championship_id, 'userteamId': user_team_id},
-        'answer': {}
-    }
-    resp = client.session.post(f'{client.base_url}/1/market/players', json=data, timeout=15)
-    if resp.status_code != 200:
+    # Get ALL championship players for Sofascore enrichment
+    players_data = client.get_championship_players(championship_id)
+    if not players_data or not players_data.get("players"):
         return {"synced": 0, "errors": 0, "total_players": 0}
     
-    result = resp.json()
-    answer = result.get('answer', {})
-    all_players = answer if isinstance(answer, list) else answer.get('players', [])
-    computer_players = [p for p in all_players if p.get('computer') is True]
-
-    # Also include user's roster players for Sofascore enrichment
-    players_to_sync = [{"name": p.get("name", ""), "team": p.get("team", "")} for p in computer_players]
-    try:
-        roster = client.get_userteam_roster(championship_id, user_team_id)
-        if roster:
-            existing_names = {p["name"].lower() for p in players_to_sync}
-            for p in roster:
-                pname = p.get("name", "")
-                if pname.lower() not in existing_names:
-                    players_to_sync.append({"name": pname, "team": p.get("team", "")})
-    except Exception as roster_err:
-        logger.warning(f"Could not fetch roster for Sofascore sync: {roster_err}")
-
-    # Also include favorite players for Sofascore enrichment
-    try:
-        with get_db().get_connection() as conn:
-            cursor = get_db().get_cursor(conn)
-            sql = "SELECT player_id FROM player_favorites WHERE championship_id = %s AND user_id = %s"
-            cursor.execute(sql, (championship_id, client.user_id))
-            fav_ids = {row[0] for row in cursor.fetchall()}
-        if fav_ids:
-            # Get names from championship players data
-            champ_data = client.get_championship_players(championship_id)
-            if champ_data and champ_data.get("players"):
-                existing_names = {p["name"].lower() for p in players_to_sync}
-                # Use LALIGA_TEAMS map for team hints
-                LALIGA_TEAMS = {
-                    "504e581e4d8bec9a670000c6": "Real Madrid", "504e581e4d8bec9a670000c7": "Barcelona",
-                    "504e581e4d8bec9a670000c8": "Atlético de Madrid", "504e581e4d8bec9a670000c9": "Athletic de Bilbao",
-                    "504e581e4d8bec9a670000ca": "Rayo Vallecano", "504e581e4d8bec9a670000cb": "Valencia",
-                    "504e581e4d8bec9a670000cc": "Betis", "504e581e4d8bec9a670000cd": "Getafe",
-                    "504e581e4d8bec9a670000ce": "Real Sociedad", "504e581e4d8bec9a670000cf": "Levante",
-                    "504e581e4d8bec9a670000d0": "Espanyol", "504e581e4d8bec9a670000d1": "Osasuna",
-                    "504e581e4d8bec9a670000d5": "Sevilla", "504e581e4d8bec9a670000d6": "Málaga",
-                    "504e581e4d8bec9a670000d8": "Deportivo de la Coruña", "504e581e4d8bec9a670000d9": "Celta de Vigo",
-                    "51b889b1e401a15f2c0000f0": "Elche", "51b890f5b986415a2c000012": "Villarreal",
-                    "52038563b8d07d930b00008a": "Alavés", "520e4ee4a776cc826b00004b": "Racing",
-                }
-                for p in champ_data["players"]:
-                    if p.get("id") in fav_ids and not p.get("userteamId"):
-                        pname = p.get("name", "")
-                        if pname.lower() not in existing_names:
-                            team_hint = LALIGA_TEAMS.get(p.get("teamId", ""), "")
-                            players_to_sync.append({"name": pname, "team": team_hint})
-                            existing_names.add(pname.lower())
-    except Exception as fav_err:
-        logger.warning(f"Could not fetch favorites for Sofascore sync: {fav_err}")
+    all_champ_players = players_data["players"]
+    
+    # Build list of all players to sync
+    players_to_sync = []
+    existing_names = set()
+    
+    # Use LALIGA team map for team hints
+    LALIGA_TEAMS = {
+        "504e581e4d8bec9a670000c6": "Real Madrid", "504e581e4d8bec9a670000c7": "Barcelona",
+        "504e581e4d8bec9a670000c8": "Atlético de Madrid", "504e581e4d8bec9a670000c9": "Athletic de Bilbao",
+        "504e581e4d8bec9a670000ca": "Rayo Vallecano", "504e581e4d8bec9a670000cb": "Valencia",
+        "504e581e4d8bec9a670000cc": "Betis", "504e581e4d8bec9a670000cd": "Getafe",
+        "504e581e4d8bec9a670000ce": "Real Sociedad", "504e581e4d8bec9a670000cf": "Levante",
+        "504e581e4d8bec9a670000d0": "Espanyol", "504e581e4d8bec9a670000d1": "Osasuna",
+        "504e581e4d8bec9a670000d5": "Sevilla", "504e581e4d8bec9a670000d6": "Málaga",
+        "504e581e4d8bec9a670000d8": "Deportivo de la Coruña", "504e581e4d8bec9a670000d9": "Celta de Vigo",
+        "51b889b1e401a15f2c0000f0": "Elche", "51b890f5b986415a2c000012": "Villarreal",
+        "52038563b8d07d930b00008a": "Alavés", "520e4ee4a776cc826b00004b": "Racing",
+    }
+    
+    for p in all_champ_players:
+        pname = p.get("name", "")
+        if pname and pname.lower() not in existing_names:
+            team_hint = LALIGA_TEAMS.get(p.get("teamId", ""), p.get("team", ""))
+            players_to_sync.append({"name": pname, "team": team_hint})
+            existing_names.add(pname.lower())
     
     sofascore = get_sofascore_client()
     db = get_db()
@@ -178,7 +200,7 @@ def _sync_sofascore(championship_id: str, client) -> Dict:
                 errors += 1
                 continue
             cache_rows.append((
-                player_name, championship_id,
+                player_name, "global",
                 full_info.get('id'), full_info.get('name'), full_info.get('team'),
                 full_info.get('rating'), full_info.get('goals'), full_info.get('assists'),
                 full_info.get('appearances'), full_info.get('matches_started'),
@@ -193,51 +215,21 @@ def _sync_sofascore(championship_id: str, client) -> Dict:
                 full_info.get('sofascore_url', ''), now,
             ))
             synced += 1
+            
+            # Write in batches of 50 to avoid connection timeout
+            if len(cache_rows) >= 50:
+                _write_sofascore_batch(db, championship_id, cache_rows)
+                cache_rows = []
+                
         except Exception as e:
             logger.warning(f"Sofascore error for '{player_name}': {e}")
             errors += 1
     
+    # Write remaining rows
     if cache_rows:
-        with db.get_connection() as conn:
-            cursor = db.get_cursor(conn)
-            # Ensure matches_started column exists
-            try:
-                if db.db_type in ["postgresql", "postgres"]:
-                    cursor._cursor.execute("ALTER TABLE sofascore_cache ADD COLUMN IF NOT EXISTS matches_started INTEGER DEFAULT 0") if hasattr(cursor, '_cursor') else cursor.execute("ALTER TABLE sofascore_cache ADD COLUMN IF NOT EXISTS matches_started INTEGER DEFAULT 0")
-                else:
-                    cursor.execute("ALTER TABLE sofascore_cache ADD COLUMN matches_started INTEGER DEFAULT 0")
-            except Exception:
-                pass  # Column already exists
-
-            if db.db_type in ["postgresql", "postgres"]:
-                from psycopg2.extras import execute_values
-                raw_cursor = cursor._cursor if hasattr(cursor, '_cursor') else cursor
-                # Clear old cache first
-                raw_cursor.execute("DELETE FROM sofascore_cache WHERE championship_id = %s", (championship_id,))
-                execute_values(raw_cursor, """
-                    INSERT INTO sofascore_cache 
-                    (player_name, championship_id, sofascore_id, sofascore_name, team,
-                     rating, goals, assists, appearances, matches_started, minutes_played,
-                     yellow_cards, red_cards, tournament, season, position,
-                     nationality, age, successful_dribbles, accurate_passes_pct,
-                     shots_on_target, tackles, interceptions, clean_sheets, saves,
-                     sofascore_url, synced_at)
-                    VALUES %s
-                """, cache_rows, page_size=50)
-            else:
-                cursor.execute("DELETE FROM sofascore_cache WHERE championship_id = ?", (championship_id,))
-                cursor.executemany("""
-                    INSERT INTO sofascore_cache 
-                    (player_name, championship_id, sofascore_id, sofascore_name, team,
-                     rating, goals, assists, appearances, matches_started, minutes_played,
-                     yellow_cards, red_cards, tournament, season, position,
-                     nationality, age, successful_dribbles, accurate_passes_pct,
-                     shots_on_target, tackles, interceptions, clean_sheets, saves,
-                     sofascore_url, synced_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, cache_rows)
+        _write_sofascore_batch(db, championship_id, cache_rows)
     
-    return {"synced": synced, "errors": errors, "total_players": len(computer_players)}
+    return {"synced": synced, "errors": errors, "total_players": len(players_to_sync)}
 
 
 def _run_sync_in_background(task_id: str, sync_type: str, championship_id: str, client, user_id: str = "", skip_sofascore: bool = False):

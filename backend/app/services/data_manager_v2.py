@@ -484,11 +484,12 @@ class DataManagerV2:
             if self.db.db_type in ["postgresql", "postgres"]:
                 from psycopg2.extras import execute_values
                 sql = '''
-                    INSERT INTO players (player_id, name, role, real_team_id, real_team_name, slug, photo_url, last_updated)
+                    INSERT INTO players (player_id, name, role, role2, real_team_id, real_team_name, slug, photo_url, last_updated)
                     VALUES %s
                     ON CONFLICT (player_id) DO UPDATE SET
                         name = EXCLUDED.name,
                         role = EXCLUDED.role,
+                        role2 = EXCLUDED.role2,
                         real_team_id = EXCLUDED.real_team_id,
                         real_team_name = EXCLUDED.real_team_name,
                         slug = EXCLUDED.slug,
@@ -504,6 +505,7 @@ class DataManagerV2:
                         player_id,
                         p.get("name", ""),
                         p.get("role", ""),
+                        p.get("role2", ""),
                         p.get("teamId", p.get("real_team_id", "")),
                         p.get("team", p.get("real_team_name", "")),
                         p.get("slug", ""),
@@ -519,8 +521,8 @@ class DataManagerV2:
                 # SQLite/Turso: use executemany
                 sql = '''
                     INSERT OR REPLACE INTO players 
-                    (player_id, name, role, real_team_id, real_team_name, slug, photo_url, last_updated)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    (player_id, name, role, role2, real_team_id, real_team_name, slug, photo_url, last_updated)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 '''
                 values = []
                 for p in players:
@@ -531,6 +533,7 @@ class DataManagerV2:
                         player_id,
                         p.get("name", ""),
                         p.get("role", ""),
+                        p.get("role2", ""),
                         p.get("teamId", p.get("real_team_id", "")),
                         p.get("team", p.get("real_team_name", "")),
                         p.get("slug", ""),

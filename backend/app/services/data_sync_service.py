@@ -96,7 +96,7 @@ class DataSyncService:
         start_time = time.time()
         logger.info("Starting incremental transaction sync...")
         
-        # Ensure market_value_at_purchase column exists
+        # Ensure market_value_at_purchase and bids_json columns exist
         try:
             db = self.dm.db
             with db.get_connection() as conn:
@@ -104,10 +104,12 @@ class DataSyncService:
                 if db.db_type in ["postgresql", "postgres"]:
                     raw = cursor._cursor if hasattr(cursor, '_cursor') else cursor
                     raw.execute("ALTER TABLE transactions ADD COLUMN IF NOT EXISTS market_value_at_purchase INTEGER")
+                    raw.execute("ALTER TABLE transactions ADD COLUMN IF NOT EXISTS bids_json TEXT")
                 else:
                     cursor.execute("ALTER TABLE transactions ADD COLUMN market_value_at_purchase INTEGER")
+                    cursor.execute("ALTER TABLE transactions ADD COLUMN bids_json TEXT")
         except Exception:
-            pass  # Column already exists
+            pass  # Columns already exist
         
         try:
             # Get last sync metadata
@@ -163,6 +165,9 @@ class DataSyncService:
                         self.dm.save_pressroom_transactions(self.championship_id, transaction_items)
                         total_synced += len(transaction_items)
                         logger.info(f"📰 Page {page_count}: Saved {len(transaction_items)} transactions (total: {total_synced})")
+                        
+                        # Store bids data for transactions that have them
+                        self._store_bids(transaction_items)
                     
                     if reached_previous:
                         logger.info("Reached previously synced transaction ID; stopping pagination")
@@ -238,6 +243,31 @@ class DataSyncService:
                 "duration_seconds": duration
             }
     
+    def _store_bids(self, transaction_items: list):
+        """Store bids JSON for transactions that have competing bids."""
+        import json as _json
+        db = self.dm.db
+        updates = []
+        for item in transaction_items:
+            bids = item.get("bids", [])
+            api_id = item.get("_id", "")
+            if bids and api_id:
+                bids_data = [{"name": b.get("u", {}).get("name", "?"), "bid": b.get("bid", 0)} for b in bids]
+                updates.append((_json.dumps(bids_data), api_id))
+        
+        if not updates:
+            return
+        
+        try:
+            with db.get_connection() as conn:
+                cursor = db.get_cursor(conn)
+                sql = "UPDATE transactions SET bids_json = ? WHERE api_transaction_id = ?"
+                sql = db.adapt_params(sql)
+                for bids_json, api_id in updates:
+                    cursor.execute(sql, (bids_json, api_id))
+        except Exception as e:
+            logger.debug(f"Could not store bids: {e}")
+
     def _enrich_market_values(self) -> int:
         """Fill market_value_at_purchase for transactions that don't have it yet.
         
@@ -257,13 +287,12 @@ class DataSyncService:
         with db.get_connection() as conn:
             cursor = db.get_cursor(conn)
             
-            # Find transactions missing market value (only purchases from market, not transfers)
+            # Find transactions missing market value
             sql = """
-                SELECT transaction_id, player_id, transaction_date 
+                SELECT transaction_id, player_id, transaction_date, buyer_team_id 
                 FROM transactions 
                 WHERE championship_id = ? 
                 AND market_value_at_purchase IS NULL
-                AND buyer_team_id != 'market_team'
                 ORDER BY transaction_date DESC
             """
             sql = db.adapt_params(sql)
@@ -280,7 +309,10 @@ class DataSyncService:
             batch_count = 0
             
             for row in rows:
-                txn_id, player_id, txn_date = row[0], row[1], row[2]
+                txn_id, player_id, txn_date, buyer_team_id = row[0], row[1], row[2], row[3]
+                
+                # Purchases from market use previous day's value; sales use same day
+                is_market_purchase = (buyer_team_id != 'market_team')
                 
                 try:
                     # Get or fetch profile
@@ -305,7 +337,7 @@ class DataSyncService:
                         continue
                     
                     # Find price closest to transaction date
-                    market_value = self._find_price_at_date(prices, txn_date)
+                    market_value = self._find_price_at_date(prices, txn_date, prefer_previous_day=is_market_purchase)
                     if market_value is None:
                         continue
                     
@@ -321,15 +353,17 @@ class DataSyncService:
         
         return enriched
     
-    def _find_price_at_date(self, prices: list, txn_date) -> Optional[int]:
-        """Find the classic price closest to (and not after) a transaction date.
+    def _find_price_at_date(self, prices: list, txn_date, prefer_previous_day: bool = False) -> Optional[int]:
+        """Find the social price at or near a transaction date.
         
         Args:
             prices: List of {date, social, classic} dicts from fullprofile
             txn_date: Transaction date (datetime or string)
+            prefer_previous_day: If True, prefer the day before (for market purchases).
+                                If False, prefer same day (for sales).
         
         Returns:
-            The classic price value, or None if not found
+            The social price value, or None if not found
         """
         from datetime import datetime as dt
         
@@ -346,24 +380,29 @@ class DataSyncService:
         
         best_price = None
         best_diff = None
+        ideal_diff = 1 if prefer_previous_day else 0
         
         for entry in prices:
             try:
                 entry_date_str = entry.get('date', '')
                 entry_dt = dt.fromisoformat(entry_date_str.replace("Z", "+00:00")).date()
-                diff = abs((txn_dt - entry_dt).days)
+                diff = (txn_dt - entry_dt).days  # Positive = entry is before txn
                 
-                if best_diff is None or diff < best_diff:
+                # Only consider entries from before or same day (not future)
+                if diff < 0 or diff > 3:
+                    continue
+                
+                # Prefer ideal_diff, then closest
+                if best_diff is None:
+                    best_diff = diff
+                    best_price = entry.get('social', entry.get('classic', 0))
+                elif abs(diff - ideal_diff) < abs(best_diff - ideal_diff):
                     best_diff = diff
                     best_price = entry.get('social', entry.get('classic', 0))
             except Exception:
                 continue
         
-        # Only use if within 3 days of the transaction
-        if best_diff is not None and best_diff <= 3:
-            return best_price
-        
-        return None
+        return best_price
 
     def sync_clauses(self) -> Dict:
         """Sync clauses incrementally from locker news endpoint
@@ -1373,6 +1412,7 @@ class DataSyncService:
                     "id": player_id,
                     "name": player.get("name", ""),
                     "role": player.get("role", ""),
+                    "role2": player.get("role2", ""),
                     "teamId": player.get("teamId", ""),
                     "team": player.get("team", ""),
                     "slug": player.get("slug", ""),

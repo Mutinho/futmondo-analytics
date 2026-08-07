@@ -69,10 +69,9 @@ async def sync_sofascore(
         # Limpiar caché anterior de este campeonato
         with db.get_connection() as conn:
             cursor = db.get_cursor(conn)
-            sql = "DELETE FROM sofascore_cache WHERE championship_id = ?"
-            sql = db.adapt_params(sql)
-            cursor.execute(sql, (championship_id,))
-            logger.info(f"Sofascore cache cleared for {championship_id}")
+            sql = "DELETE FROM sofascore_cache"
+            cursor.execute(sql)
+            logger.info("Sofascore cache cleared")
 
         # Collect all results, then batch insert
         cache_rows = []

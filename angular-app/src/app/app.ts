@@ -66,6 +66,7 @@ export class App {
     { label: 'Mi Plantilla', icon: 'groups', route: '/my-roster' },
     { label: 'Mercado', icon: 'shopping_cart', route: '/market' },
     { label: 'Favoritos', icon: 'star', route: '/favorites' },
+    { label: 'Transacciones', icon: 'receipt_long', route: '/transactions' },
     { label: 'Evolución', icon: 'trending_up', route: '/evolution' },
     { label: 'Estadísticas', icon: 'bar_chart', route: '/stats' },
     { label: 'Finanzas', icon: 'payments', route: '/finances' },

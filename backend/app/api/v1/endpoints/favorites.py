@@ -97,9 +97,9 @@ async def get_my_favorites(
         try:
             with db.get_connection() as conn:
                 cursor = db.get_cursor(conn)
-                sql = "SELECT player_name, rating, sofascore_url, appearances, matches_started FROM sofascore_cache WHERE championship_id = ?"
+                sql = "SELECT player_name, rating, sofascore_url, appearances, matches_started FROM sofascore_cache"
                 sql = db.adapt_params(sql)
-                cursor.execute(sql, (championship_id,))
+                cursor.execute(sql)
                 for row in cursor.fetchall():
                     appearances_sf = row[3] or 0
                     matches_started = row[4] or 0

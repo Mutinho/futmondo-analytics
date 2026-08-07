@@ -312,10 +312,9 @@ async def get_market_today(
             sql_sf = """
                 SELECT player_name, sofascore_id, rating, goals, assists, appearances, sofascore_url, matches_started
                 FROM sofascore_cache
-                WHERE championship_id = ?
             """
             sql_sf = db.adapt_params(sql_sf)
-            cursor_sf.execute(sql_sf, (championship_id,))
+            cursor_sf.execute(sql_sf)
             sf_rows = cursor_sf.fetchall()
 
         sf_map = {}

@@ -26,10 +26,10 @@ async def get_sofascore_player_detail(
                    shots_on_target, tackles, interceptions, clean_sheets, saves,
                    synced_at
             FROM sofascore_cache
-            WHERE player_name = ? AND championship_id = ?
+            WHERE player_name = ?
         """
         sql = db.adapt_params(sql)
-        cursor.execute(sql, (player_name, championship_id))
+        cursor.execute(sql, (player_name,))
         row = cursor.fetchone()
 
     if not row:
