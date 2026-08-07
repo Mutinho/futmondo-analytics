@@ -31,22 +31,22 @@ def calculate_starter_pct(matches_started: int, season_name: str, current_matchd
         
         if current_matchday >= 10:
             # Pure current season — enough data
-            return round(current_pct)
+            return min(round(current_pct), 100)
         else:
             # Blend with previous season
             prev_pct = (matches_started_prev / TOTAL_MATCHDAYS) * 100 if matches_started_prev else current_pct
             weight_current = current_matchday / 10
             weight_prev = 1 - weight_current
             blended = current_pct * weight_current + prev_pct * weight_prev
-            return round(blended)
+            return min(round(blended), 100)
     
     # Previous season data or season not started
     if matches_started:
-        return round((matches_started / TOTAL_MATCHDAYS) * 100)
+        return min(round((matches_started / TOTAL_MATCHDAYS) * 100), 100)
     
     # Try prev field directly
     if matches_started_prev:
-        return round((matches_started_prev / TOTAL_MATCHDAYS) * 100)
+        return min(round((matches_started_prev / TOTAL_MATCHDAYS) * 100), 100)
     
     return None
 

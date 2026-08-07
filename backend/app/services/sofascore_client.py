@@ -108,13 +108,15 @@ class SofascoreClient:
         EXCLUDED_KEYWORDS = {'world cup', 'euro ', 'copa america', 'nations league', 'friendlies', 'olympic'}
         
         # Temporadas relevantes (actual y anterior)
-        CURRENT_SEASON_KEYWORDS = ['25/26', '26/27', '2026']
-        PREVIOUS_SEASON_KEYWORDS = ['24/25', '2025']
+        CURRENT_SEASON_KEYWORDS = ['26/27', '2026-2027', '2026/2027']
+        PREVIOUS_SEASON_KEYWORDS = ['25/26', '2025-2026', '2025/2026']
         
         # Ligas prioritarias
         PRIORITY_KEYWORDS = ['laliga', 'la liga']
 
         # Clasificar candidatos por prioridad
+        # Temporada tiene prioridad sobre liga: un jugador que jugó en Bundesliga 25/26
+        # debe puntuar más que sus datos de LaLiga 24/25.
         # (prioridad, tournament, season)  — menor número = mayor prioridad
         candidates = []
 
@@ -134,11 +136,16 @@ class SofascoreClient:
                 is_current = any(kw in season_name for kw in CURRENT_SEASON_KEYWORDS)
                 is_previous = any(kw in season_name for kw in PREVIOUS_SEASON_KEYWORDS)
 
+                # Priority order: current season > previous season > league priority
+                # 1: LaLiga current season
+                # 2: Any league current season
+                # 3: LaLiga previous season
+                # 4: Any league previous season
                 if is_priority_league and is_current:
                     priority = 1
-                elif is_priority_league and is_previous:
-                    priority = 2
                 elif is_current:
+                    priority = 2
+                elif is_priority_league and is_previous:
                     priority = 3
                 elif is_previous:
                     priority = 4
