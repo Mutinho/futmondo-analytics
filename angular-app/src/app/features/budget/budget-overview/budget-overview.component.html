@@ -12,6 +12,28 @@
 } @else if (error()) {
   <div class="error-message">{{ error() }}</div>
 } @else {
+  <!-- View toggle + sort -->
+  <div class="view-toggle">
+    @if (viewMode() === 'cards') {
+      <mat-form-field appearance="outline" class="sort-field" subscriptSizing="dynamic">
+        <mat-label>Ordenar por</mat-label>
+        <mat-select [value]="sortField()" (selectionChange)="onMatSortChange($event.value)">
+          <mat-option value="balance">Saldo</mat-option>
+          <mat-option value="performance">Rendimiento</mat-option>
+          <mat-option value="max_bid">Puja Máxima</mat-option>
+          <mat-option value="team_value">Valor Plantilla</mat-option>
+          <mat-option value="total_spent">Gastado</mat-option>
+          <mat-option value="total_income">Ingresado</mat-option>
+        </mat-select>
+      </mat-form-field>
+    }
+    <mat-button-toggle-group [value]="viewMode()" (change)="setViewMode($event.value)" hideSingleSelectionIndicator>
+      <mat-button-toggle value="cards"><mat-icon>grid_view</mat-icon></mat-button-toggle>
+      <mat-button-toggle value="table"><mat-icon>table_rows</mat-icon></mat-button-toggle>
+    </mat-button-toggle-group>
+  </div>
+
+  @if (viewMode() === 'table') {
   <div class="table-container">
     <table mat-table [dataSource]="dataSource" matSort class="budget-table">
 
@@ -66,4 +88,40 @@
   </div>
 
   <p class="footnote">Rendimiento = Valor plantilla − (Gastado − Ingresado). Positivo = plantilla vale más de lo invertido neto.</p>
+  }
+
+  @if (viewMode() === 'cards') {
+  <div class="cards-container">
+    @for (t of dataSource.data; track t.team_id) {
+      <article class="team-card" (click)="openDetail(t)">
+        <!-- Header -->
+        <div class="card-header">
+          <div class="card-team-info">
+            <h3 class="card-team-name">{{ t.team_name }}</h3>
+          </div>
+        </div>
+        <!-- Stats grid -->
+        <div class="card-stats-box">
+          <div class="card-stats-grid">
+            <div class="card-stat-item">
+              <span class="card-stat-label">SALDO</span>
+              <span class="card-stat-val" [class.positive]="t.balance >= 0" [class.negative]="t.balance < 0">{{ t.balance | money }}</span>
+            </div>
+            <div class="card-stat-item card-stat-right">
+              <span class="card-stat-label">RENDIMIENTO</span>
+              <span class="card-stat-val badge" [class.positive]="t.performance >= 0" [class.negative]="t.performance < 0">{{ t.performance | money:true }}</span>
+            </div>
+          </div>
+          <div class="card-stats-grid card-stats-secondary">
+            <div class="card-stat-item">
+              <span class="card-stat-label">PUJA MÁXIMA</span>
+              <span class="card-stat-val">{{ t.max_bid | money }}</span>
+            </div>
+          </div>
+        </div>
+      </article>
+    }
+  </div>
+  <app-scroll-top />
+  }
 }

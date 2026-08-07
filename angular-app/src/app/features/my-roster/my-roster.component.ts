@@ -12,6 +12,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSelectModule } from '@angular/material/select';
 import { MatDialog } from '@angular/material/dialog';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
 import { StarterBadgeComponent } from '../../shared/components/starter-badge.component';
@@ -58,7 +60,7 @@ interface RosterSummary {
   standalone: true,
   imports: [
     MatTableModule, MatSortModule, MatProgressSpinnerModule,
-    MatChipsModule, MatIconModule, MatTooltipModule, MatButtonModule, MatButtonToggleModule, MoneyPipe, StarterBadgeComponent, StarterCardBadgeComponent, SofascoreBadgeComponent, SofascoreCardBadgeComponent, ScrollTopComponent
+    MatChipsModule, MatIconModule, MatTooltipModule, MatButtonModule, MatButtonToggleModule, MatFormFieldModule, MatSelectModule, MoneyPipe, StarterBadgeComponent, StarterCardBadgeComponent, SofascoreBadgeComponent, SofascoreCardBadgeComponent, ScrollTopComponent
   ],
   template: `
     <h1>👤 Mi Plantilla</h1>
@@ -96,14 +98,17 @@ interface RosterSummary {
       <!-- View toggle + sort -->
       <div class="view-toggle">
         @if (viewMode() === 'cards') {
-          <select class="sort-select" [value]="sortField()" (change)="onSortChange($event)">
-            <option value="value">Valor</option>
-            <option value="change">Tendencia</option>
-            <option value="profit">Plusvalía</option>
-            <option value="sofascore_rating">Sofascore</option>
-            <option value="starter_pct">Titularidad</option>
-            <option value="points">Puntos</option>
-          </select>
+          <mat-form-field appearance="outline" class="sort-field" subscriptSizing="dynamic">
+            <mat-label>Ordenar por</mat-label>
+            <mat-select [value]="sortField()" (selectionChange)="onSortChange($event.value)">
+              <mat-option value="value">Valor</mat-option>
+              <mat-option value="change">Tendencia</mat-option>
+              <mat-option value="profit">Plusvalía</mat-option>
+              <mat-option value="sofascore_rating">Sofascore</mat-option>
+              <mat-option value="starter_pct">Titularidad</mat-option>
+              <mat-option value="points">Puntos</mat-option>
+            </mat-select>
+          </mat-form-field>
         }
         <mat-button-toggle-group [value]="viewMode()" (change)="setViewMode($event.value)" hideSingleSelectionIndicator>
           <mat-button-toggle value="cards"><mat-icon>grid_view</mat-icon></mat-button-toggle>
@@ -412,7 +417,7 @@ interface RosterSummary {
     .average-main { font-weight: 700; font-size: 1.1em; }
     .average-detail { font-size: 0.75em; color: var(--mat-sys-on-surface-variant); margin-left: 6px; white-space: nowrap; }
     .view-toggle { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-bottom: 16px; }
-    .sort-select { flex: 1; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface-container); color: var(--mat-sys-on-surface); font-size: 0.85em; font-weight: 600; cursor: pointer; }
+    .sort-field { flex: 1; font-size: 0.9em; }
     .cards-container { display: grid; grid-template-columns: 1fr; gap: 16px; }
     @media (min-width: 900px) { .cards-container { grid-template-columns: repeat(2, 1fr); } }
     @media (min-width: 1300px) { .cards-container { grid-template-columns: repeat(3, 1fr); } }
@@ -570,8 +575,8 @@ export class MyRosterComponent {
     this.dataSource.data = sorted;
   }
 
-  onSortChange(event: Event) {
-    this.sortField.set((event.target as HTMLSelectElement).value);
+  onSortChange(value: string) {
+    this.sortField.set(value);
     this.sortCards();
   }
 

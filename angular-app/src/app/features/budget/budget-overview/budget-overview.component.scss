@@ -29,6 +29,21 @@
   border-radius: 8px;
 }
 
+// View toggle
+.view-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.sort-field {
+  flex: 1;
+  font-size: 0.9em;
+}
+
+// Table view
 .table-container {
   overflow-x: auto;
   border-radius: 12px;
@@ -70,6 +85,126 @@
   margin-top: 16px;
 }
 
+// Cards view
+.cards-container {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 900px) {
+  .cards-container { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (min-width: 1300px) {
+  .cards-container { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (min-width: 1700px) {
+  .cards-container { grid-template-columns: repeat(4, 1fr); }
+}
+
+.team-card {
+  padding: 20px;
+  border-radius: 16px;
+  background: var(--mat-sys-surface-container);
+  border: 1px solid var(--mat-sys-outline-variant);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  &:hover {
+    background: var(--mat-sys-surface-container-high);
+    transform: translateY(-2px);
+  }
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+}
+
+.card-team-info {
+  flex: 1;
+}
+
+.card-team-name {
+  font-size: 1.1em;
+  font-weight: 700;
+  margin: 0;
+  color: var(--mat-sys-on-surface);
+}
+
+.card-stats-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.card-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.card-stats-secondary {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(var(--mat-sys-outline-variant), 0.5);
+}
+
+.card-stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.card-stat-right {
+  align-items: flex-end;
+}
+
+.card-stat-label {
+  font-size: 0.65em;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.card-stat-val {
+  font-size: 1.05em;
+  font-weight: 600;
+  color: var(--mat-sys-on-surface);
+  font-family: 'JetBrains Mono', monospace;
+
+  &.positive {
+    color: #2e7d32;
+  }
+
+  &.negative {
+    color: #d32f2f;
+  }
+
+  &.badge {
+    padding: 2px 8px;
+    border-radius: 4px;
+
+    &.positive {
+      background: rgba(34, 197, 94, 0.1);
+    }
+
+    &.negative {
+      background: rgba(239, 68, 68, 0.1);
+    }
+  }
+}
+
 // Dark mode
 :host-context(body.dark-theme) {
   .description { color: var(--mat-sys-on-surface-variant); }
@@ -78,4 +213,38 @@
   .money-positive { color: #66bb6a; }
   .money-negative { color: #ef5350; }
   .footnote { color: var(--mat-sys-on-surface-variant); }
+
+  .team-card {
+    border-color: rgba(20, 255, 0, 0.15);
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.04);
+    }
+  }
+
+  .card-header {
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .card-stats-secondary {
+    border-top-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .card-stat-val {
+    &.positive {
+      color: #66bb6a;
+    }
+
+    &.negative {
+      color: #ef5350;
+    }
+
+    &.badge.positive {
+      background: rgba(34, 197, 94, 0.1);
+    }
+
+    &.badge.negative {
+      background: rgba(239, 68, 68, 0.1);
+    }
+  }
 }
