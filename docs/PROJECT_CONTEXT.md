@@ -1,6 +1,6 @@
 # Contexto del Proyecto — Futmondo Analytics
 
-## Estado Actual (7 agosto 2026) — v1.4.2
+## Estado Actual (7 agosto 2026) — v1.4.4
 
 ### Resumen
 Aplicación multi-usuario de gestión de ligas Futmondo (fantasy football). Frontend Angular 22 (PWA) + backend FastAPI. Autenticación JWT con HttpOnly cookies. Base de datos Neon PostgreSQL. Deploy en Fly.io.
@@ -9,7 +9,7 @@ Aplicación multi-usuario de gestión de ligas Futmondo (fantasy football). Fron
 - **GitHub**: https://github.com/Mutinho/futmondo-analytics
 - **Branch**: main
 - **Deploy**: Fly.io (futmondo-app.fly.dev / futmondo-api.fly.dev)
-- **Versión actual**: v1.4.2
+- **Versión actual**: v1.4.4
 
 ---
 
@@ -38,8 +38,9 @@ Aplicación multi-usuario de gestión de ligas Futmondo (fantasy football). Fron
 - Connection pool con validación automática (handles idle timeout de Neon)
 
 ### Deploy
-- **Fly.io** — 2 máquinas (frontend + backend), región París (cdg)
+- **Fly.io** — 3 máquinas (frontend + backend + cron), región París (cdg)
 - **GitHub Actions** — deploy automático en push a main (a veces falla, usar `flyctl deploy` directamente)
+- **Cron diario** — GitHub Actions schedule a las 6:30 CET → `flyctl deploy` de `futmondo-cron` (sync completo + Sofascore)
 - **HTTPS** automático via Fly.io
 - **Deploy manual**: `cd backend && ~/.fly/bin/flyctl deploy && cd ../angular-app && ~/.fly/bin/flyctl deploy`
 
@@ -49,7 +50,7 @@ Aplicación multi-usuario de gestión de ligas Futmondo (fantasy football). Fron
 
 | Ruta | Página | Descripción |
 |------|--------|-------------|
-| `/budget` | Presupuesto | Vista general de equipos con balance, valor plantilla, rendimiento |
+| `/budget` | Presupuesto | Vista general de equipos con balance, valor plantilla, rendimiento. Vista tabla y tarjetas |
 | `/my-roster` | Mi Plantilla | Jugadores del usuario con valor, plusvalía, puntos, media, ventas recomendadas |
 | `/market` | Mercado | Jugadores del computer para pujar, puja sugerida basada en % real de sobrepago |
 | `/favorites` | Favoritos | Jugadores libres marcados como favoritos, con botón de unfollow |
@@ -62,9 +63,9 @@ Aplicación multi-usuario de gestión de ligas Futmondo (fantasy football). Fron
 | `/settings` | Ajustes | Configuración de campeonatos |
 
 ### Vistas responsive
-- **Tabla** (desktop por defecto) y **Tarjetas** (móvil por defecto) en: Mi Plantilla, Mercado, Favoritos
+- **Tabla** (desktop por defecto) y **Tarjetas** (móvil por defecto) en: Presupuesto, Mi Plantilla, Mercado, Favoritos
 - Toggle de vista guardado en localStorage por página
-- Selector de ordenación en vista tarjetas
+- Selector de ordenación en vista tarjetas (mat-form-field + mat-select de Angular Material)
 - Grid responsive: 1→2→3→4 columnas según pantalla
 - F5 preserva la ruta actual (localStorage `futmondo_last_route`)
 
@@ -124,11 +125,19 @@ Aplicación multi-usuario de gestión de ligas Futmondo (fantasy football). Fron
 
 ### Cálculo de % Titularidad
 - Centralizado en `backend/app/api/v1/endpoints/_sofascore_helpers.py`
+- **Cap**: resultado siempre ≤ 100% (para ligas con >38 jornadas como 2ª División)
 - **Temporada anterior** (season contiene "25/26"): `matches_started / 38`
 - **Temporada actual** (season contiene "26/27"):
   - Jornada 1-9: blend ponderado `(current/matchday)*peso + (prev/38)*(1-peso)` donde peso = matchday/10
   - Jornada 10+: `matches_started / current_matchday`
 - `get_current_matchday()` lee MAX(matchday) de team_standings
+
+### Prioridad de datos Sofascore (get_player_stats)
+- **Prioridad 1**: LaLiga temporada actual (26/27)
+- **Prioridad 2**: Cualquier liga temporada actual (26/27) — ej. Bundesliga, Premier
+- **Prioridad 3**: LaLiga temporada anterior (25/26)
+- **Prioridad 4**: Cualquier liga temporada anterior (25/26)
+- Temporada siempre tiene prioridad sobre liga (un jugador con datos recientes de Bundesliga usa esos, no datos viejos de LaLiga)
 
 ### Sync de Sofascore
 - Procesa TODOS los 507 jugadores del campeonato (no solo mercado/roster)
@@ -181,6 +190,15 @@ Aplicación multi-usuario de gestión de ligas Futmondo (fantasy football). Fron
 9. Cuotas de partidos
 10. Verificar fantasmas
 11. Ratings Sofascore (opcional, toggle en UI)
+
+### Sync automático (Cron)
+- **GitHub Actions** workflow `daily-sync.yml` con schedule `cron: '30 4 * * *'` (6:30 CET)
+- Ejecuta `flyctl deploy --config cron/fly.toml --ha=false` desde `backend/`
+- Usa la 3ª máquina gratis de Fly.io (`futmondo-cron`, región cdg)
+- Reutiliza el Dockerfile del backend, overrides CMD via `[processes]` en fly.toml
+- Ejecuta `scripts/sync_data.py` que hace sync_all() + Sofascore + actualiza sync_metadata
+- La máquina arranca, ejecuta el sync (~15-20 min) y se para sola al terminar
+- También se puede lanzar manualmente desde GitHub Actions (workflow_dispatch)
 
 ### Anti-rate-limiting
 - Headers idénticos a la PWA de Futmondo (Origin, Referer, User-Agent Chrome)
@@ -246,6 +264,7 @@ Aplicación multi-usuario de gestión de ligas Futmondo (fantasy football). Fron
 - El proxy nginx (compose service `proxy`) rutea por `server_name`.
 - La BD Neon es compartida entre local y producción (mismos datos).
 - Deploy producción manual: `cd backend && ~/.fly/bin/flyctl deploy && cd ../angular-app && ~/.fly/bin/flyctl deploy`
+- Deploy cron manual: `cd backend && ~/.fly/bin/flyctl deploy --config ../cron/fly.toml --ha=false`
 
 ### Versionado
 - Versión en `angular-app/src/app/version.ts` + `package.json`
