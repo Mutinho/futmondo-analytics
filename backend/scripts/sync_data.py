@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Data Synchronization Script
-Runs incremental and full data synchronization from Futmondo API to database
+Runs incremental and full data synchronization from Futmondo API to database.
+Includes Sofascore ratings sync.
 """
 
 import sys
@@ -13,7 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.services.data_sync_service import DataSyncService
 from app.services.futmondo_client import FutmondoClient
-from app.core.config import FUTMONDO_EMAIL, FUTMONDO_PASSWORD
+from app.core.config import FUTMONDO_EMAIL, FUTMONDO_PASSWORD, CHAMPIONSHIP_ID
 
 # Configure logging
 logging.basicConfig(
@@ -22,6 +23,21 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
+
+def sync_sofascore(client):
+    """Run Sofascore ratings sync using the same logic as the HTTP endpoint."""
+    from app.api.v1.endpoints.sync import _sync_sofascore
+    logger.info("Starting Sofascore sync...")
+    try:
+        result = _sync_sofascore(CHAMPIONSHIP_ID, client)
+        synced = result.get("synced", 0)
+        errors = result.get("errors", 0)
+        logger.info(f"  sofascore: done - {synced} synced, {errors} errors")
+        return {"status": "done", "synced": synced, "errors": errors}
+    except Exception as e:
+        logger.warning(f"  sofascore: ERROR - {e}")
+        return {"status": "error", "error": str(e), "synced": 0}
 
 
 def main():
@@ -45,7 +61,26 @@ def main():
         
         # Run all syncs
         results = sync_service.sync_all()
+
+        # Run Sofascore sync (unless --skip-sofascore flag is passed)
+        if "--skip-sofascore" not in sys.argv:
+            results["sofascore"] = sync_sofascore(client)
         
+        # Update last sync metadata
+        try:
+            from datetime import datetime
+            sync_service.dm.update_sync_metadata(
+                championship_id=CHAMPIONSHIP_ID,
+                data_type="all",
+                last_sync_id="",
+                last_sync_date=datetime.now(),
+                records_synced=0,
+                sync_duration_seconds=0,
+                sync_status="success",
+            )
+        except Exception:
+            pass
+
         # Print summary
         logger.info("=" * 60)
         logger.info("Synchronization Summary:")
@@ -53,7 +88,7 @@ def main():
         
         for sync_type, result in results.items():
             status = result.get("status", "unknown")
-            records = result.get("records_synced", 0)
+            records = result.get("records_synced", result.get("synced", 0))
             duration = result.get("duration_seconds", 0)
             
             if status == "error":

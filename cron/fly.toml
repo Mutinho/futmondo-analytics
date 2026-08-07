@@ -1,0 +1,19 @@
+# Fly.io configuration — Cron Sync (one-shot machine)
+# This app runs the sync script and exits.
+# Triggered daily via `flyctl deploy` from GitHub Actions.
+# Build context = backend/ (same Dockerfile as the API, different process).
+app = "futmondo-cron"
+primary_region = "cdg"
+
+[build]
+  dockerfile = "../backend/Dockerfile"
+
+[processes]
+  app = "python scripts/sync_data.py"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
+
+[deploy]
+  strategy = "immediate"

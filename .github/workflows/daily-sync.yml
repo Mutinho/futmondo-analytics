@@ -1,0 +1,24 @@
+name: Daily Sync (Cron)
+
+on:
+  schedule:
+    # 4:30 UTC = 6:30 CET (Central European Time)
+    - cron: '30 4 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  sync:
+    name: Run Full Sync
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy and run sync
+        working-directory: ./backend
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          flyctl deploy --config ../cron/fly.toml --ha=false
