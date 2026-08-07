@@ -1,6 +1,6 @@
 # Contexto del Proyecto — Futmondo Analytics
 
-## Estado Actual (6 agosto 2026)
+## Estado Actual (7 agosto 2026) — v1.4.2
 
 ### Resumen
 Aplicación multi-usuario de gestión de ligas Futmondo (fantasy football). Frontend Angular 22 (PWA) + backend FastAPI. Autenticación JWT con HttpOnly cookies. Base de datos Neon PostgreSQL. Deploy en Fly.io.
@@ -9,6 +9,7 @@ Aplicación multi-usuario de gestión de ligas Futmondo (fantasy football). Fron
 - **GitHub**: https://github.com/Mutinho/futmondo-analytics
 - **Branch**: main
 - **Deploy**: Fly.io (futmondo-app.fly.dev / futmondo-api.fly.dev)
+- **Versión actual**: v1.4.2
 
 ---
 
@@ -21,6 +22,7 @@ Aplicación multi-usuario de gestión de ligas Futmondo (fantasy football). Fron
 - **PWA** — service worker, manifest, instalable en iPhone
 - **Auth** — access token en memoria, refresh via HttpOnly cookie
 - **Build**: multi-stage Docker (Node 24 → nginx)
+- **Componentes compartidos** (`shared/components/`): ScrollTopComponent, SofascoreBadgeComponent, SofascoreCardBadgeComponent, StarterBadgeComponent, StarterCardBadgeComponent
 
 ### Backend (backend/)
 - **FastAPI** (Python 3.12)
@@ -37,8 +39,34 @@ Aplicación multi-usuario de gestión de ligas Futmondo (fantasy football). Fron
 
 ### Deploy
 - **Fly.io** — 2 máquinas (frontend + backend), región París (cdg)
-- **GitHub Actions** — deploy automático en push a main
+- **GitHub Actions** — deploy automático en push a main (a veces falla, usar `flyctl deploy` directamente)
 - **HTTPS** automático via Fly.io
+- **Deploy manual**: `cd backend && ~/.fly/bin/flyctl deploy && cd ../angular-app && ~/.fly/bin/flyctl deploy`
+
+---
+
+## Páginas de la Aplicación
+
+| Ruta | Página | Descripción |
+|------|--------|-------------|
+| `/budget` | Presupuesto | Vista general de equipos con balance, valor plantilla, rendimiento |
+| `/my-roster` | Mi Plantilla | Jugadores del usuario con valor, plusvalía, puntos, media, ventas recomendadas |
+| `/market` | Mercado | Jugadores del computer para pujar, puja sugerida basada en % real de sobrepago |
+| `/favorites` | Favoritos | Jugadores libres marcados como favoritos, con botón de unfollow |
+| `/transactions` | Transacciones | Historial compras/ventas por fecha, con pujas competidoras y plusvalías |
+| `/evolution` | Evolución | Gráficos de progresión |
+| `/stats` | Estadísticas | Datos por jugador y equipo |
+| `/finances` | Finanzas | Desglose económico detallado |
+| `/clausulable` | Clausulables | Jugadores susceptibles de cláusula |
+| `/analytics` | Analytics | Dashboard avanzado |
+| `/settings` | Ajustes | Configuración de campeonatos |
+
+### Vistas responsive
+- **Tabla** (desktop por defecto) y **Tarjetas** (móvil por defecto) en: Mi Plantilla, Mercado, Favoritos
+- Toggle de vista guardado en localStorage por página
+- Selector de ordenación en vista tarjetas
+- Grid responsive: 1→2→3→4 columnas según pantalla
+- F5 preserva la ruta actual (localStorage `futmondo_last_route`)
 
 ---
 
@@ -46,18 +74,18 @@ Aplicación multi-usuario de gestión de ligas Futmondo (fantasy football). Fron
 
 ### Flujo
 1. Usuario entra → splash screen → intenta refresh via cookie
-2. Si cookie válida → recupera sesión → navega a /budget
+2. Si cookie válida → recupera sesión → navega a última ruta visitada
 3. Si no → navega a /login → login con credenciales Futmondo
 4. Backend valida contra API Futmondo → genera JWT + HttpOnly cookie
 5. Access token (1h) en memoria, refresh token (30d) en cookie
 6. Interceptor auto-refresh transparente al expirar
+7. Login resetea `_initialized` para que el effect re-dispare la carga de datos
 
 ### Seguridad
 - Refresh token: HttpOnly, Secure (en prod), SameSite=Lax, path=/auth
 - Access token: nunca en localStorage, solo en memoria JS
 - Sesión Futmondo: por usuario, 12h TTL, re-auth automática
 - Middleware protege todos los /api/v1/* endpoints
-- 403 = sesión Futmondo expirada → force re-login
 
 ---
 
@@ -68,10 +96,10 @@ Aplicación multi-usuario de gestión de ligas Futmondo (fantasy football). Fron
 | `app_users` | Usuarios de la app (id, email, futmondo_user_id, display_name) |
 | `refresh_tokens` | Tokens de refresh (hash, user_id, expires, revoked) |
 | `user_championships` | Campeonatos por usuario + config completa (premios, cláusulas) |
-| `players` | Jugadores (player_id, name, role, real_team) |
+| `players` | Jugadores (player_id, name, role, role2, real_team_id, slug, photo_url) |
 | `teams` | Equipos de los campeonatos |
 | `users` | Managers de Futmondo (no de la app) |
-| `transactions` | Historial de compras/ventas |
+| `transactions` | Historial compras/ventas (+ market_value_at_purchase, bids_json) |
 | `championships` | Referencia mínima para FKs |
 | `team_standings` | Clasificación por jornada |
 | `player_performance` | Rendimiento por jornada |
@@ -79,78 +107,86 @@ Aplicación multi-usuario de gestión de ligas Futmondo (fantasy football). Fron
 | `punishments_bonuses` | Castigos y bonificaciones |
 | `clauses` | Cláusulas ejecutadas |
 | `sync_metadata` | Metadatos de sincronización (compartido) |
-| `sofascore_cache` | Caché de ratings/stats de Sofascore |
+| `sofascore_cache` | Caché global de Sofascore (sin championship_id, una entrada por jugador) |
 | `team_rosters` | Plantillas de equipos |
 | `player_championship_stats` | Stats de cláusulas y medias |
 | `match_odds` | Cuotas de partidos |
-| `matchday_articles` | Artículos generados por jornada |
+| `player_favorites` | Jugadores favoritos por usuario/campeonato |
 
 ---
 
-## Configuración de campeonatos (user_championships)
+## Sofascore Cache
 
-Campos por campeonato:
-- `initial_budget` — presupuesto inicial
-- `has_clauses` — si tiene cláusulas activas
-- `excluded_teams` — equipos excluidos del análisis
-- `money_per_point` — € por punto por jornada
-- `money_per_ranking` — € pool por clasificación por jornada
-- `dream_team_bonus` — € por jugador en dream team
-- `mvp_bonus` — € por MVP
-- `ranking_mode` — "flop" (últimos cobran menos) o "top" (primeros cobran más)
-- `users_to_rank` — cuántos usuarios se rankean (-1 = todos)
+### Estructura
+- **Global** — un registro por jugador, compartido entre todos los campeonatos
+- **Sin championship_id** (eliminado en migración v1.4)
+- Columnas clave: `player_name` (UNIQUE), `rating`, `matches_started`, `matches_started_prev`, `season`, `appearances`, `sofascore_url`
 
-Se auto-detectan desde la API de Futmondo al primer login. Resincronizables manualmente.
+### Cálculo de % Titularidad
+- Centralizado en `backend/app/api/v1/endpoints/_sofascore_helpers.py`
+- **Temporada anterior** (season contiene "25/26"): `matches_started / 38`
+- **Temporada actual** (season contiene "26/27"):
+  - Jornada 1-9: blend ponderado `(current/matchday)*peso + (prev/38)*(1-peso)` donde peso = matchday/10
+  - Jornada 10+: `matches_started / current_matchday`
+- `get_current_matchday()` lee MAX(matchday) de team_standings
+
+### Sync de Sofascore
+- Procesa TODOS los 507 jugadores del campeonato (no solo mercado/roster)
+- Escritura por lotes de 50 con UPSERT (evita timeout de Neon)
+- ON CONFLICT preserva `matches_started_prev` cuando cambia la temporada
+- Rate limit: 750ms entre requests, 5s pausa cada 20 perfiles
+- Duración: ~15-20 minutos para 507 jugadores
 
 ---
 
-## Fórmula de Finanzas
+## Transacciones
 
-```
-total_money = presupuesto_inicial
-            + (puntos_totales × money_per_point)
-            + (ventas - compras)
-            + (dream_team_count × dream_team_bonus)
-            + (mvp_count × mvp_bonus)
-            + ranking_money_acumulado
-            + net_castigos_bonificaciones
-```
+### Enriquecimiento de valor de mercado
+- Cada transacción se enriquece con `market_value_at_purchase` via `/1/player/fullprofile`
+- **Compras**: usa valor del día anterior (resolución de subasta)
+- **Ventas**: usa valor del mismo día (venta inmediata)
+- Solo se procesan las que tienen `market_value_at_purchase IS NULL`
+- Rate limit: 500ms entre requests, 5s pausa cada 20 perfiles
 
-### Ranking money (fórmula de Futmondo)
-```python
-total_pct = sum(1..N)  # N = usuarios a rankear
-ratio[posición] = (N - posición + 1) / total_pct
-premio = money_per_ranking × ratio
-```
-Se calcula por cada jornada jugada y se acumula.
+### Pujas competidoras
+- Campo `bids_json` almacena las pujas de otros equipos
+- Se guarda durante el sync de transacciones (`_store_bids`)
+- Frontend muestra las pujas con nombre, monto y % de sobrepago
+
+### Puja sugerida (mercado)
+- Basada en % real de sobrepago histórico (`price / market_value_at_purchase`)
+- Busca transacciones con `market_value_at_purchase` en rango ±25% del valor del jugador
+- Fallback: método anterior por rango de precios pagados
+- Confianza: high (≥10 txns), medium (≥3), low (<3)
 
 ---
 
 ## Sincronización
 
-### Flujo async
-1. Frontend: POST /sync/trigger → recibe task_id (202)
-2. Backend: lanza thread con 11 pasos
-3. Frontend: polling GET /sync/task/{id} cada 2s
-4. UI: progreso step-by-step con checkmarks
+### Flujo
+1. Frontend: modal con toggle Sofascore → POST /sync/trigger → task_id
+2. Backend: thread daemon con 10-11 pasos
+3. Frontend: polling cada 2s
+4. Al completar: actualiza `sync_metadata` tipo "all" con fecha actual
 
-### Pasos del sync
-1. Jugadores (batch insert 507 en 300ms)
-2. Transacciones (batch users+teams+players+transactions)
+### Pasos del sync "all"
+1. Jugadores (batch 507, incluye role2 y favoritos)
+2. Transacciones (incremental pressroom + enrichment market_value + bids)
 3. Cláusulas
 4. Castigos/bonificaciones
 5. Dream teams/MVPs
-6. Rendimiento por jornada (batch por matchday)
+6. Rendimiento por jornada
 7. Plantillas
 8. Clasificación
 9. Cuotas de partidos
 10. Verificar fantasmas
-11. Ratings Sofascore (rate-limited 750ms/request)
+11. Ratings Sofascore (opcional, toggle en UI)
 
-### Performance
-- Full sync: ~7-8s (antes: 70s)
-- Batch inserts con `execute_values` (PostgreSQL)
-- Cuello de botella: API de Futmondo, no la DB
+### Anti-rate-limiting
+- Headers idénticos a la PWA de Futmondo (Origin, Referer, User-Agent Chrome)
+- 300-500ms entre requests a Futmondo API
+- 750ms entre requests a Sofascore
+- Pausas de 5s cada 20 perfiles
 
 ---
 
@@ -160,28 +196,37 @@ Se calcula por cada jornada jugada y se acumula.
 - Login: POST `/5/login/with_mail`
 - Campeonatos activos: POST `/2/user/activechampionships`
 - Config campeonato: POST `/2/championship/teams`
+- Jugadores campeonato: POST `/5/league/championshipplayers`
 - Mercado: POST `/1/market/players`
-- Sala de prensa: POST `/1/classic/championship/pressroom`
+- Sala de prensa: POST `/1/locker/pressroom`
+- Roster usuario: POST `/1/userteam/roster`
+- Perfil jugador: POST `/1/player/fullprofile` (historial precios)
+- Quitar favorito: POST `/5/championship/unmarkfavorite`
 - Standings: POST `/1/classic/championship/matchday/standings`
 
 ### Sofascore (no oficial)
 - Base: `https://api.sofascore.com/api/v1`
 - Requiere `curl_cffi` (impersonate Chrome)
-- Rate limit: 750ms entre requests
 - Búsqueda: GET `/search/players?q={name}`
-- Stats: GET `/player/{id}/statistics/seasons`
+- Stats temporada: GET `/player/{id}/unique-tournament/{ut}/season/{s}/statistics/overall`
+- Stats equipo: GET `/team/{id}/unique-tournament/8/season/{s}/statistics/overall` → campo `matches`
+- Temporadas: GET `/unique-tournament/8/seasons`
+- LaLiga uniqueTournament ID: 8
+- Season IDs: 26/27=97268, 25/26=77559, 24/25=61643
 
 ---
 
-## Notas técnicas
+## Componentes Compartidos (angular-app/src/app/shared/)
 
-1. **Connection pool**: 5-20 conexiones, valida antes de usar (Neon cierra idle tras ~5min), recrea pool si todas muertas.
-2. **Session store**: In-memory, keyed por user_id, 12h TTL. Lock por usuario para evitar race conditions en re-auth.
-3. **Task manager**: In-memory, auto-expira tasks >10min, máximo 20 en memoria.
-4. **Sync metadata**: Compartido entre usuarios (quien sincroniza, beneficia a todos).
-5. **PWA**: Service worker con strategy freshness para API, prefetch para app shell.
-6. **Cookie auth**: COOKIE_SECURE=false en local (HTTP), true en producción (HTTPS).
+### Pipes
+- `MoneyPipe` — formatea números como dinero (€)
 
+### Components
+- `ScrollTopComponent` — FAB fijo abajo-derecha, scroll to top (usa querySelector en mat-sidenav-content)
+- `SofascoreBadgeComponent` — píldora compacta para tablas (colores oficiales Sofascore)
+- `SofascoreCardBadgeComponent` — badge para tarjetas ("Sofa" + valor, fondo semi-transparente)
+- `StarterBadgeComponent` — píldora compacta para tablas (escala rojo→verde)
+- `StarterCardBadgeComponent` — badge para tarjetas ("Tit" + valor, escala rojo→verde)
 
 ---
 
@@ -190,7 +235,8 @@ Se calcula por cada jornada jugada y se acumula.
 ### Comandos
 - **Build + deploy local**: `echo "javi" | sudo -S docker compose up -d --build`
 - **Solo frontend**: `echo "javi" | sudo -S docker compose up -d --build frontend`
-- **Ver logs**: `echo "javi" | sudo -S docker compose logs -f frontend`
+- **Solo backend**: `echo "javi" | sudo -S docker compose up -d --build backend`
+- **Ver logs**: `echo "javi" | sudo -S docker compose logs -f backend`
 - **Parar todo**: `echo "javi" | sudo -S docker compose down`
 
 ### Notas
@@ -198,3 +244,43 @@ Se calcula por cada jornada jugada y se acumula.
 - Siempre usar `up -d --build` (no solo `build`) para que el contenedor se recree con la nueva imagen.
 - URLs locales: `futmondo.localhost` (frontend) / `futmondo-api.localhost` (backend).
 - El proxy nginx (compose service `proxy`) rutea por `server_name`.
+- La BD Neon es compartida entre local y producción (mismos datos).
+- Deploy producción manual: `cd backend && ~/.fly/bin/flyctl deploy && cd ../angular-app && ~/.fly/bin/flyctl deploy`
+
+### Versionado
+- Versión en `angular-app/src/app/version.ts` + `package.json`
+- Tags git: `git tag -a vX.Y.Z -m "msg" && git push origin vX.Y.Z`
+- Releases GitHub: `gh release create vX.Y.Z --title "..." --notes "..."`
+
+---
+
+## Mapa de equipos LaLiga (IDs Futmondo)
+
+Usado como fallback estático cuando la API no devuelve nombre/logo del equipo real:
+
+```
+504e581e4d8bec9a670000c6 → Real Madrid
+504e581e4d8bec9a670000c7 → Barcelona
+504e581e4d8bec9a670000c8 → Atlético de Madrid
+504e581e4d8bec9a670000c9 → Athletic de Bilbao
+504e581e4d8bec9a670000ca → Rayo Vallecano
+504e581e4d8bec9a670000cb → Valencia
+504e581e4d8bec9a670000cc → Betis
+504e581e4d8bec9a670000cd → Getafe
+504e581e4d8bec9a670000ce → Real Sociedad
+504e581e4d8bec9a670000cf → Levante
+504e581e4d8bec9a670000d0 → Espanyol
+504e581e4d8bec9a670000d1 → Osasuna
+504e581e4d8bec9a670000d5 → Sevilla
+504e581e4d8bec9a670000d6 → Málaga
+504e581e4d8bec9a670000d8 → Deportivo de la Coruña
+504e581e4d8bec9a670000d9 → Celta de Vigo
+51b889b1e401a15f2c0000f0 → Elche
+51b890f5b986415a2c000012 → Villarreal
+52038563b8d07d930b00008a → Alavés
+520e4ee4a776cc826b00004b → Racing
+```
+
+### URLs de imágenes Futmondo
+- Jugadores: `https://static01.mondocore.com/futmondo/img/faces/64/{slug}.png`
+- Equipos: `https://static02.mondocore.com/futmondo/img/teams/64/{logo}`
