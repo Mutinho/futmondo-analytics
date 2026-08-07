@@ -122,8 +122,12 @@ interface Team {
           </mat-form-field>
         </div>
         @if (filterTeam || dateFrom || dateTo) {
-          <button mat-icon-button (click)="clearFilters()" title="Limpiar filtros" class="clear-btn">
+          <button mat-icon-button (click)="clearFilters()" title="Limpiar filtros" class="clear-btn desktop-only">
             <mat-icon>clear</mat-icon>
+          </button>
+          <button mat-flat-button color="primary" (click)="clearFilters()" class="clear-btn-mobile mobile-only">
+            <mat-icon>clear</mat-icon>
+            Limpiar filtros
           </button>
         }
       </div>
@@ -213,7 +217,7 @@ interface Team {
                             <span class="txn-bid-amount">
                               {{ b.bid | money }}
                               @if (t.market_value && t.market_value > 0) {
-                                <span class="txn-bid-overpay">(+{{ (((b.bid - t.market_value) / t.market_value) * 100).toFixed(1) }}% · {{ b.bid - t.market_value | money }})</span>
+                                <span class="txn-bid-overpay">(+{{ (((b.bid - t.market_value) / t.market_value) * 100).toFixed(1) }}%<span class="hide-mobile"> · {{ b.bid - t.market_value | money }}</span>)</span>
                               }
                             </span>
                           </div>
@@ -305,6 +309,7 @@ interface Team {
 
   styles: [`
     .description { color: var(--mat-sys-on-surface-variant); font-size: 13px; margin-bottom: 16px; }
+    :host { display: block; overflow-x: hidden; }
     .loading { display: flex; align-items: center; gap: 16px; padding: 60px; justify-content: center; color: var(--mat-sys-on-surface-variant); }
     .error-message { padding: 16px; background: #ffebee; color: #d32f2f; border-radius: 8px; }
     .empty { text-align: center; padding: 60px 20px; color: var(--mat-sys-on-surface-variant); font-size: 1.1em; }
@@ -316,12 +321,15 @@ interface Team {
     .filter-team { flex: 1; min-width: 180px; }
     .filter-dates { display: flex; gap: 8px; flex: 1; min-width: 280px; }
     .filter-date { flex: 1; }
-    .clear-btn { flex-shrink: 0; }
-    @media (max-width: 600px) { .filter-dates { min-width: 100%; } }
+    .clear-btn { flex-shrink: 0; background-color: var(--mat-sys-primary); color: var(--mat-sys-on-primary); }
+    .clear-btn-mobile { width: 100%; margin-top: 4px; }
+    .desktop-only { display: inline-flex; }
+    .mobile-only { display: none; }
+    @media (max-width: 600px) { .filter-dates { min-width: 100%; } .desktop-only { display: none; } .mobile-only { display: block; } }
     .date-block { margin-bottom: 24px; }
     .date-header { font-weight: 700; font-size: 1em; padding: 10px 16px; background: var(--mat-sys-surface-container); border-radius: 10px; margin-bottom: 12px; color: var(--mat-sys-on-surface); }
     .date-content { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    @media (max-width: 768px) { .date-content { grid-template-columns: 1fr; } }
+    @media (max-width: 768px) { .date-content { grid-template-columns: 1fr; } .txn-card { overflow: hidden; } }
     .txn-column { display: flex; flex-direction: column; gap: 8px; }
     .col-title { margin: 0 0 8px; font-size: 0.85em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
     .col-title.purchases { color: #2e7d32; }
@@ -350,7 +358,7 @@ interface Team {
     .badge-item { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; font-size: 0.75em; font-weight: 700; background: rgba(0,196,36,0.1); color: #00C424; border: 1px solid rgba(0,196,36,0.25); }
     .badge-label { font-size: 0.85em; text-transform: uppercase; opacity: 0.8; }
     .badge-val { font-weight: 800; }
-    .txn-price-block { background: var(--mat-sys-surface-container-highest); border-radius: 10px; padding: 12px; display: flex; gap: 16px; flex-wrap: wrap; align-items: center; justify-content: center; }
+    .txn-price-block { background: var(--mat-sys-surface-container-highest); border-radius: 10px; padding: 12px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; justify-content: center; overflow: hidden; }
     .dark-theme .txn-price-block { background: rgba(53,53,52,0.5); }
     .txn-price-main, .txn-price-secondary, .txn-price-overpay { display: flex; flex-direction: column; align-items: center; gap: 2px; }
     .txn-price-label { font-size: 0.6em; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--mat-sys-on-surface-variant); }
@@ -371,6 +379,7 @@ interface Team {
     .txn-bid-name { font-size: 0.85em; color: var(--mat-sys-on-surface-variant); font-weight: 500; }
     .txn-bid-amount { font-size: 0.9em; font-weight: 700; color: var(--mat-sys-on-surface); }
     .txn-bid-overpay { font-size: 0.8em; font-weight: 500; color: #e65100; margin-left: 4px; }
+    @media (max-width: 600px) { .hide-mobile { display: none; } .txn-bid-amount { font-size: 0.8em; } .txn-bid-name { font-size: 0.8em; } }
     .txn-empty { font-size: 0.85em; color: var(--mat-sys-on-surface-variant); padding: 12px; text-align: center; font-style: italic; }
   `]
 })
