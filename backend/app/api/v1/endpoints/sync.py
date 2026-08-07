@@ -106,6 +106,11 @@ def _write_sofascore_batch(db, championship_id: str, rows: list):
                     sofascore_id = EXCLUDED.sofascore_id, sofascore_name = EXCLUDED.sofascore_name,
                     team = EXCLUDED.team, rating = EXCLUDED.rating, goals = EXCLUDED.goals,
                     assists = EXCLUDED.assists, appearances = EXCLUDED.appearances,
+                    matches_started_prev = CASE 
+                        WHEN sofascore_cache.season != EXCLUDED.season AND sofascore_cache.matches_started > 0 
+                        THEN sofascore_cache.matches_started 
+                        ELSE sofascore_cache.matches_started_prev 
+                    END,
                     matches_started = EXCLUDED.matches_started, minutes_played = EXCLUDED.minutes_played,
                     yellow_cards = EXCLUDED.yellow_cards, red_cards = EXCLUDED.red_cards,
                     tournament = EXCLUDED.tournament, season = EXCLUDED.season,

@@ -15,6 +15,11 @@ import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog } from '@angular/material/dialog';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
+import { StarterBadgeComponent } from '../../shared/components/starter-badge.component';
+import { StarterCardBadgeComponent } from '../../shared/components/starter-card-badge.component';
+import { SofascoreBadgeComponent } from '../../shared/components/sofascore-badge.component';
+import { SofascoreCardBadgeComponent } from '../../shared/components/sofascore-card-badge.component';
+import { ScrollTopComponent } from '../../shared/components/scroll-top.component';
 import { ChampionshipService } from '../../core/services/championship.service';
 import { SofascoreDetailDialogComponent } from '../market/sofascore-detail-dialog.component';
 import { ConfirmDialogComponent } from '../market/confirm-dialog.component';
@@ -46,7 +51,7 @@ interface FavoritePlayer {
   standalone: true,
   imports: [
     MatTableModule, MatSortModule, MatProgressSpinnerModule,
-    MatChipsModule, MatIconModule, MatTooltipModule, MatButtonModule, MatButtonToggleModule, MatSnackBarModule, MoneyPipe
+    MatChipsModule, MatIconModule, MatTooltipModule, MatButtonModule, MatButtonToggleModule, MatSnackBarModule, MoneyPipe, StarterBadgeComponent, StarterCardBadgeComponent, SofascoreBadgeComponent, SofascoreCardBadgeComponent, ScrollTopComponent
   ],
   template: `
     <h1>⭐ Favoritos</h1>
@@ -122,14 +127,7 @@ interface FavoritePlayer {
           <ng-container matColumnDef="sofascore_rating">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>Sofascore</th>
             <td mat-cell *matCellDef="let p">
-              @if (p.sofascore_rating != null) {
-                <span class="sofascore-badge" [class]="getSofascoreClass(p.sofascore_rating)"
-                      (click)="openSofascoreDetail(p, $event)">
-                  {{ p.sofascore_rating.toFixed(1) }}
-                </span>
-              } @else {
-                <span class="sofascore-na">-</span>
-              }
+              <app-sofascore-badge [rating]="p.sofascore_rating" (click)="openSofascoreDetail(p, $event)" />
             </td>
           </ng-container>
 
@@ -138,7 +136,7 @@ interface FavoritePlayer {
             <th mat-header-cell *matHeaderCellDef mat-sort-header>% Titular</th>
             <td mat-cell *matCellDef="let p">
               @if (p.starter_pct != null) {
-                <span class="starter-badge" [class]="getStarterClass(p.starter_pct)">{{ p.starter_pct }}%</span>
+                <app-starter-badge [pct]="p.starter_pct" />
               } @else {
                 <span class="sofascore-na">-</span>
               }
@@ -241,18 +239,8 @@ interface FavoritePlayer {
                   <span class="card-team-name">{{ p.team }}</span>
                 </div>
                 <div class="card-badges">
-                  @if (p.sofascore_rating != null) {
-                    <span class="card-badge sofascore" (click)="openSofascoreDetail(p, $event)">
-                      <span class="card-badge-label">Sofa</span>
-                      <span class="card-badge-value">{{ p.sofascore_rating.toFixed(1) }}</span>
-                    </span>
-                  }
-                  @if (p.starter_pct != null) {
-                    <span class="card-badge starter">
-                      <span class="card-badge-label">Tit</span>
-                      <span class="card-badge-value">{{ p.starter_pct }}%</span>
-                    </span>
-                  }
+                  <app-sofascore-card-badge [rating]="p.sofascore_rating" (click)="openSofascoreDetail(p, $event)" />
+                  <app-starter-card-badge [pct]="p.starter_pct" />
                 </div>
               </div>
               <span class="pos-chip card-pos-top" [class]="'pos-' + getPositionKey(p.position)">{{ getPositionLabel(p.position) }}</span>
@@ -291,6 +279,7 @@ interface FavoritePlayer {
           </article>
         }
       </div>
+      <app-scroll-top />
       }
     }
   `,
@@ -327,10 +316,6 @@ interface FavoritePlayer {
     .sofascore-s65 { background: #D9AF00; }
     .sofascore-s60 { background: #ED7E07; }
     .sofascore-na { color: var(--mat-sys-on-surface-variant); }
-    .starter-badge { display: inline-block; padding: 6px 8px; border-radius: 8px; font-size: 0.8em; font-weight: 700; color: #fff; width: fit-content; text-align: center; line-height: 1; }
-    .starter-high { background: #16a34a; }
-    .starter-mid { background: #ca8a04; }
-    .starter-low { background: #dc2626; }
     .matches-info { font-size: 0.8em; color: var(--mat-sys-on-surface-variant); margin-left: 4px; }
     .average-main { font-weight: 700; font-size: 1.1em; }
     .average-detail { font-size: 0.75em; color: var(--mat-sys-on-surface-variant); margin-left: 6px; white-space: nowrap; }
@@ -476,19 +461,8 @@ export class FavoritesComponent {
     return position;
   }
 
-  getSofascoreClass(rating: number): string {
-    if (rating >= 9) return 'sofascore-s90';
-    if (rating >= 8) return 'sofascore-s80';
-    if (rating >= 7) return 'sofascore-s70';
-    if (rating >= 6.5) return 'sofascore-s65';
-    return 'sofascore-s60';
-  }
 
-  getStarterClass(pct: number): string {
-    if (pct >= 75) return 'starter-high';
-    if (pct >= 40) return 'starter-mid';
-    return 'starter-low';
-  }
+
 
   getAverageTooltip(p: FavoritePlayer): string {
     let tip = `Media: ${p.average.toFixed(1)}`;

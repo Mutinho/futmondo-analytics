@@ -307,10 +307,13 @@ async def get_market_today(
             })
         
         # Enriquecer con ratings de Sofascore desde caché
+        from app.api.v1.endpoints._sofascore_helpers import calculate_starter_pct, get_current_matchday
+        current_matchday = get_current_matchday(db, championship_id)
+        
         with db.get_connection() as conn_sf:
             cursor_sf = db.get_cursor(conn_sf)
             sql_sf = """
-                SELECT player_name, sofascore_id, rating, goals, assists, appearances, sofascore_url, matches_started
+                SELECT player_name, sofascore_id, rating, goals, assists, appearances, sofascore_url, matches_started, season, matches_started_prev
                 FROM sofascore_cache
             """
             sql_sf = db.adapt_params(sql_sf)
@@ -319,9 +322,10 @@ async def get_market_today(
 
         sf_map = {}
         for row in sf_rows:
-            appearances_sf = row[5] or 0
             matches_started = row[7] or 0 if len(row) > 7 else 0
-            starter_pct = round((matches_started / appearances_sf) * 100) if appearances_sf > 0 else None
+            season_name = row[8] or "" if len(row) > 8 else ""
+            matches_started_prev = row[9] or 0 if len(row) > 9 else 0
+            starter_pct = calculate_starter_pct(matches_started, season_name, current_matchday, matches_started_prev)
             sf_map[row[0]] = {
                 "sofascore_id": row[1],
                 "sofascore_rating": row[2],

@@ -85,24 +85,8 @@ async def get_transactions_history(
             teams = [{"team_id": r[0], "team_name": r[1]} for r in cursor.fetchall()]
         
         # Enrich with Sofascore
-        sofascore_map = {}
-        try:
-            with db.get_connection() as conn:
-                cursor = db.get_cursor(conn)
-                sql_sf = "SELECT player_name, rating, sofascore_url, appearances, matches_started FROM sofascore_cache"
-                sql_sf = db.adapt_params(sql_sf)
-                cursor.execute(sql_sf)
-                for row in cursor.fetchall():
-                    appearances_sf = row[3] or 0
-                    matches_started = row[4] or 0
-                    starter_pct = round((matches_started / appearances_sf) * 100) if appearances_sf > 0 else None
-                    sofascore_map[row[0].lower()] = {
-                        "rating": row[1],
-                        "url": row[2],
-                        "starter_pct": starter_pct,
-                    }
-        except Exception:
-            pass
+        from app.api.v1.endpoints._sofascore_helpers import build_sofascore_map
+        sofascore_map = build_sofascore_map(db, championship_id)
         
         # LaLiga team map for resolving team names from IDs
         LALIGA_TEAMS = {

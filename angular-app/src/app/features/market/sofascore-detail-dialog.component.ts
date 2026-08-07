@@ -15,6 +15,8 @@ interface SofascoreStats {
   goals: number | null;
   assists: number | null;
   appearances: number | null;
+  matches_started: number | null;
+  starter_pct: number | null;
   minutes_played: number | null;
   yellow_cards: number | null;
   red_cards: number | null;
@@ -71,6 +73,18 @@ interface SofascoreStats {
             <mat-card-content>
               <div class="stat-value">{{ stats()!.appearances ?? '-' }}</div>
               <div class="stat-label">Partidos</div>
+            </mat-card-content>
+          </mat-card>
+          <mat-card class="stat-card">
+            <mat-card-content>
+              <div class="stat-value">{{ stats()!.matches_started ?? '-' }}</div>
+              <div class="stat-label">Titular</div>
+            </mat-card-content>
+          </mat-card>
+          <mat-card class="stat-card">
+            <mat-card-content>
+              <div class="stat-value" [class]="getStarterClass(stats()!.starter_pct)">{{ stats()!.starter_pct != null ? stats()!.starter_pct + '%' : '-' }}</div>
+              <div class="stat-label">% Titularidad</div>
             </mat-card-content>
           </mat-card>
           <mat-card class="stat-card">
@@ -180,6 +194,11 @@ interface SofascoreStats {
     .stat-value { font-size: 1.4em; font-weight: 700; }
     .stat-value.yellow { color: #ca8a04; }
     .stat-value.red { color: #dc2626; }
+    .stat-value.starter-80 { color: #16a34a; }
+    .stat-value.starter-60 { color: #65a30d; }
+    .stat-value.starter-40 { color: #ca8a04; }
+    .stat-value.starter-20 { color: #ea580c; }
+    .stat-value.starter-0 { color: #dc2626; }
     .stat-label { font-size: 0.75em; color: var(--mat-sys-on-surface-variant); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
     .stat-card.goals .stat-value { color: #16a34a; }
     .stat-card.assists .stat-value { color: #2563eb; }
@@ -230,6 +249,15 @@ export class SofascoreDetailDialogComponent {
     if (rating >= 7) return 'rating-green';
     if (rating >= 6) return 'rating-yellow';
     return 'rating-red';
+  }
+
+  getStarterClass(pct: number | null | undefined): string {
+    if (pct == null) return '';
+    if (pct >= 80) return 'starter-80';
+    if (pct >= 60) return 'starter-60';
+    if (pct >= 40) return 'starter-40';
+    if (pct >= 20) return 'starter-20';
+    return 'starter-0';
   }
 
   formatPosition(pos: string): string {

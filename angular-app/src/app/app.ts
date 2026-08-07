@@ -10,6 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { ScrollingModule } from '@angular/cdk/scrolling';
 import { MatDialog } from '@angular/material/dialog';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ChampionshipService } from './core/services/championship.service';
@@ -37,6 +38,7 @@ interface NavItem {
     MatButtonModule,
     MatSelectModule,
     MatFormFieldModule,
+    ScrollingModule,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss'
@@ -92,6 +94,7 @@ export class App {
       this.isLoginPage.set(hideShell);
       if (!hideShell) {
         document.body.removeAttribute('style');
+        localStorage.setItem('futmondo_last_route', url);
       }
     });
 

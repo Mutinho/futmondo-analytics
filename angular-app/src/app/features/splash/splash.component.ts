@@ -28,11 +28,14 @@ export class SplashComponent implements OnInit {
   private authService = inject(AuthService);
 
   async ngOnInit() {
+    // Save the intended URL (what the user had before F5)
+    const intendedUrl = localStorage.getItem('futmondo_last_route') || '/budget';
+    
     // Try to recover session from HttpOnly cookie
     const recovered = await this.authService.tryRecoverSession();
     
     if (recovered) {
-      this.router.navigate(['/budget'], { replaceUrl: true });
+      this.router.navigateByUrl(intendedUrl, { replaceUrl: true });
     } else {
       this.router.navigate(['/login'], { replaceUrl: true });
     }

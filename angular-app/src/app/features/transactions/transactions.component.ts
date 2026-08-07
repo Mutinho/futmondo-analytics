@@ -11,6 +11,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule, MAT_DATE_LOCALE, DateAdapter, MAT_DATE_FORMATS, NativeDateAdapter } from '@angular/material/core';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
+import { StarterBadgeComponent } from '../../shared/components/starter-badge.component';
+import { ScrollTopComponent } from '../../shared/components/scroll-top.component';
 
 const ES_DATE_FORMATS = {
   parse: { dateInput: 'dd/MM/yyyy' },
@@ -78,7 +80,7 @@ interface Team {
   imports: [
     FormsModule, MatProgressSpinnerModule, MatSelectModule,
     MatFormFieldModule, MatInputModule, MatIconModule, MatButtonModule,
-    MatDatepickerModule, MatNativeDateModule, MoneyPipe
+    MatDatepickerModule, MatNativeDateModule, MoneyPipe, ScrollTopComponent, StarterBadgeComponent
   ],
   providers: [
     { provide: MAT_DATE_LOCALE, useValue: 'es-ES' },
@@ -144,7 +146,12 @@ interface Team {
 
       @for (group of groups(); track group.date) {
         <div class="date-block">
-          <div class="date-header">📅 {{ formatDate(group.date) }}</div>
+          <div class="date-header" (click)="toggleDate(group.date)">
+            <span class="date-title">📅 {{ formatDate(group.date) }}</span>
+            <span class="date-summary">🟢{{ group.purchases.length }} 🔴{{ group.sales.length }}</span>
+            <mat-icon class="date-toggle">{{ isDateOpen(group.date) ? 'expand_less' : 'expand_more' }}</mat-icon>
+          </div>
+          @if (isDateOpen(group.date)) {
           <div class="date-content">
             <!-- Purchases -->
             <div class="txn-column">
@@ -201,7 +208,7 @@ interface Team {
                       <span class="badge-item"><span class="badge-label">Sofa</span><span class="badge-val">{{ t.sofascore_rating.toFixed(1) }}</span></span>
                     }
                     @if (t.starter_pct != null) {
-                      <span class="badge-item"><span class="badge-label">Tit</span><span class="badge-val">{{ t.starter_pct }}%</span></span>
+                      <app-starter-badge [pct]="t.starter_pct" />
                     }
                     @if (t.bids && t.bids.length) {
                       <span class="badge-item badge-bids">{{ t.bids.length }} puja{{ t.bids.length > 1 ? 's' : '' }}</span>
@@ -292,7 +299,7 @@ interface Team {
                       <span class="badge-item"><span class="badge-label">Sofa</span><span class="badge-val">{{ t.sofascore_rating.toFixed(1) }}</span></span>
                     }
                     @if (t.starter_pct != null) {
-                      <span class="badge-item"><span class="badge-label">Tit</span><span class="badge-val">{{ t.starter_pct }}%</span></span>
+                      <app-starter-badge [pct]="t.starter_pct" />
                     }
                   </div>
                 </div>
@@ -302,9 +309,13 @@ interface Team {
               }
             </div>
           </div>
+          }
         </div>
       }
     }
+
+    <!-- Scroll to top -->
+    <app-scroll-top />
   `,
 
   styles: [`
@@ -327,7 +338,12 @@ interface Team {
     .mobile-only { display: none; }
     @media (max-width: 600px) { .filter-dates { min-width: 100%; } .desktop-only { display: none; } .mobile-only { display: block; } }
     .date-block { margin-bottom: 24px; }
-    .date-header { font-weight: 700; font-size: 1em; padding: 10px 16px; background: var(--mat-sys-surface-container); border-radius: 10px; margin-bottom: 12px; color: var(--mat-sys-on-surface); }
+    .date-header { font-weight: 700; font-size: 1em; padding: 10px 16px; background: var(--mat-sys-surface-container); border-radius: 10px; margin-bottom: 12px; color: var(--mat-sys-on-surface); display: flex; align-items: center; cursor: pointer; gap: 8px; }
+    .date-header:hover { background: var(--mat-sys-surface-container-highest); }
+    .date-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .date-summary { font-size: 0.85em; font-weight: 600; white-space: nowrap; }
+    .date-toggle { margin-left: auto; flex-shrink: 0; }
+    @media (max-width: 600px) { .date-title { font-size: 0.85em; } .date-summary { font-size: 0.8em; } }
     .date-content { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     @media (max-width: 768px) { .date-content { grid-template-columns: 1fr; } .txn-card { overflow: hidden; } }
     .txn-column { display: flex; flex-direction: column; gap: 8px; }
@@ -397,6 +413,7 @@ export class TransactionsComponent {
   filterTeam = '';
   dateFrom: Date | null = null;
   dateTo: Date | null = null;
+  openDates = new Set<string>();
 
   constructor() {
     effect(() => {
@@ -422,6 +439,8 @@ export class TransactionsComponent {
       this.groups.set(data.groups || []);
       this.teams.set(data.teams || []);
       this.totalTransactions.set(data.total_transactions || 0);
+      // Open all dates by default
+      this.openDates = new Set((data.groups || []).map((g: DateGroup) => g.date));
     } catch (err: any) {
       this.error.set(err?.error?.detail || err.message || 'Error cargando transacciones');
     } finally {
@@ -434,6 +453,18 @@ export class TransactionsComponent {
     this.dateFrom = null;
     this.dateTo = null;
     this.loadData();
+  }
+
+  toggleDate(date: string) {
+    if (this.openDates.has(date)) {
+      this.openDates.delete(date);
+    } else {
+      this.openDates.add(date);
+    }
+  }
+
+  isDateOpen(date: string): boolean {
+    return this.openDates.has(date);
   }
 
   formatDate(dateStr: string): string {

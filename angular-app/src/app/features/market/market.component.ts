@@ -14,6 +14,11 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
+import { StarterBadgeComponent } from '../../shared/components/starter-badge.component';
+import { StarterCardBadgeComponent } from '../../shared/components/starter-card-badge.component';
+import { SofascoreBadgeComponent } from '../../shared/components/sofascore-badge.component';
+import { SofascoreCardBadgeComponent } from '../../shared/components/sofascore-card-badge.component';
+import { ScrollTopComponent } from '../../shared/components/scroll-top.component';
 import { ChampionshipService } from '../../core/services/championship.service';
 import { ConfirmDialogComponent } from './confirm-dialog.component';
 import { BidDialogComponent, BidDialogData, BidDialogResult } from './bid-dialog.component';
@@ -50,7 +55,7 @@ interface MarketPlayer {
 @Component({
   selector: 'app-market',
   standalone: true,
-  imports: [MatTableModule, MatSortModule, MatProgressSpinnerModule, MatChipsModule, MatButtonModule, MatButtonToggleModule, MatIconModule, MatSnackBarModule, MoneyPipe],
+  imports: [MatTableModule, MatSortModule, MatProgressSpinnerModule, MatChipsModule, MatButtonModule, MatButtonToggleModule, MatIconModule, MatSnackBarModule, MoneyPipe, StarterBadgeComponent, StarterCardBadgeComponent, SofascoreBadgeComponent, SofascoreCardBadgeComponent, ScrollTopComponent],
   template: `
     <h1>🛒 Mercado de Hoy</h1>
     <p class="description">Jugadores del computer disponibles para fichar. La puja sugerida se basa en el historial de compras similares.</p>
@@ -143,21 +148,14 @@ interface MarketPlayer {
           <ng-container matColumnDef="sofascore_rating">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>Sofascore</th>
             <td mat-cell *matCellDef="let p">
-              @if (p.sofascore_rating != null) {
-                <span class="sofascore-badge" [class]="getSofascoreClass(p.sofascore_rating)"
-                      (click)="openSofascoreDetail(p, $event)">
-                  {{ p.sofascore_rating.toFixed(1) }}
-                </span>
-              } @else {
-                <span class="sofascore-na">-</span>
-              }
+              <app-sofascore-badge [rating]="p.sofascore_rating" (click)="openSofascoreDetail(p, $event)" />
             </td>
           </ng-container>
           <ng-container matColumnDef="starter_pct">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>% Titular</th>
             <td mat-cell *matCellDef="let p">
               @if (p.starter_pct != null) {
-                <span class="starter-badge" [class]="getStarterClass(p.starter_pct)">{{ p.starter_pct }}%</span>
+                <app-starter-badge [pct]="p.starter_pct" />
               } @else {
                 <span class="sofascore-na">-</span>
               }
@@ -261,18 +259,8 @@ interface MarketPlayer {
                   <span class="card-team-name">{{ p.team }}</span>
                 </div>
                 <div class="card-badges">
-                  @if (p.sofascore_rating != null) {
-                    <span class="card-badge sofascore" (click)="openSofascoreDetail(p, $event)">
-                      <span class="card-badge-label">Sofa</span>
-                      <span class="card-badge-value">{{ p.sofascore_rating.toFixed(1) }}</span>
-                    </span>
-                  }
-                  @if (p.starter_pct != null) {
-                    <span class="card-badge starter">
-                      <span class="card-badge-label">Tit</span>
-                      <span class="card-badge-value">{{ p.starter_pct }}%</span>
-                    </span>
-                  }
+                  <app-sofascore-card-badge [rating]="p.sofascore_rating" (click)="openSofascoreDetail(p, $event)" />
+                  <app-starter-card-badge [pct]="p.starter_pct" />
                 </div>
               </div>
               <span class="pos-chip card-pos-top" [class]="'pos-' + getPositionKey(p.position)">{{ getPositionLabel(p.position) }}</span>
@@ -331,6 +319,7 @@ interface MarketPlayer {
           </article>
         }
       </div>
+      <app-scroll-top />
       }
     }
   `,
@@ -387,10 +376,6 @@ interface MarketPlayer {
     .sofascore-s60 { background: #ED7E07; }
     .sofascore-na { color: var(--mat-sys-on-surface-variant); }
     .matches-info { font-size: 0.8em; color: var(--mat-sys-on-surface-variant); margin-left: 4px; }
-    .starter-badge { display: inline-block; padding: 6px 8px; border-radius: 8px; font-size: 0.8em; font-weight: 700; color: #fff; width: fit-content; text-align: center; line-height: 1; }
-    .starter-high { background: #16a34a; }
-    .starter-mid { background: #ca8a04; }
-    .starter-low { background: #dc2626; }
     .view-toggle { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-bottom: 16px; }
     .sort-select { flex: 1; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface-container); color: var(--mat-sys-on-surface); font-size: 0.85em; font-weight: 600; cursor: pointer; }
     .cards-container { display: grid; grid-template-columns: 1fr; gap: 16px; }
@@ -624,19 +609,8 @@ export class MarketComponent {
     }
   }
 
-  getSofascoreClass(rating: number): string {
-    if (rating >= 9) return 'sofascore-s90';
-    if (rating >= 8) return 'sofascore-s80';
-    if (rating >= 7) return 'sofascore-s70';
-    if (rating >= 6.5) return 'sofascore-s65';
-    return 'sofascore-s60';
-  }
 
-  getStarterClass(pct: number): string {
-    if (pct >= 75) return 'starter-high';
-    if (pct >= 40) return 'starter-mid';
-    return 'starter-low';
-  }
+
 
   openSofascoreDetail(player: MarketPlayer, event: Event) {
     event.stopPropagation();

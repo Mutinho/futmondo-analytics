@@ -269,6 +269,71 @@ class SofascoreClient:
         return result
 
 
+    def get_player_starter_data(self, player_id: int) -> Dict:
+        """Get matchesStarted for both current and previous season.
+        
+        Returns:
+            Dict with matches_started_prev (last season /38) and matches_started_current
+        """
+        data = self._get(f"/player/{player_id}/statistics/seasons")
+        if not data:
+            return {"matches_started_prev": 0, "matches_started_current": 0, "season_name": ""}
+        
+        unique_tournaments = data.get("uniqueTournamentSeasons", [])
+        
+        CURRENT_SEASON_KEYWORDS = ["26/27", "2026-2027", "2026/2027"]
+        PREVIOUS_SEASON_KEYWORDS = ["25/26", "2025-2026", "2025/2026"]
+        PRIORITY_KEYWORDS = ["laliga", "la liga", "premier", "serie a", "bundesliga", "ligue 1"]
+        
+        current_starts = 0
+        prev_starts = 0
+        season_name = ""
+        
+        for ut in unique_tournaments:
+            tournament = ut.get("uniqueTournament", {})
+            tournament_name = (tournament.get("name") or "").lower()
+            if not any(kw in tournament_name for kw in PRIORITY_KEYWORDS):
+                continue
+            
+            tournament_id = tournament.get("id")
+            seasons = ut.get("seasons", [])
+            
+            for season in seasons:
+                sname = (season.get("name") or "").lower()
+                season_id = season.get("id")
+                
+                is_current = any(kw in sname for kw in CURRENT_SEASON_KEYWORDS)
+                is_previous = any(kw in sname for kw in PREVIOUS_SEASON_KEYWORDS)
+                
+                if not is_current and not is_previous:
+                    continue
+                
+                stats = self._get(
+                    f"/player/{player_id}/unique-tournament/{tournament_id}/season/{season_id}/statistics/overall"
+                )
+                if stats and stats.get("statistics"):
+                    started = stats["statistics"].get("matchesStarted", 0) or 0
+                    if is_current and started > 0:
+                        current_starts = started
+                        season_name = season.get("name", "")
+                    elif is_previous and started > 0:
+                        prev_starts = started
+                        if not season_name:
+                            season_name = season.get("name", "")
+                
+                # Don't make too many calls per player
+                if current_starts and prev_starts:
+                    break
+            if current_starts and prev_starts:
+                break
+        
+        return {
+            "matches_started_prev": prev_starts,
+            "matches_started_current": current_starts,
+            "season_name": season_name,
+        }
+
+
 # Singleton
 _client: Optional[SofascoreClient] = None
 
