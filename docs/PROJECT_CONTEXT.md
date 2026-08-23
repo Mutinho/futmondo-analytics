@@ -1,6 +1,6 @@
 # Contexto del Proyecto — Futmondo Analytics
 
-## Estado Actual (7 agosto 2026) — v1.4.4
+## Estado Actual (23 agosto 2026) — v1.4.4
 
 ### Resumen
 Aplicación multi-usuario de gestión de ligas Futmondo (fantasy football). Frontend Angular 22 (PWA) + backend FastAPI. Autenticación JWT con HttpOnly cookies. Base de datos Neon PostgreSQL. Deploy en Fly.io.
@@ -52,7 +52,7 @@ Aplicación multi-usuario de gestión de ligas Futmondo (fantasy football). Fron
 |------|--------|-------------|
 | `/budget` | Presupuesto | Vista general de equipos con balance, valor plantilla, rendimiento. Vista tabla y tarjetas |
 | `/my-roster` | Mi Plantilla | Jugadores del usuario con valor, plusvalía, puntos, media, ventas recomendadas |
-| `/market` | Mercado | Jugadores del computer para pujar, puja sugerida basada en % real de sobrepago |
+| `/market` | Mercado | Jugadores del computer para pujar, puja sugerida basada en % real de sobrepago. Favoritos destacados con borde/fondo dorado |
 | `/favorites` | Favoritos | Jugadores libres marcados como favoritos, con botón de unfollow |
 | `/transactions` | Transacciones | Historial compras/ventas por fecha, con pujas competidoras y plusvalías |
 | `/evolution` | Evolución | Gráficos de progresión |
@@ -173,13 +173,13 @@ Aplicación multi-usuario de gestión de ligas Futmondo (fantasy football). Fron
 ## Sincronización
 
 ### Flujo
-1. Frontend: modal con toggle Sofascore → POST /sync/trigger → task_id
-2. Backend: thread daemon con 10-11 pasos
+1. Frontend: modal sin toggle → POST /sync/trigger → task_id
+2. Backend: thread daemon con 10 pasos (sin Sofascore)
 3. Frontend: polling cada 2s
 4. Al completar: actualiza `sync_metadata` tipo "all" con fecha actual
 
 ### Pasos del sync "all"
-1. Jugadores (batch 507, incluye role2 y favoritos)
+1. Jugadores (batch ~520, incluye role2 y favoritos)
 2. Transacciones (incremental pressroom + enrichment market_value + bids)
 3. Cláusulas
 4. Castigos/bonificaciones
@@ -189,16 +189,46 @@ Aplicación multi-usuario de gestión de ligas Futmondo (fantasy football). Fron
 8. Clasificación
 9. Cuotas de partidos
 10. Verificar fantasmas
-11. Ratings Sofascore (opcional, toggle en UI)
 
-### Sync automático (Cron)
+### Sync automático (Cron) — Datos
 - **GitHub Actions** workflow `daily-sync.yml` con schedule `cron: '30 4 * * *'` (6:30 CET)
-- Ejecuta `flyctl deploy --config cron/fly.toml --ha=false` desde `backend/`
-- Usa la 3ª máquina gratis de Fly.io (`futmondo-cron`, región cdg)
+- Ejecuta `flyctl deploy --config cron/fly.toml --ha=false` + `flyctl machine start`
+- Usa la 3ª máquina gratis de Fly.io (`futmondo-cron`, región cdg, 256MB)
 - Reutiliza el Dockerfile del backend, overrides CMD via `[processes]` en fly.toml
-- Ejecuta `scripts/sync_data.py` que hace sync_all() + Sofascore + actualiza sync_metadata
-- La máquina arranca, ejecuta el sync (~15-20 min) y se para sola al terminar
+- Ejecuta `scripts/sync_data.py` — **multi-campeonato**:
+  - Obtiene championship IDs cruzando API Futmondo (`/2/user/activechampionships`) con BD (`user_championships`)
+  - Itera sobre cada campeonato y ejecuta sync_all()
+  - Si un campeonato falla, continúa con el siguiente
+  - Exit 0 si al menos uno tiene éxito
+- La máquina arranca, ejecuta el sync (~10-15s por campeonato) y se para sola al terminar
+- Requiere `flyctl machine start` explícito después del deploy (sin http_service no auto-arranca)
 - También se puede lanzar manualmente desde GitHub Actions (workflow_dispatch)
+
+### Sync Sofascore — Local (IP residencial)
+- **Sofascore bloquea IPs de datacenter** (Fly.io) con 403 "challenge"
+- El sync de Sofascore se ejecuta desde la máquina local del usuario (IP residencial)
+- **Script**: `backend/scripts/sync_sofascore_local.py`
+  - Conecta directamente a Neon PostgreSQL (no necesita Futmondo login)
+  - Lee jugadores de la BD (tabla `players` JOIN `player_championship_stats` JOIN `user_championships`)
+  - ~544 jugadores activos (filtra huérfanos de temporadas anteriores)
+  - Muestra cada jugador en tiempo real con rating coloreado
+  - Rate limit conservador: 2s entre requests, 15s pausa cada 10 jugadores
+  - Retry en 403: hasta 3 reintentos con backoff 60/120/180s
+  - Escribe en batches de 50 con UPSERT
+  - Duración estimada: ~25-30 min
+- **Alias local**: `sofascore_sync` (en `~/.bash_aliases`)
+- **GitHub Actions** workflow `sofascore-sync.yml`:
+  - Corre en **self-hosted runner** (`futmondo-local`) instalado en WSL
+  - Schedule: `cron: '0 5 * * *'` (7:00 CET, después del sync de datos)
+  - También workflow_dispatch (lanzable desde móvil)
+  - Runner instalado como servicio systemd (auto-start con WSL)
+  - Ubicación: `/home/javi/actions-runner`
+  - WSL config: `%UserProfile%\.wslconfig` con `vmIdleTimeout=-1` para evitar apagado
+
+### Sofascore — Rate Limiting
+- Ban temporal por IP tras ~340 requests seguidas a 0.75s
+- Duración del ban: **~1 hora** (confirmado empíricamente)
+- Con los nuevos parámetros conservadores no debería activarse el ban
 
 ### Anti-rate-limiting
 - Headers idénticos a la PWA de Futmondo (Origin, Referer, User-Agent Chrome)
