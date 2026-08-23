@@ -310,6 +310,18 @@ async def get_market_today(
         from app.api.v1.endpoints._sofascore_helpers import calculate_starter_pct, get_current_matchday
         current_matchday = get_current_matchday(db, championship_id)
         
+        # Get user's favorites for this championship
+        favorite_player_ids = set()
+        try:
+            with db.get_connection() as conn_fav:
+                cursor_fav = db.get_cursor(conn_fav)
+                sql_fav = "SELECT player_id FROM player_favorites WHERE championship_id = ? AND user_id = ?"
+                sql_fav = db.adapt_params(sql_fav)
+                cursor_fav.execute(sql_fav, (championship_id, client.user_id))
+                favorite_player_ids = {row[0] for row in cursor_fav.fetchall()}
+        except Exception:
+            pass
+        
         with db.get_connection() as conn_sf:
             cursor_sf = db.get_cursor(conn_sf)
             sql_sf = """
@@ -347,6 +359,8 @@ async def get_market_today(
                 player["sofascore_assists"] = None
                 player["sofascore_appearances"] = None
                 player["sofascore_url"] = None
+            # Mark favorites
+            player["is_favorite"] = player["player_id"] in favorite_player_ids
 
         # Ordenar por valor descendente
         players_with_bid.sort(key=lambda x: x['value'], reverse=True)

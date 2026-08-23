@@ -52,6 +52,7 @@ interface MarketPlayer {
   sofascore_rating: number | null;
   sofascore_url: string | null;
   starter_pct: number | null;
+  is_favorite: boolean;
 }
 
 @Component({
@@ -129,6 +130,9 @@ interface MarketPlayer {
               <div class="player-wrapper">
                 <img [src]="getPlayerPhoto(p.slug)" class="player-photo" [alt]="p.name" loading="lazy"
                      (error)="$event.target.style.display='none'" />
+                @if (p.is_favorite) {
+                  <span class="fav-star-table">⭐</span>
+                }
                 @if (p.sofascore_url) {
                   <a [href]="p.sofascore_url" target="_blank" class="player-link"><strong>{{ p.name }}</strong></a>
                 } @else {
@@ -234,7 +238,7 @@ interface MarketPlayer {
             </td>
           </ng-container>
           <tr mat-header-row *matHeaderRowDef="columns"></tr>
-          <tr mat-row *matRowDef="let row; columns: columns"></tr>
+          <tr mat-row *matRowDef="let row; columns: columns" [class.favorite-row]="row.is_favorite"></tr>
         </table>
       </div>
       }
@@ -242,7 +246,7 @@ interface MarketPlayer {
       @if (viewMode() === 'cards') {
       <div class="cards-container">
         @for (p of dataSource.data; track p.player_id) {
-          <article class="player-card">
+          <article class="player-card" [class.favorite-card]="p.is_favorite">
             <!-- Header -->
             <div class="card-header">
               @if (p.sofascore_url) {
@@ -439,6 +443,14 @@ interface MarketPlayer {
     .bid-active-text { flex: 1; color: #d946ef; font-weight: 700; font-size: 0.9em; }
     .bid-cancel { margin-left: auto; }
     .card-actions { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+    /* Favorite highlights */
+    .favorite-row { background: rgba(251, 191, 36, 0.18) !important; }
+    .favorite-row:hover { background: rgba(251, 191, 36, 0.28) !important; }
+    .dark-theme .favorite-row { background: rgba(251, 191, 36, 0.15) !important; }
+    .dark-theme .favorite-row:hover { background: rgba(251, 191, 36, 0.22) !important; }
+    .favorite-card { border: 2px solid #f59e0b !important; background: rgba(251, 191, 36, 0.15) !important; box-shadow: 0 2px 12px rgba(251, 191, 36, 0.4) !important; }
+    .dark-theme .favorite-card { border-color: #fbbf24 !important; background: rgba(251, 191, 36, 0.12) !important; box-shadow: 0 2px 16px rgba(251, 191, 36, 0.35) !important; }
+    .fav-star-table { font-size: 0.9em; margin-right: 2px; }
   `]
 })
 export class MarketComponent {
