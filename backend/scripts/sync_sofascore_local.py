@@ -34,10 +34,12 @@ CHAMPIONSHIP_ID = os.getenv("CHAMPIONSHIP_ID", "592416daa3a2dd871a7a9956")
 BASE_URL = os.getenv("BASE_URL", "https://api.futmondo.com")
 
 SOFASCORE_BASE = "https://api.sofascore.com/api/v1"
-MIN_DELAY = 0.75  # 750ms between Sofascore requests
-PAUSE_EVERY = 20  # Pause every N players
-PAUSE_DURATION = 5  # Seconds to pause
+MIN_DELAY = 2.0  # 2s between Sofascore requests
+PAUSE_EVERY = 10  # Pause every N players
+PAUSE_DURATION = 15  # Seconds to pause
 BATCH_SIZE = 50  # DB write batch size
+MAX_RETRIES = 3  # Retries on 403
+RETRY_WAIT = 60  # Seconds to wait on 403 before retry
 
 # Colors for terminal output
 GREEN = "\033[92m"
@@ -110,43 +112,61 @@ class SofascoreLocal:
 
     def _get(self, endpoint):
         self._throttle()
-        try:
-            resp = self.session.get(f"{SOFASCORE_BASE}{endpoint}", timeout=10)
-            if resp.status_code == 200:
-                return resp.json()
-            return None
-        except Exception:
-            return None
+        for attempt in range(MAX_RETRIES + 1):
+            try:
+                resp = self.session.get(f"{SOFASCORE_BASE}{endpoint}", timeout=10)
+                if resp.status_code == 200:
+                    return resp.json()
+                if resp.status_code == 403:
+                    if attempt < MAX_RETRIES:
+                        wait = RETRY_WAIT * (attempt + 1)
+                        print(f"  {YELLOW}⏳ Rate limited (403). Waiting {wait}s...{RESET}", flush=True)
+                        time.sleep(wait)
+                        continue
+                    return None
+                return None
+            except Exception:
+                return None
+        return None
 
     def search_player(self, name, team_hint=None):
         self._throttle()
-        try:
-            resp = self.session.get(
-                f"{SOFASCORE_BASE}/search/players",
-                params={"q": name}, timeout=10
-            )
-            if resp.status_code != 200:
-                return None
-            
-            data = resp.json()
-            results = data.get("results", [])
-            if not results:
-                return None
+        for attempt in range(MAX_RETRIES + 1):
+            try:
+                resp = self.session.get(
+                    f"{SOFASCORE_BASE}/search/players",
+                    params={"q": name}, timeout=10
+                )
+                if resp.status_code == 403:
+                    if attempt < MAX_RETRIES:
+                        wait = RETRY_WAIT * (attempt + 1)
+                        print(f"  {YELLOW}⏳ Rate limited (403). Waiting {wait}s...{RESET}", flush=True)
+                        time.sleep(wait)
+                        continue
+                    return None
+                if resp.status_code != 200:
+                    return None
+                
+                data = resp.json()
+                results = data.get("results", [])
+                if not results:
+                    return None
 
-            if team_hint:
-                team_hint_lower = team_hint.lower()
-                for r in results:
-                    entity = r.get("entity", r)
-                    entity_team = (entity.get("team", {}) or {}).get("name", "")
-                    if entity_team and team_hint_lower in entity_team.lower():
-                        return {"id": entity.get("id"), "name": entity.get("name"),
-                                "team": entity_team}
+                if team_hint:
+                    team_hint_lower = team_hint.lower()
+                    for r in results:
+                        entity = r.get("entity", r)
+                        entity_team = (entity.get("team", {}) or {}).get("name", "")
+                        if entity_team and team_hint_lower in entity_team.lower():
+                            return {"id": entity.get("id"), "name": entity.get("name"),
+                                    "team": entity_team}
 
-            entity = results[0].get("entity", results[0])
-            return {"id": entity.get("id"), "name": entity.get("name"),
-                    "team": (entity.get("team", {}) or {}).get("name", "")}
-        except Exception:
-            return None
+                entity = results[0].get("entity", results[0])
+                return {"id": entity.get("id"), "name": entity.get("name"),
+                        "team": (entity.get("team", {}) or {}).get("name", "")}
+            except Exception:
+                return None
+        return None
 
     def get_player_stats(self, player_id):
         """Get stats with priority: current LaLiga > current any > prev LaLiga > prev any."""
