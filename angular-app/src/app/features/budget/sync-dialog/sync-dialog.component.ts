@@ -5,8 +5,6 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { FormsModule } from '@angular/forms';
 import { MoneyPipe } from '../../../shared/pipes/money.pipe';
 import { SyncService } from '../../../core/services/sync.service';
 import { ChampionshipService } from '../../../core/services/championship.service';
@@ -33,16 +31,13 @@ const STEP_LABELS: Record<string, string> = {
   team_standings: 'Clasificación',
   match_odds: 'Cuotas de partidos',
   phantoms: 'Verificar fantasmas',
-  sofascore: 'Ratings Sofascore',
 };
 
 const ALL_STEPS = [
   'players', 'transactions', 'clauses', 'punishments_bonuses',
   'dream_teams', 'player_performance', 'rosters', 'team_standings', 'match_odds',
-  'phantoms', 'sofascore'
+  'phantoms'
 ];
-
-const STEPS_WITHOUT_SOFASCORE = ALL_STEPS.filter(s => s !== 'sofascore');
 
 @Component({
   selector: 'app-sync-dialog',
@@ -50,7 +45,7 @@ const STEPS_WITHOUT_SOFASCORE = ALL_STEPS.filter(s => s !== 'sofascore');
   imports: [
     MatDialogModule, MatButtonModule, MatProgressSpinnerModule,
     MatProgressBarModule, MatIconModule, MatDividerModule,
-    MatSlideToggleModule, FormsModule, MoneyPipe
+    MoneyPipe
   ],
   template: `
     <h2 mat-dialog-title>🔄 Sincronización</h2>
@@ -58,11 +53,7 @@ const STEPS_WITHOUT_SOFASCORE = ALL_STEPS.filter(s => s !== 'sofascore');
       <!-- Phase: Config (before starting) -->
       @if (phase() === 'config') {
         <div class="config-section">
-          <p class="config-hint">Configura la sincronización antes de iniciar.</p>
-          <mat-slide-toggle [(ngModel)]="includeSofascore" color="primary">
-            Incluir Sofascore
-          </mat-slide-toggle>
-          <p class="sofascore-hint">Los ratings de Sofascore tardan bastante (~30s). Solo es necesario sincronizarlos si ha cambiado el mercado.</p>
+          <p class="config-hint">Pulsa sincronizar para actualizar todos los datos del campeonato.</p>
         </div>
       }
 
@@ -103,9 +94,6 @@ const STEPS_WITHOUT_SOFASCORE = ALL_STEPS.filter(s => s !== 'sofascore');
           <mat-icon>check_circle</mat-icon>
           <div class="result-details">
             <p><strong>{{ totalRecords() }}</strong> registros sincronizados</p>
-            @if (sofascoreSynced() > 0) {
-              <p><strong>{{ sofascoreSynced() }}</strong> jugadores con ratings Sofascore</p>
-            }
             <p class="duration">Duración: {{ duration().toFixed(1) }}s</p>
           </div>
         </div>
@@ -152,7 +140,6 @@ const STEPS_WITHOUT_SOFASCORE = ALL_STEPS.filter(s => s !== 'sofascore');
   styles: [`
     .config-section { display: flex; flex-direction: column; gap: 12px; padding: 8px 0; }
     .config-hint { color: var(--mat-sys-on-surface-variant); margin: 0; }
-    .sofascore-hint { font-size: 0.8em; color: var(--mat-sys-on-surface-variant); margin: 0; }
     .sync-steps { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
     .step-row { display: flex; align-items: center; gap: 10px; padding: 4px 0; transition: opacity 0.2s; }
     .step-row.pending { opacity: 0.4; }
@@ -197,9 +184,7 @@ export class SyncDialogComponent {
   finalResult = signal<SyncTaskResponse | null>(null);
   phantoms = signal<PhantomPlayer[]>([]);
 
-  includeSofascore = false;
-
-  activeSteps = computed(() => this.includeSofascore ? ALL_STEPS : STEPS_WITHOUT_SOFASCORE);
+  activeSteps = computed(() => ALL_STEPS);
 
   completedSteps = computed(() => {
     const progress = this.stepProgress();
@@ -214,13 +199,6 @@ export class SyncDialogComponent {
     const result = this.finalResult()?.result;
     if (!result) return 0;
     return Object.values(result).reduce((sum, step) => sum + (step.records_synced || 0), 0);
-  });
-
-  sofascoreSynced = computed(() => {
-    const result = this.finalResult()?.result;
-    if (!result) return 0;
-    const sf = result['sofascore'] as any;
-    return sf?.synced || 0;
   });
 
   duration = computed(() => {
@@ -274,7 +252,6 @@ export class SyncDialogComponent {
           this.stepProgress.set({ ...task.progress });
         },
         2000,
-        this.includeSofascore,
       );
 
       this.handleComplete(finalTask);
