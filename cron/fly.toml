@@ -1,6 +1,6 @@
 # Fly.io configuration — Cron Sync (one-shot machine)
 # This app runs the sync script and exits.
-# Triggered daily via `flyctl deploy` from GitHub Actions.
+# Triggered daily via GitHub Actions using `flyctl machine run`.
 # Build context = backend/ (same Dockerfile as the API, different process).
 app = "futmondo-cron"
 primary_region = "cdg"
@@ -17,3 +17,6 @@ primary_region = "cdg"
 
 [deploy]
   strategy = "immediate"
+
+# No http_service — this is a worker/cron process, not a web app.
+# The machine must be explicitly started after deploy.

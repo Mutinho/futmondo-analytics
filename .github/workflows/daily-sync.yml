@@ -16,9 +16,19 @@ jobs:
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
-      - name: Deploy and run sync
+      - name: Deploy cron image
         working-directory: ./backend
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
           flyctl deploy --config ../cron/fly.toml --ha=false
+
+      - name: Start the cron machine
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          # Get the machine ID and start it
+          MACHINE_ID=$(flyctl machines list --app futmondo-cron --json | jq -r '.[0].id')
+          echo "Starting machine: $MACHINE_ID"
+          flyctl machine start "$MACHINE_ID" --app futmondo-cron
+          echo "Machine started. It will run sync_data.py and stop when done."
