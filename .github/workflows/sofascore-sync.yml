@@ -1,0 +1,23 @@
+name: Sofascore Sync (Local)
+
+on:
+  workflow_dispatch: # Manual trigger from GitHub Actions UI
+  schedule:
+    # 5:00 UTC = 7:00 CET — runs after daily data sync (6:30 CET)
+    - cron: '0 5 * * *'
+
+jobs:
+  sofascore:
+    name: Sync Sofascore Ratings
+    runs-on: self-hosted
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Python dependencies (if needed)
+        run: |
+          python3 -c "import curl_cffi, psycopg2, dotenv" 2>/dev/null || \
+          python3 -m pip install curl_cffi psycopg2-binary python-dotenv --break-system-packages -q
+
+      - name: Run Sofascore sync
+        run: python3 backend/scripts/sync_sofascore_local.py
