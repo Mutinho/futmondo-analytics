@@ -19,7 +19,7 @@ from pathlib import Path
 
 # Load .env from project root
 from dotenv import load_dotenv
-project_root = Path(__file__).resolve().parent.parent
+project_root = Path(__file__).resolve().parent.parent.parent
 load_dotenv(project_root / ".env")
 
 import psycopg2
