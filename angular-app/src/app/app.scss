@@ -1,5 +1,7 @@
 .app-container {
   height: 100%;
+  // Fill the full viewport in standalone PWA (avoids white block at bottom)
+  min-height: 100dvh;
 }
 
 // ===== SIDEBAR =====
@@ -7,6 +9,8 @@
   width: 250px;
   background: var(--mat-sys-surface);
   border-right: 1px solid var(--mat-sys-outline-variant);
+  // Respect iPhone notch when sidebar opens as overlay
+  padding-top: env(safe-area-inset-top, 0px);
 
   ::ng-deep .mat-drawer-inner-container {
     display: flex !important;
