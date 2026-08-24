@@ -484,7 +484,7 @@ class DataManagerV2:
             if self.db.db_type in ["postgresql", "postgres"]:
                 from psycopg2.extras import execute_values
                 sql = '''
-                    INSERT INTO players (player_id, name, role, role2, real_team_id, real_team_name, slug, photo_url, last_updated)
+                    INSERT INTO players (player_id, name, role, role2, real_team_id, real_team_name, slug, photo_url, value, last_updated)
                     VALUES %s
                     ON CONFLICT (player_id) DO UPDATE SET
                         name = EXCLUDED.name,
@@ -494,6 +494,7 @@ class DataManagerV2:
                         real_team_name = EXCLUDED.real_team_name,
                         slug = EXCLUDED.slug,
                         photo_url = EXCLUDED.photo_url,
+                        value = EXCLUDED.value,
                         last_updated = EXCLUDED.last_updated
                 '''
                 values = []
@@ -510,6 +511,7 @@ class DataManagerV2:
                         p.get("team", p.get("real_team_name", "")),
                         p.get("slug", ""),
                         p.get("photo", p.get("photo_url", "")),
+                        p.get("value", 0) or 0,
                         now,
                     ))
                 
@@ -865,13 +867,9 @@ class DataManagerV2:
                     points_this_matchday = _safe_int(round_points_only)
                     points = prev_points_total + points_this_matchday
                 elif raw_total_points is not None:
-                    total_points_int = _safe_int(raw_total_points)
-                    if total_points_int >= prev_points_total:
-                        points = total_points_int
-                        points_this_matchday = total_points_int - prev_points_total
-                    else:
-                        points_this_matchday = total_points_int
-                        points = prev_points_total + points_this_matchday
+                    # Ranking API returns points for THIS round only (not accumulated)
+                    points_this_matchday = _safe_int(raw_total_points)
+                    points = prev_points_total + points_this_matchday
                 else:
                     points_this_matchday = 0
                     points = prev_points_total

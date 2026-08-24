@@ -10,6 +10,7 @@ export interface TeamBudget {
   team_value: number;
   performance: number;
   max_bid: number;
+  prizes: number;
 }
 
 export interface BalancesResponse {

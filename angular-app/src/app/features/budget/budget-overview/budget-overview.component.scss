@@ -181,7 +181,6 @@
   font-size: 1.05em;
   font-weight: 600;
   color: var(--mat-sys-on-surface);
-  font-family: 'JetBrains Mono', monospace;
 
   &.positive {
     color: #2e7d32;
@@ -248,3 +247,9 @@
     }
   }
 }
+
+.prizes-cell { cursor: pointer; }
+.prizes-value { font-weight: 600; color: #0056e6; }
+.prizes-value:hover { text-decoration: underline; }
+.no-prizes { color: var(--mat-sys-on-surface-variant); }
+.card-stat-val.prizes { font-weight: 600; color: #0056e6; }

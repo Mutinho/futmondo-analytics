@@ -27,10 +27,6 @@ import { AnalyticsService } from '../../../core/services/analytics.service';
             <th mat-header-cell *matHeaderCellDef>Puntos</th>
             <td mat-cell *matCellDef="let t">{{ t.points }}</td>
           </ng-container>
-          <ng-container matColumnDef="position">
-            <th mat-header-cell *matHeaderCellDef>Posición</th>
-            <td mat-cell *matCellDef="let t">{{ t.position }}</td>
-          </ng-container>
           <ng-container matColumnDef="momentum">
             <th mat-header-cell *matHeaderCellDef>Momentum</th>
             <td mat-cell *matCellDef="let t" [style.color]="t.momentum >= 0 ? '#16a34a' : '#dc2626'">
@@ -56,14 +52,17 @@ export class OverviewComponent {
   loading = signal(true);
   hasData = signal(false);
   trends = signal<any[]>([]);
-  columns = ['team_name', 'points', 'position', 'momentum'];
+  columns = ['team_name', 'points', 'momentum'];
 
   constructor() { this.load(); }
 
   async load() {
     try {
       const data = await this.analyticsService.getTrends();
-      const teams = data?.teams || data?.data?.teams || [];
+      const teams = (data?.teams || data?.data?.teams || []).map((t: any) => ({
+        ...t,
+        points: t.total_points || t.points || 0,
+      }));
       this.trends.set(teams);
       this.hasData.set(teams.length > 0);
     } catch { this.hasData.set(false); }

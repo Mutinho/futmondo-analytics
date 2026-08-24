@@ -1,5 +1,7 @@
 import { Component, inject, signal, effect, ViewChild, computed } from '@angular/core';
 import { Router } from '@angular/router';
+import { HttpClient, HttpParams } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs';
@@ -11,11 +13,13 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
+import { MatDialog } from '@angular/material/dialog';
 import { MoneyPipe } from '../../../shared/pipes/money.pipe';
 import { ScrollTopComponent } from '../../../shared/components/scroll-top.component';
 import { BudgetService } from '../../../core/services/budget.service';
 import { ChampionshipService } from '../../../core/services/championship.service';
 import { TeamBudget } from '../../../core/models/budget.model';
+import { PrizesDialogComponent } from './prizes-dialog.component';
 
 @Component({
   selector: 'app-budget-overview',
@@ -40,6 +44,8 @@ export class BudgetOverviewComponent {
   private championshipService = inject(ChampionshipService);
   private router = inject(Router);
   private breakpointObserver = inject(BreakpointObserver);
+  private dialog = inject(MatDialog);
+  private http = inject(HttpClient);
 
   isMobile = toSignal(
     this.breakpointObserver.observe([Breakpoints.Handset]).pipe(map(r => r.matches)),
@@ -61,7 +67,7 @@ export class BudgetOverviewComponent {
   loading = signal(true);
   error = signal('');
 
-  displayedColumns = ['team_name', 'balance', 'team_value', 'total_spent', 'total_income', 'ops', 'performance', 'max_bid'];
+  displayedColumns = ['team_name', 'balance', 'team_value', 'total_spent', 'total_income', 'ops', 'performance', 'prizes', 'max_bid'];
 
   championshipBudget = computed(() => {
     const budget = this.championshipService.activeChampionship()?.initial_budget || 200000000;
@@ -130,5 +136,14 @@ export class BudgetOverviewComponent {
 
   getPerformanceClass(value: number): string {
     return value >= 0 ? 'money-positive' : 'money-negative';
+  }
+
+  openPrizes(team: TeamBudget, event: Event) {
+    event.stopPropagation();
+    if (team.prizes <= 0) return;
+    this.dialog.open(PrizesDialogComponent, {
+      data: { team_id: team.team_id, team_name: team.team_name, championship_id: this.championshipService.activeId() },
+      width: '500px',
+    });
   }
 }

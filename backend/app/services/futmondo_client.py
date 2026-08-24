@@ -339,7 +339,41 @@ class FutmondoClient:
         if response:
             return response.get("answer", {})
         return None
-    
+
+    def get_round_matches(self, championship_id: str, round_id: str, userteam_id: str) -> Optional[Dict]:
+        """Get matches for a specific round (to check if all are finished)."""
+        request_data = {
+            "header": {"token": self.token, "userid": self.user_id},
+            "query": {
+                "championshipId": championship_id,
+                "userteamId": userteam_id,
+                "roundId": round_id,
+            },
+            "answer": {}
+        }
+        response = self._make_request("/1/match/list", request_data)
+        if response:
+            return response.get("answer", {})
+        return None
+
+    def get_round_lineup(self, championship_id: str, round_id: str, userteam_id: str) -> Optional[List]:
+        """Get a team's lineup for a specific round (historical snapshot)."""
+        request_data = {
+            "header": {"token": self.token, "userid": self.user_id},
+            "query": {
+                "championshipId": championship_id,
+                "round": round_id,
+                "userteamId": userteam_id,
+            },
+            "answer": {}
+        }
+        response = self._make_request("/1/userteam/roundlineup", request_data)
+        if response:
+            answer = response.get("answer", {})
+            if isinstance(answer, dict):
+                return answer.get("players", [])
+        return None
+
     def get_userteam_rounds(self, championship_id: str, user_team_id: str) -> Optional[List]:
         """Fetch rounds/matchday information for a specific user team
         

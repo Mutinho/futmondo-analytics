@@ -2,7 +2,7 @@
 API endpoints for matchday evolution data
 """
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Query
 from typing import Dict, List, Optional
 import logging
 
@@ -15,11 +15,11 @@ router = APIRouter()
 
 
 @router.get("/teams")
-async def get_all_teams(request: Request):
+async def get_all_teams(request: Request, championship_id: str = Query(default=CHAMPIONSHIP_ID)):
     """Get all teams from championship"""
     try:
         client = get_user_futmondo_client(request)
-        standings = client.get_matchday_standings(CHAMPIONSHIP_ID)
+        standings = client.get_matchday_standings(championship_id)
         if not standings:
             raise HTTPException(status_code=404, detail="Championship standings not found")
         
@@ -33,11 +33,11 @@ async def get_all_teams(request: Request):
 
 
 @router.get("/teams/{team_id}/rounds")
-async def get_team_rounds(request: Request, team_id: str):
+async def get_team_rounds(request: Request, team_id: str, championship_id: str = Query(default=CHAMPIONSHIP_ID)):
     """Get rounds data for a specific team"""
     try:
         client = get_user_futmondo_client(request)
-        rounds = client.get_userteam_rounds(CHAMPIONSHIP_ID, team_id)
+        rounds = client.get_userteam_rounds(championship_id, team_id)
         
         if rounds is None:
             raise HTTPException(status_code=404, detail=f"Rounds data for team {team_id} not found")
@@ -51,7 +51,7 @@ async def get_team_rounds(request: Request, team_id: str):
 
 
 @router.get("/evolution")
-async def get_evolution_data(request: Request):
+async def get_evolution_data(request: Request, championship_id: str = Query(default=CHAMPIONSHIP_ID)):
     """Get complete evolution data for all teams.
     
     First tries database, falls back to API.
@@ -62,7 +62,7 @@ async def get_evolution_data(request: Request):
         
         # Try database first
         try:
-            evolution_data = dm.get_evolution_data_from_db(CHAMPIONSHIP_ID)
+            evolution_data = dm.get_evolution_data_from_db(championship_id)
             if evolution_data and evolution_data.get("teams") and len(evolution_data["teams"]) > 0:
                 return {"success": True, "data": evolution_data}
         except Exception as db_err:
@@ -70,7 +70,7 @@ async def get_evolution_data(request: Request):
         
         # Fallback: fetch from API
         client = get_user_futmondo_client(request)
-        standings = client.get_matchday_standings(CHAMPIONSHIP_ID)
+        standings = client.get_matchday_standings(championship_id)
         if not standings:
             return {"success": True, "data": {"teams": [], "matchdays": []}}
         
@@ -86,7 +86,7 @@ async def get_evolution_data(request: Request):
             team_id = team.get("id", team.get("teamid", ""))
             team_name = team.get("teamname", team.get("name", ""))
             
-            rounds = client.get_userteam_rounds(CHAMPIONSHIP_ID, team_id) or []
+            rounds = client.get_userteam_rounds(championship_id, team_id) or []
             
             points_by_matchday = {}
             accumulated = 0

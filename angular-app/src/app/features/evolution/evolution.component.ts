@@ -65,15 +65,15 @@ export class EvolutionComponent {
   constructor() {
     effect(() => {
       const id = this.championshipService.activeId();
-      if (id) this.loadData();
+      if (id) this.loadData(id);
     });
   }
 
-  async loadData() {
+  async loadData(championshipId: string) {
     this.loading.set(true);
     this.error.set('');
     try {
-      const response = await this.evolutionService.getEvolution();
+      const response = await this.evolutionService.getEvolution(championshipId);
       const data = response.data;
 
       if (!data.matchdays.length || !data.teams.length) {

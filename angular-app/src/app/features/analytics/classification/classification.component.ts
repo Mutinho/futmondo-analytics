@@ -76,7 +76,11 @@ export class ClassificationComponent {
     this.loading.set(true);
     try {
       const data = await this.analyticsService.getCustomClassification(this.window);
-      const teams = data?.classification || data?.teams || [];
+      const teams = (data?.classification || data?.teams || []).map((t: any) => ({
+        ...t,
+        points: t.total_points || t.points || 0,
+        average: t.average_points || t.average || 0,
+      }));
       this.classification.set(teams);
       this.hasData.set(teams.length > 0);
     } catch { this.hasData.set(false); }

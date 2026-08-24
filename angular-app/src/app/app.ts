@@ -72,7 +72,6 @@ export class App {
     { label: 'Transacciones', icon: 'receipt_long', route: '/transactions' },
     { label: 'Evolución', icon: 'trending_up', route: '/evolution' },
     { label: 'Estadísticas', icon: 'bar_chart', route: '/stats' },
-    { label: 'Finanzas', icon: 'payments', route: '/finances' },
     { label: 'Clausulables', icon: 'sports_soccer', route: '/clausulable', requiresClauses: true },
     { label: 'Analytics', icon: 'analytics', route: '/analytics' },
     { label: 'Ajustes', icon: 'settings', route: '/settings' },

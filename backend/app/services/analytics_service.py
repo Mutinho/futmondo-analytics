@@ -26,6 +26,22 @@ class AnalyticsService:
                 return {}
         return {}
 
+    LALIGA_TEAMS = {
+        "504e581e4d8bec9a670000c6": "Real Madrid", "504e581e4d8bec9a670000c7": "Barcelona",
+        "504e581e4d8bec9a670000c8": "Atlético de Madrid", "504e581e4d8bec9a670000c9": "Athletic de Bilbao",
+        "504e581e4d8bec9a670000ca": "Rayo Vallecano", "504e581e4d8bec9a670000cb": "Valencia",
+        "504e581e4d8bec9a670000cc": "Betis", "504e581e4d8bec9a670000cd": "Getafe",
+        "504e581e4d8bec9a670000ce": "Real Sociedad", "504e581e4d8bec9a670000cf": "Levante",
+        "504e581e4d8bec9a670000d0": "Espanyol", "504e581e4d8bec9a670000d1": "Osasuna",
+        "504e581e4d8bec9a670000d5": "Sevilla", "504e581e4d8bec9a670000d6": "Málaga",
+        "504e581e4d8bec9a670000d8": "Deportivo", "504e581e4d8bec9a670000d9": "Celta de Vigo",
+        "51b889b1e401a15f2c0000f0": "Elche", "51b890f5b986415a2c000012": "Villarreal",
+        "52038563b8d07d930b00008a": "Alavés", "520e4ee4a776cc826b00004b": "Racing",
+    }
+
+    def _resolve_real_team_name(self, team_id: str) -> str:
+        return self.LALIGA_TEAMS.get(team_id, "")
+
     def _safe_player_info(self, player_id: str) -> Dict:
         if not player_id:
             return {}
@@ -600,26 +616,54 @@ class AnalyticsService:
         free_agents = self.dm.get_free_agent_candidates(championship_id)
         watchlist = []
 
+        # Batch get all player info in one query instead of N+1
+        player_ids = [fa["player_id"] for fa in free_agents]
+        player_info_map = {}
+        if player_ids and hasattr(self.dm, 'db'):
+            try:
+                from app.services.db_connection import get_db
+                db = get_db()
+                with db.get_connection() as conn:
+                    cursor = db.get_cursor(conn)
+                    placeholders = ",".join(["%s"] * len(player_ids))
+                    cursor.execute(f"SELECT player_id, name, real_team_id, value FROM players WHERE player_id IN ({placeholders})", tuple(player_ids))
+                    for row in cursor.fetchall():
+                        player_info_map[row[0]] = {"name": row[1], "real_team_id": row[2], "value": row[3] or 0}
+            except Exception:
+                pass
+
         for player in free_agents:
-            avg_last_five = player.get("average_last_five") or 0
-            clause_price = player.get("clause_price") or 0
-            value_score = avg_last_five / clause_price if clause_price else avg_last_five
-            player_name = player.get("name")
-            if not player_name:
-                info = self._safe_player_info(player.get("player_id"))
-                player_name = info.get("name") if info else player.get("player_id")
+            avg_last_five = player.get("average_last_five")
+            avg_overall = player.get("average_overall")
+            
+            # Pick best available average, skip NaN
+            average = None
+            if avg_last_five is not None and avg_last_five == avg_last_five and avg_last_five > 0:
+                average = avg_last_five
+            elif avg_overall is not None and avg_overall == avg_overall and avg_overall > 0:
+                average = avg_overall
+            
+            if not average:
+                continue
+
+            player_id = player.get("player_id")
+            pinfo = player_info_map.get(player_id, {})
+            player_name = player.get("name") or pinfo.get("name") or player_id
+            team_name = self._resolve_real_team_name(pinfo.get("real_team_id", ""))
+            value = pinfo.get("value", 0)
+            ratio = round(average / (value / 1_000_000), 3) if value and value > 0 else 0
 
             watchlist.append({
-                "player_id": player["player_id"],
+                "player_id": player_id,
                 "name": player_name,
-                "clause_price": clause_price,
-                "suggested_clause": player.get("suggested_clause"),
-                "average_last_five": avg_last_five,
-                "average_overall": player.get("average_overall"),
-                "value_score": round(value_score, 6)
+                "team": team_name,
+                "average": round(average, 1),
+                "clause": value,
+                "ratio": ratio,
             })
 
-        watchlist.sort(key=lambda x: x["value_score"], reverse=True)
+        # Sort by average descending (best performing free agents first)
+        watchlist.sort(key=lambda x: x["average"], reverse=True)
         return {
             "championship_id": championship_id,
             "players": watchlist[:limit]

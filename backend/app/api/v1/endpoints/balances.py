@@ -80,6 +80,17 @@ async def get_balances(
                 cursor.execute(sql_teams, tuple(all_team_ids))
                 teams_info = {row[0]: row[1] for row in cursor.fetchall()}
             
+            # Prizes per team
+            sql_prizes = """
+                SELECT team_id, SUM(ranking_prize + mvp_prize) as total_prizes
+                FROM team_prizes
+                WHERE championship_id = ?
+                GROUP BY team_id
+            """
+            sql_prizes = db.adapt_params(sql_prizes)
+            cursor.execute(sql_prizes, (championship_id,))
+            prizes_by_team = {row[0]: row[1] for row in cursor.fetchall()}
+
             # Construir resultado
             result = []
             for team_id in all_team_ids:
@@ -90,6 +101,8 @@ async def get_balances(
                 income = sales.get(team_id, {}).get("total_income", 0)
                 balance = initial_budget - spent + income
                 team_value = team_values.get(team_id, 0)
+                prizes = prizes_by_team.get(team_id, 0)
+                balance += prizes  # Prizes count towards balance
                 # Rendimiento: valor de equipo - gasto neto (gastado - ingresado)
                 net_spent = spent - income
                 performance = team_value - net_spent
@@ -108,6 +121,7 @@ async def get_balances(
                     "team_value": team_value,
                     "performance": performance,
                     "max_bid": max_bid,
+                    "prizes": prizes,
                 })
             
             # Ordenar por saldo descendente
@@ -203,6 +217,50 @@ async def get_team_transactions(
                 "total_income": total_income,
                 "purchases": purchases,
                 "sales": sales,
+            }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/prizes/{team_id}")
+async def get_team_prizes(
+    request: Request,
+    team_id: str,
+    championship_id: str = Query(default=CHAMPIONSHIP_ID),
+):
+    """Get prize breakdown by matchday for a specific team."""
+    try:
+        db = get_db()
+        with db.get_connection() as conn:
+            cursor = db.get_cursor(conn)
+            
+            sql = """
+                SELECT matchday, ranking_prize, mvp_prize, position
+                FROM team_prizes
+                WHERE championship_id = ? AND team_id = ?
+                ORDER BY matchday
+            """
+            sql = db.adapt_params(sql)
+            cursor.execute(sql, (championship_id, team_id))
+            
+            rounds = []
+            total = 0
+            for row in cursor.fetchall():
+                matchday_total = (row[1] or 0) + (row[2] or 0)
+                total += matchday_total
+                rounds.append({
+                    "matchday": row[0],
+                    "ranking_prize": row[1] or 0,
+                    "mvp_prize": row[2] or 0,
+                    "position": row[3],
+                    "total": matchday_total,
+                })
+            
+            return {
+                "success": True,
+                "team_id": team_id,
+                "total_prizes": total,
+                "rounds": rounds,
             }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))

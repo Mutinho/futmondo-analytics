@@ -2,7 +2,7 @@
   <h1>💰 Presupuesto por Equipo</h1>
 </div>
 
-<p class="description">Presupuesto base: {{ championshipBudget() }}. Saldo = {{ championshipBudget() }} − compras + ventas. Haz clic en un equipo para ver detalle.</p>
+<p class="description">Presupuesto base: {{ championshipBudget() }}. Saldo = {{ championshipBudget() }} − compras + ventas + premios. Haz clic en un equipo para ver detalle.</p>
 
 @if (loading()) {
   <div class="loading-container">
@@ -76,6 +76,17 @@
         </td>
       </ng-container>
 
+      <ng-container matColumnDef="prizes">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header>Premios</th>
+        <td mat-cell *matCellDef="let t" class="prizes-cell" (click)="openPrizes(t, $event)">
+          @if (t.prizes > 0) {
+            <span class="prizes-value">{{ t.prizes | money }}</span>
+          } @else {
+            <span class="no-prizes">-</span>
+          }
+        </td>
+      </ng-container>
+
       <ng-container matColumnDef="max_bid">
         <th mat-header-cell *matHeaderCellDef mat-sort-header>Puja Máxima</th>
         <td mat-cell *matCellDef="let t">{{ t.max_bid | money }}</td>
@@ -116,6 +127,12 @@
             <div class="card-stat-item">
               <span class="card-stat-label">PUJA MÁXIMA</span>
               <span class="card-stat-val">{{ t.max_bid | money }}</span>
+            </div>
+            <div class="card-stat-item card-stat-right">
+              <span class="card-stat-label">PREMIOS</span>
+              <span class="card-stat-val prizes">
+                @if (t.prizes > 0) { {{ t.prizes | money }} } @else { - }
+              </span>
             </div>
           </div>
         </div>

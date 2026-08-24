@@ -296,6 +296,17 @@ def _run_sync_in_background(task_id: str, sync_type: str, championship_id: str, 
                 "match_odds": odds_result,
             }
 
+            # --- Prizes ---
+            tm.update_progress(task_id, "prizes", {"status": "running"})
+            try:
+                prizes_result = sync_service.sync_prizes()
+                tm.update_progress(task_id, "prizes", {"status": "done", **prizes_result})
+                results["prizes"] = prizes_result
+            except Exception as pr_err:
+                logger.warning(f"Prizes sync failed (non-critical): {pr_err}")
+                tm.update_progress(task_id, "prizes", {"status": "done", "records_synced": 0, "error": str(pr_err)})
+                results["prizes"] = {"records_synced": 0}
+
             # --- Check phantoms ---
             tm.update_progress(task_id, "phantoms", {"status": "running"})
             try:

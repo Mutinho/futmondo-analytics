@@ -23,8 +23,8 @@ import { AnalyticsService } from '../../../core/services/analytics.service';
           <ng-container matColumnDef="name"><th mat-header-cell *matHeaderCellDef>Jugador</th><td mat-cell *matCellDef="let p"><strong>{{ p.name }}</strong></td></ng-container>
           <ng-container matColumnDef="team"><th mat-header-cell *matHeaderCellDef>Equipo Real</th><td mat-cell *matCellDef="let p">{{ p.team }}</td></ng-container>
           <ng-container matColumnDef="average"><th mat-header-cell *matHeaderCellDef>Media</th><td mat-cell *matCellDef="let p">{{ p.average | number:'1.1-1' }}</td></ng-container>
-          <ng-container matColumnDef="clause"><th mat-header-cell *matHeaderCellDef>Cláusula</th><td mat-cell *matCellDef="let p">{{ p.clause | money }}</td></ng-container>
-          <ng-container matColumnDef="ratio"><th mat-header-cell *matHeaderCellDef>Ratio Pts/€</th><td mat-cell *matCellDef="let p" class="score">{{ p.ratio | number:'1.3-3' }}</td></ng-container>
+          <ng-container matColumnDef="clause"><th mat-header-cell *matHeaderCellDef>Precio</th><td mat-cell *matCellDef="let p">{{ p.clause | money }}</td></ng-container>
+          <ng-container matColumnDef="ratio"><th mat-header-cell *matHeaderCellDef>Ratio Pts/M€</th><td mat-cell *matCellDef="let p" class="score">{{ p.ratio | number:'1.1-1' }}</td></ng-container>
           <tr mat-header-row *matHeaderRowDef="columns"></tr>
           <tr mat-row *matRowDef="let row; columns: columns"></tr>
         </table>

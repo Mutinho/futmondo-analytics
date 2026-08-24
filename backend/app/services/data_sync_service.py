@@ -919,12 +919,13 @@ class DataSyncService:
                             if not player_id:
                                 continue
 
-                            raw_points = (
-                                player.get("points")
-                                or player.get("score")
-                                or player.get("roundPoints")
-                                or player.get("matchdayPoints")
-                            )
+                            raw_points = player.get("points")
+                            if raw_points is None:
+                                raw_points = player.get("score")
+                            if raw_points is None:
+                                raw_points = player.get("roundPoints")
+                            if raw_points is None:
+                                raw_points = player.get("matchdayPoints")
                             if raw_points is None:
                                 continue
                             try:
@@ -1167,16 +1168,16 @@ class DataSyncService:
             }
     
     def sync_round_rankings(self) -> Dict:
-        """Sync team standings (round rankings) incrementally."""
+        """Sync team standings (round rankings) — always re-syncs all matchdays."""
         start_time = time.time()
         logger.info("Starting team standings sync...")
 
         try:
-            last_sync = self.dm.get_last_sync_metadata(self.championship_id, "team_standings")
-            last_matchday = last_sync.get("last_sync_matchday", 0) if last_sync else 0
-            last_matchday = last_matchday or 0
+            # Always start from matchday 1 to ensure data is up-to-date
+            # (matchdays with postponed games may have changed since last sync)
+            last_matchday = 0
 
-            logger.info(f"Last synced standings matchday: {last_matchday}")
+            logger.info("Syncing all standings from matchday 1")
 
             standings_data = self.client.get_matchday_standings(self.championship_id)
             sample_team = None
@@ -1416,7 +1417,8 @@ class DataSyncService:
                     "teamId": player.get("teamId", ""),
                     "team": player.get("team", ""),
                     "slug": player.get("slug", ""),
-                    "photo": player.get("photo", "")
+                    "photo": player.get("photo", ""),
+                    "value": player.get("value", 0),
                 })
                 
                 clause_data = player.get("clause") or {}
@@ -1557,6 +1559,217 @@ class DataSyncService:
                 "duration_seconds": duration
             }
 
+    def sync_prizes(self) -> Dict:
+        """Sync team prizes (ranking + MVP) for completed matchdays.
+        
+        For each closed round where all matches have status 'F':
+        1. Get ranking → calculate ranking prize (flop mode)
+        2. Get dreamteam → find MVP player
+        3. Check all team lineups to find who had the MVP
+        4. Save to team_prizes table
+        """
+        start_time = time.time()
+        logger.info("Starting prizes sync...")
+
+        try:
+            # Get championship config for prize calculation
+            from app.services.db_connection import get_db
+
+            db = get_db()
+            
+            # Get config from any user's championship settings
+            with db.get_connection() as conn:
+                cursor = db.get_cursor(conn)
+                sql = "SELECT money_per_ranking, mvp_bonus, ranking_mode, users_to_rank FROM user_championships WHERE championship_id = ? LIMIT 1"
+                sql = db.adapt_params(sql)
+                cursor.execute(sql, (self.championship_id,))
+                row = cursor.fetchone()
+            
+            if not row:
+                return {"status": "no_config", "records_synced": 0, "duration_seconds": time.time() - start_time}
+            
+            money_per_ranking = row[0] or 0
+            mvp_bonus = row[1] or 0
+            ranking_mode = row[2] or "top"
+            users_to_rank = row[3] if row[3] is not None else -1
+
+            if money_per_ranking <= 0 and mvp_bonus <= 0:
+                return {"status": "no_prizes_configured", "records_synced": 0, "duration_seconds": time.time() - start_time}
+
+            # Get teams from standings
+            standings_data = self.client.get_matchday_standings(self.championship_id)
+            if not standings_data:
+                return {"status": "no_standings", "records_synced": 0, "duration_seconds": time.time() - start_time}
+
+            team_list = standings_data.get("teams", standings_data.get("ranking", []))
+            if not team_list:
+                return {"status": "no_teams", "records_synced": 0, "duration_seconds": time.time() - start_time}
+
+            # Get a sample userteam_id for API calls
+            sample_userteam_id = team_list[0].get("teamid") or team_list[0].get("id")
+            all_team_ids = []
+            for t in team_list:
+                tid = t.get("teamid") or t.get("id")
+                if tid:
+                    all_team_ids.append(tid)
+            
+            total_members = len(all_team_ids)
+
+            # Get rounds
+            rounds_info = self.client.get_userteam_rounds(self.championship_id, sample_userteam_id) or []
+            closed_rounds = [r for r in rounds_info if r.get("status") == "closed"]
+
+            if not closed_rounds:
+                return {"status": "no_closed_rounds", "records_synced": 0, "duration_seconds": time.time() - start_time}
+
+            # Check which rounds already have prizes synced
+            with db.get_connection() as conn:
+                cursor = db.get_cursor(conn)
+                sql = "SELECT DISTINCT matchday FROM team_prizes WHERE championship_id = ?"
+                sql = db.adapt_params(sql)
+                cursor.execute(sql, (self.championship_id,))
+                synced_matchdays = {r[0] for r in cursor.fetchall()}
+
+            records_synced = 0
+            rounds_processed = 0
+
+            for round_info in closed_rounds:
+                matchday = round_info.get("number")
+                round_id = round_info.get("id") or round_info.get("_id")
+
+                if not matchday or not round_id:
+                    continue
+                if matchday in synced_matchdays:
+                    continue  # Already synced
+
+                # Verify all matches are finished (status: "F")
+                matches_data = self.client.get_round_matches(self.championship_id, round_id, sample_userteam_id)
+                if matches_data:
+                    matches = matches_data.get("matches", [])
+                    if matches:
+                        all_finished = all(m.get("status") == "F" for m in matches)
+                        if not all_finished:
+                            logger.info(f"Round {matchday} has unfinished matches (postponed), skipping prizes")
+                            continue
+                
+                time.sleep(0.3)
+
+                # Get ranking from DB (already synced in team_standings step)
+                with db.get_connection() as conn:
+                    cursor = db.get_cursor(conn)
+                    sql = "SELECT team_id, position FROM team_standings WHERE championship_id = ? AND matchday = ?"
+                    sql = db.adapt_params(sql)
+                    cursor.execute(sql, (self.championship_id, matchday))
+                    ranking_list = [{"id": row[0], "position": row[1]} for row in cursor.fetchall()]
+
+                if not ranking_list:
+                    # Fallback: fetch from API if DB doesn't have it yet
+                    logger.warning(f"Round {matchday}: no ranking in DB, falling back to API")
+                    ranking_data = self.client.get_round_ranking(
+                        championship_id=self.championship_id,
+                        round_number=matchday,
+                        round_id=round_id,
+                        userteam_id=sample_userteam_id
+                    )
+                    if isinstance(ranking_data, dict):
+                        ranking_list = ranking_data.get("ranking", ranking_data.get("teams", []))
+                    elif isinstance(ranking_data, list):
+                        ranking_list = ranking_data
+                    time.sleep(0.3)
+
+                if not ranking_list:
+                    logger.warning(f"No ranking data for round {matchday} (DB nor API)")
+                    continue
+
+                # Get dream team to find MVP
+                mvp_team_id = None
+                if mvp_bonus > 0:
+                    dream_data = self.client.get_dream_team(self.championship_id, round_id=round_id)
+                    mvp_player_id = None
+                    if dream_data and isinstance(dream_data, dict):
+                        mvp_player_id = dream_data.get("mvp")
+                    
+                    if mvp_player_id:
+                        # Check each team's lineup to find who had the MVP
+                        for tid in all_team_ids:
+                            lineup = self.client.get_round_lineup(self.championship_id, round_id, tid)
+                            if lineup:
+                                lineup_ids = [p.get("id") for p in lineup]
+                                if mvp_player_id in lineup_ids:
+                                    mvp_team_id = tid
+                                    logger.info(f"Round {matchday} MVP ({mvp_player_id}) belongs to team {tid}")
+                                    break
+                            time.sleep(0.2)
+
+                # Calculate ranking prizes
+                members = users_to_rank if users_to_rank > 0 else total_members
+                total_pct = members * (members + 1) // 2
+
+                prizes_to_save = []
+                for entry in ranking_list:
+                    team_id = entry.get("id") or entry.get("teamid")
+                    position = entry.get("position", 0)
+                    
+                    if not team_id or not position or position > members:
+                        continue
+
+                    # Calculate ranking prize
+                    if ranking_mode == "flop":
+                        ratio = position / total_pct
+                    else:
+                        ratio = (members - position + 1) / total_pct
+                    ranking_prize = round(money_per_ranking * ratio) if money_per_ranking > 0 else 0
+
+                    # MVP prize
+                    team_mvp_prize = mvp_bonus if team_id == mvp_team_id else 0
+
+                    prizes_to_save.append((
+                        self.championship_id, team_id, matchday,
+                        ranking_prize, team_mvp_prize, position
+                    ))
+
+                # Save to DB
+                if prizes_to_save:
+                    with db.get_connection() as conn:
+                        cursor = db.get_cursor(conn)
+                        sql = """INSERT INTO team_prizes (championship_id, team_id, matchday, ranking_prize, mvp_prize, position, synced_at)
+                                 VALUES (?, ?, ?, ?, ?, ?, NOW())
+                                 ON CONFLICT (championship_id, team_id, matchday) DO UPDATE SET
+                                 ranking_prize = EXCLUDED.ranking_prize, mvp_prize = EXCLUDED.mvp_prize,
+                                 position = EXCLUDED.position, synced_at = NOW()"""
+                        sql = db.adapt_params(sql)
+                        for row in prizes_to_save:
+                            cursor.execute(sql, row)
+                        conn.commit()
+                    
+                    records_synced += len(prizes_to_save)
+                    rounds_processed += 1
+                    logger.info(f"Round {matchday}: saved {len(prizes_to_save)} prize records")
+
+                time.sleep(0.3)
+
+            duration = time.time() - start_time
+            status = "success" if rounds_processed > 0 else "no_new_data"
+
+            logger.info(f"Prizes sync complete: {rounds_processed} rounds, {records_synced} records in {duration:.2f}s")
+
+            return {
+                "status": status,
+                "rounds_processed": rounds_processed,
+                "records_synced": records_synced,
+                "duration_seconds": duration
+            }
+
+        except Exception as e:
+            duration = time.time() - start_time
+            logger.error(f"Prizes sync failed: {e}", exc_info=True)
+            return {
+                "status": "error",
+                "error": str(e),
+                "records_synced": 0,
+                "duration_seconds": duration
+            }
+
     def sync_all(self) -> Dict:
         """Run all sync operations
         
@@ -1579,6 +1792,7 @@ class DataSyncService:
             "rosters": self.sync_rosters(),
             "team_standings": self.sync_round_rankings(),
             "match_odds": self.sync_match_odds(),
+            "prizes": self.sync_prizes(),
         }
         
         logger.info("=" * 60)
