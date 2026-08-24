@@ -147,12 +147,12 @@ async def get_transactions_history(
             else:
                 date_key = "Sin fecha"
             
-            sf = lookup_sofascore(sofascore_map, player_name or '', resolved_team_name)
-            
             # Resolve real team name/logo from ID
             team_info = LALIGA_TEAMS.get(real_team_id or '', {})
             resolved_team_name = real_team_name or team_info.get("name", "")
             resolved_team_logo = team_info.get("logo", "")
+            
+            sf = lookup_sofascore(sofascore_map, player_name or '', resolved_team_name)
             
             overpay_pct = None
             if market_val and market_val > 0 and price:
