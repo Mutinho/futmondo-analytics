@@ -20,4 +20,6 @@ jobs:
           python3 -m pip install curl_cffi psycopg2-binary python-dotenv --break-system-packages -q
 
       - name: Run Sofascore sync
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: python3 backend/scripts/sync_sofascore_local.py
