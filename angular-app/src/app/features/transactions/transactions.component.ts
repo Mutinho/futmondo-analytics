@@ -11,7 +11,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule, MAT_DATE_LOCALE, DateAdapter, MAT_DATE_FORMATS, NativeDateAdapter } from '@angular/material/core';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
-import { StarterBadgeComponent } from '../../shared/components/starter-badge.component';
+import { StarterCardBadgeComponent } from '../../shared/components/starter-card-badge.component';
 import { ScrollTopComponent } from '../../shared/components/scroll-top.component';
 
 const ES_DATE_FORMATS = {
@@ -80,7 +80,7 @@ interface Team {
   imports: [
     FormsModule, MatProgressSpinnerModule, MatSelectModule,
     MatFormFieldModule, MatInputModule, MatIconModule, MatButtonModule,
-    MatDatepickerModule, MatNativeDateModule, MoneyPipe, ScrollTopComponent, StarterBadgeComponent
+    MatDatepickerModule, MatNativeDateModule, MoneyPipe, ScrollTopComponent, StarterCardBadgeComponent
   ],
   providers: [
     { provide: MAT_DATE_LOCALE, useValue: 'es-ES' },
@@ -208,7 +208,7 @@ interface Team {
                       <span class="badge-item"><span class="badge-label">Sofa</span><span class="badge-val">{{ t.sofascore_rating.toFixed(1) }}</span></span>
                     }
                     @if (t.starter_pct != null) {
-                      <app-starter-badge [pct]="t.starter_pct" />
+                      <app-starter-card-badge [pct]="t.starter_pct" />
                     }
                     @if (t.bids && t.bids.length) {
                       <span class="badge-item badge-bids">{{ t.bids.length }} puja{{ t.bids.length > 1 ? 's' : '' }}</span>
@@ -299,7 +299,7 @@ interface Team {
                       <span class="badge-item"><span class="badge-label">Sofa</span><span class="badge-val">{{ t.sofascore_rating.toFixed(1) }}</span></span>
                     }
                     @if (t.starter_pct != null) {
-                      <app-starter-badge [pct]="t.starter_pct" />
+                      <app-starter-card-badge [pct]="t.starter_pct" />
                     }
                   </div>
                 </div>
