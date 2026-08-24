@@ -108,6 +108,8 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  // In standalone PWA on iPhone, pad the top for the status bar / notch
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
 .mobile-toolbar {
@@ -116,7 +118,6 @@
   z-index: 10;
   background: var(--mat-sys-surface);
   border-bottom: 1px solid var(--mat-sys-outline-variant);
-  padding-top: env(safe-area-inset-top);
 
   .toolbar-title {
     font-weight: 700;
@@ -128,7 +129,6 @@
 .page-content {
   flex: 1;
   padding: 32px;
-  padding-bottom: calc(32px + env(safe-area-inset-bottom));
   overflow-y: auto;
   background: var(--mat-sys-surface-container-lowest);
 }
