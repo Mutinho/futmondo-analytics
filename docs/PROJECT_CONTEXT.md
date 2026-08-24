@@ -1,6 +1,6 @@
 # Contexto del Proyecto — Futmondo Analytics
 
-## Estado Actual (23 agosto 2026) — v1.4.4
+## Estado Actual (24 agosto 2026) — v1.6.0
 
 ### Resumen
 Aplicación multi-usuario de gestión de ligas Futmondo (fantasy football). Frontend Angular 22 (PWA) + backend FastAPI. Autenticación JWT con HttpOnly cookies. Base de datos Neon PostgreSQL. Deploy en Fly.io.
@@ -9,7 +9,7 @@ Aplicación multi-usuario de gestión de ligas Futmondo (fantasy football). Fron
 - **GitHub**: https://github.com/Mutinho/futmondo-analytics
 - **Branch**: main
 - **Deploy**: Fly.io (futmondo-app.fly.dev / futmondo-api.fly.dev)
-- **Versión actual**: v1.4.4
+- **Versión actual**: v1.6.0
 
 ---
 
@@ -333,3 +333,83 @@ Usado como fallback estático cuando la API no devuelve nombre/logo del equipo r
 ### URLs de imágenes Futmondo
 - Jugadores: `https://static01.mondocore.com/futmondo/img/faces/64/{slug}.png`
 - Equipos: `https://static02.mondocore.com/futmondo/img/teams/64/{logo}`
+
+---
+
+## Changelog v1.5.0 → v1.6.0 (24 agosto 2026)
+
+### Nuevas funcionalidades
+
+#### Calculadora (/calculator)
+- Nueva página para simular ventas de jugadores con proyección por tendencia y fecha
+- Selección de jugadores con circle-check (estilo WhatsApp), tarjeta verde oscuro al seleccionar
+- Cabecera reactiva: saldo actual, en venta, seleccionadas, saldo futuro
+- Date picker español (lunes-domingo, dd/mm/yyyy) para proyección por tendencia
+- Botón FAB flotante "Vender" con Material confirm dialog
+- Jugadores en venta: tarjetas naranjas horizontales con botón cancelar
+- Endpoints: POST /api/v1/roster/sell, GET /api/v1/roster/on-sale, POST /api/v1/roster/cancel-sale
+
+#### Sistema de Premios
+- Nueva tabla `team_prizes` (championship_id, team_id, matchday, ranking_prize, mvp_prize, position)
+- Sync de premios: solo jornadas con TODOS los partidos status "F" (sin aplazados)
+- Fórmula ranking mode "flop" (últimos cobran más)
+- MVP: busca en roundlineup de cada equipo quién tenía al jugador MVP
+- Columna "Premios" en Presupuesto (azul #0056e6, clickable → modal desglose)
+- Premios suman al saldo: balance = initial - spent + income + prizes
+- Endpoint: GET /api/v1/analytics/prizes/{team_id}
+
+#### PWA iPhone
+- Safe area: padding para notch en toolbar y sidebar
+- 100dvh para evitar bloque blanco inferior
+- Sidebar respeta notch (padding-top env(safe-area-inset-top))
+
+### Fixes y mejoras
+
+#### Sofascore Sync
+- Reducido de 546 a ~306 jugadores (solo rosters + favoritos)
+- Dividido en 2 chunks (schedule 7:00 y 8:30 CET)
+- Auto-reconnect en idle timeout de Neon PostgreSQL
+- Soporte duplicados (Gueye, Salinas): UNIQUE(player_name, team), lookup_sofascore()
+- Timeout 120min, dropdown selector en GitHub Actions
+
+#### Evolución
+- Acepta championship_id dinámico (multi-campeonato)
+- Fix: pasa ID desde effect a loadData (evita stale reads)
+- Fix: sync_round_rankings re-sincroniza TODAS las jornadas (no incremental)
+- Fix: puntos del ranking son por-ronda (no acumulados) — corregida interpretación
+
+#### Analytics
+- Overview: quitada columna posición, fix mapeo total_points
+- Classification: fix mapeo total_points/average_points
+- Market/Watchlist: campo `value` añadido a tabla players, ratio = avg/(precio/1M€)
+- Market: fix N+1 query (22s → 1.3s), equipo real desde mapa LaLiga
+- Players: fix bug `0 or None` en sync player_performance
+
+#### Otros
+- Eliminada página Finanzas del menú
+- Fix ranking_mode "flop" en cálculo de premios
+- Transacciones: starter card badge correcto
+- Fix: transactions resolved_team_name antes del lookup
+- Budget cards: quitado font-family JetBrains Mono
+- GitHub Actions: retry machine start (race condition), DATABASE_URL secret
+
+### Endpoints de Futmondo documentados
+- `/1/market/putonmarket` — poner jugador en venta
+- `/5/market/toggleplayer` — ocultar jugador
+- `/1/market/cancelsell` — cancelar venta
+- `/1/market/myplayers` — mis jugadores en venta
+- `/1/userteam/rounds` — jornadas del campeonato
+- `/1/ranking/round` — ranking de una jornada (puntos = solo esa ronda)
+- `/1/userteam/dreamteam` — equipo ideal + MVP
+- `/1/userteam/roundlineup` — alineación histórica por ronda (funciona con cualquier team)
+- `/1/userteam/moneymovements` — solo del propio equipo
+
+---
+
+## TODO — Próxima sesión
+
+### Analytics/Market (Watchlist) — Mejoras
+1. **Vista dual tarjetas/tabla** — Toggle cards/table como Mi Plantilla: foto jugador, escudo equipo, badges posición
+2. **Paginación** — ~200 jugadores, paginar con controles (20/50 por página)
+3. **Ordenación** — Por: Media (desc), Precio (asc/desc), Ratio (desc), Nombre, Equipo
+4. **Datos completos** — Foto, nombre, equipo real + escudo, posición, media, precio, ratio, tendencia (change)
