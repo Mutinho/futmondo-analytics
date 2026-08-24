@@ -47,7 +47,7 @@ def _get_finance_config(championship_id: str, user_id: str) -> dict:
     }
 
 
-def _calculate_ranking_prize(position: int, total_members: int, money_per_ranking: int, users_to_rank: int) -> int:
+def _calculate_ranking_prize(position: int, total_members: int, money_per_ranking: int, users_to_rank: int, ranking_mode: str = "top") -> int:
     """Calculate ranking prize using Futmondo's formula.
     
     Formula (from Futmondo's calculator):
@@ -55,11 +55,14 @@ def _calculate_ranking_prize(position: int, total_members: int, money_per_rankin
     - Each position gets a ratio = (N - position + 1) / totalPct
     - Prize = money_per_ranking * ratio
     
+    When ranking_mode = "flop", the prize is inverted: last place gets the most.
+    
     Args:
         position: 1-based position (1 = first place)
         total_members: total number of teams in championship
         money_per_ranking: total money pool per round
         users_to_rank: how many users get ranked (-1 = all)
+        ranking_mode: "top" (1st gets most) or "flop" (last gets most)
     """
     if money_per_ranking <= 0:
         return 0
@@ -71,8 +74,12 @@ def _calculate_ranking_prize(position: int, total_members: int, money_per_rankin
     # Sum of 1..members
     total_pct = members * (members + 1) // 2
     
-    # Position 1 gets ratio = members/totalPct, position 2 = (members-1)/totalPct, etc.
-    ratio = (members - position + 1) / total_pct
+    if ranking_mode == "flop":
+        # Inverted: position 1 (first) gets least, position N (last) gets most
+        ratio = position / total_pct
+    else:
+        # Normal: position 1 gets most
+        ratio = (members - position + 1) / total_pct
     
     return round(money_per_ranking * ratio)
 
@@ -146,7 +153,7 @@ async def get_player_finances(
                 team_id = row[0]
                 position = row[2]
                 if position and position > 0:
-                    prize = _calculate_ranking_prize(position, total_members, MONEY_PER_RANKING, USERS_TO_RANK)
+                    prize = _calculate_ranking_prize(position, total_members, MONEY_PER_RANKING, USERS_TO_RANK, RANKING_MODE)
                     ranking_money_by_team[team_id] = ranking_money_by_team.get(team_id, 0) + prize
 
         team_lookup: Dict[str, Dict] = {}

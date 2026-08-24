@@ -50,6 +50,8 @@ import { SofascoreBadgeComponent } from '../../shared/components/sofascore-badge
 import { SofascoreCardBadgeComponent } from '../../shared/components/sofascore-card-badge.component';
 import { ScrollTopComponent } from '../../shared/components/scroll-top.component';
 import { ChampionshipService } from '../../core/services/championship.service';
+import { MatDialog } from '@angular/material/dialog';
+import { ConfirmDialogComponent } from '../market/confirm-dialog.component';
 
 interface RosterPlayer {
   player_id: string;
@@ -104,18 +106,60 @@ interface RosterPlayer {
           <span class="calc-header-value" [class]="balance() >= 0 ? 'positive' : 'negative'">{{ balance() | money }}</span>
         </div>
         <div class="calc-header-item">
-          <span class="calc-header-label">Ventas seleccionadas</span>
+          <span class="calc-header-label">En venta</span>
+          <span class="calc-header-value on-sale">{{ onSaleTotal() | money }}</span>
+        </div>
+        <div class="calc-header-item">
+          <span class="calc-header-label">Seleccionadas</span>
           <span class="calc-header-value sales">{{ selectedTotal() | money }}</span>
         </div>
         <div class="calc-header-item">
           <span class="calc-header-label">Saldo futuro</span>
           <span class="calc-header-value" [class]="futureBalance() >= 0 ? 'positive' : 'negative'">{{ futureBalance() | money }}</span>
         </div>
-        <div class="calc-header-item">
-          <span class="calc-header-label">Seleccionados</span>
-          <span class="calc-header-value count">{{ selectedCount() }}</span>
-        </div>
       </div>
+
+      <!-- On-sale players -->
+      @if (onSalePlayers().length > 0) {
+        <div class="on-sale-section">
+          <h3 class="on-sale-title">🏷️ En venta ({{ onSalePlayers().length }})</h3>
+          <div class="on-sale-cards">
+            @for (p of onSalePlayers(); track p.player_id) {
+              <div class="on-sale-card">
+                <div class="on-sale-card-info">
+                  <img [src]="getPlayerPhoto(p.slug)" class="on-sale-photo" [alt]="p.name" loading="lazy"
+                       (error)="$event.target.style.display='none'" />
+                  <div>
+                    <strong>{{ p.name }}</strong>
+                    <span class="on-sale-team">{{ p.team }}</span>
+                  </div>
+                </div>
+                <div class="on-sale-card-price">{{ p.value | money }}</div>
+                <button mat-icon-button class="on-sale-cancel" (click)="cancelSale(p)" matTooltip="Cancelar venta">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+            }
+          </div>
+        </div>
+      }
+
+      <!-- Sell FAB (floating) -->
+      @if (selectedCount() > 0) {
+        <div class="sell-fab" (click)="sellPlayers()">
+          @if (selling()) {
+            <mat-spinner diameter="22" />
+          } @else {
+            <mat-icon>storefront</mat-icon>
+          }
+          <span class="sell-fab-label">Vender ({{ selectedCount() }})</span>
+        </div>
+      }
+      @if (sellResult()) {
+        <div class="sell-toast" [class]="sellResult()!.success ? 'success' : 'error'">
+          {{ sellResult()!.message }}
+        </div>
+      }
 
       <!-- Date picker for projection -->
       <div class="date-row">
@@ -152,6 +196,8 @@ interface RosterPlayer {
           <mat-button-toggle value="table"><mat-icon>table_rows</mat-icon></mat-button-toggle>
         </mat-button-toggle-group>
       </div>
+
+      <p class="player-count">{{ players().length }} jugadores disponibles</p>
 
       @if (viewMode() === 'table') {
       <div class="table-container">
@@ -266,8 +312,14 @@ interface RosterPlayer {
                   <app-starter-card-badge [pct]="p.starter_pct" />
                 </div>
               </div>
-              <div class="card-select">
-                <mat-checkbox [checked]="isSelected(p)" (click)="$event.stopPropagation()" (change)="togglePlayer(p, $event.checked)" />
+              <div class="card-select" (click)="$event.stopPropagation(); togglePlayer(p, !isSelected(p))">
+                @if (isSelected(p)) {
+                  <div class="check-circle selected">
+                    <mat-icon>check</mat-icon>
+                  </div>
+                } @else {
+                  <div class="check-circle"></div>
+                }
               </div>
               <span class="pos-chip card-pos-top" [class]="'pos-' + getPositionKey(p.position)">{{ getPositionLabel(p.position) }}</span>
             </div>
@@ -304,6 +356,7 @@ interface RosterPlayer {
   `,
   styles: [`
     .description { color: var(--mat-sys-on-surface-variant); font-size: 13px; margin-bottom: 24px; }
+    .player-count { color: var(--mat-sys-on-surface-variant); font-size: 13px; margin: 0 0 12px; font-weight: 500; }
     .loading { display: flex; align-items: center; gap: 16px; padding: 60px; justify-content: center; color: var(--mat-sys-on-surface-variant); }
     .error-message { padding: 16px; background: #ffebee; color: #d32f2f; border-radius: 8px; }
 
@@ -319,10 +372,57 @@ interface RosterPlayer {
     .calc-header-value.positive { color: #2e7d32; }
     .calc-header-value.negative { color: #d32f2f; }
     .calc-header-value.sales { color: #1565c0; }
+    .calc-header-value.on-sale { color: #e65100; }
     .calc-header-value.count { color: var(--mat-sys-on-surface); }
+
+    /* On-sale section */
+    .on-sale-section { margin-bottom: 20px; }
+    .on-sale-title { font-size: 1em; margin: 0 0 12px; color: var(--mat-sys-on-surface); }
+    .on-sale-cards { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; flex-wrap: wrap; }
+    .on-sale-cards::-webkit-scrollbar { height: 4px; }
+    .on-sale-cards::-webkit-scrollbar-thumb { background: var(--mat-sys-outline-variant); border-radius: 4px; }
+    .on-sale-card {
+      min-width: 240px; flex-shrink: 0;
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 16px; border-radius: 12px;
+      background: var(--mat-sys-surface-container);
+      border: 1px dashed #e65100;
+      opacity: 0.75;
+    }
+    @media (max-width: 768px) {
+      .on-sale-cards { flex-wrap: nowrap; }
+    }
+    .on-sale-card-info { display: flex; align-items: center; gap: 10px; flex: 1; }
+    .on-sale-card-info div { display: flex; flex-direction: column; }
+    .on-sale-photo { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background: #f0f0f0; }
+    .on-sale-team { font-size: 0.8em; color: var(--mat-sys-on-surface-variant); }
+    .on-sale-card-price { font-weight: 700; font-size: 0.9em; color: #e65100; white-space: nowrap; }
+    .on-sale-cancel { color: #d32f2f; }
 
     /* Date row */
     .date-row { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+
+    /* Sell FAB */
+    .sell-fab {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 100;
+      display: flex; align-items: center; gap: 8px;
+      padding: 14px 24px; border-radius: 28px;
+      background: #2e7d32; color: #fff;
+      font-weight: 700; font-size: 0.95em;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+      cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .sell-fab:hover { transform: translateX(-50%) scale(1.03); box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
+    .sell-fab:active { transform: translateX(-50%) scale(0.97); }
+    .sell-fab mat-icon { font-size: 20px; width: 20px; height: 20px; }
+    .dark-theme .sell-fab { background: #14FF00; color: #000; }
+    .sell-toast {
+      position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); z-index: 100;
+      padding: 10px 20px; border-radius: 20px; font-size: 0.85em; font-weight: 600;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+    }
+    .sell-toast.success { background: #e8f5e9; color: #2e7d32; }
+    .sell-toast.error { background: #ffebee; color: #d32f2f; }
     .date-field { width: 200px; }
     .days-label { font-size: 0.9em; color: var(--mat-sys-on-surface-variant); font-weight: 500; }
 
@@ -363,8 +463,17 @@ interface RosterPlayer {
       transition: border-color 0.2s, box-shadow 0.2s;
     }
     .player-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
-    .selected-card { border-color: #4caf50; box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.25); }
-    .dark-theme .selected-card { border-color: #14FF00; box-shadow: 0 0 0 2px rgba(20, 255, 0, 0.15); }
+    .selected-card {
+      border-color: #0c370e;
+      background: #0c370e;
+      .card-player-name, .card-team-name, .card-stat-val, .card-stat-label { color: #fff; }
+      .card-stats-box { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
+      .pos-chip { opacity: 0.9; }
+    }
+    .dark-theme .selected-card {
+      border-color: #14FF00;
+      background: rgba(20, 255, 0, 0.1);
+    }
     .dark-theme .player-card { border-color: rgba(20, 255, 0, 0.15); }
     .card-header { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 16px; position: relative; }
     .card-avatar { width: 56px; height: 56px; border-radius: 50%; overflow: hidden; border: 2px solid var(--mat-sys-primary); padding: 2px; flex-shrink: 0; }
@@ -374,8 +483,21 @@ interface RosterPlayer {
     .card-team-row { display: flex; align-items: center; gap: 8px; }
     .card-team-logo { width: 22px; height: 22px; object-fit: contain; }
     .card-team-name { font-size: 0.9em; color: var(--mat-sys-on-surface-variant); font-weight: 500; }
-    .card-pos-top { position: absolute; top: 0; right: 0; }
-    .card-select { position: absolute; top: 0; right: 60px; }
+    .card-pos-top { position: absolute; top: 4px; right: 44px; }
+    .card-select { position: absolute; top: 4px; right: 4px; }
+    .check-circle {
+      width: 28px; height: 28px; border-radius: 50%;
+      border: 2px solid var(--mat-sys-outline);
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+    .check-circle:hover { border-color: #4caf50; }
+    .check-circle.selected {
+      background: #4caf50; border-color: #4caf50;
+      mat-icon { color: #fff; font-size: 18px; width: 18px; height: 18px; }
+    }
+    .dark-theme .check-circle.selected { background: #14FF00; border-color: #14FF00; mat-icon { color: #000; } }
     .card-badges { display: flex; gap: 10px; margin-top: 8px; }
     .card-stats-box { background: var(--mat-sys-surface-container-highest); border-radius: 12px; padding: 14px; border: 1px solid var(--mat-sys-outline-variant); }
     .dark-theme .card-stats-box { background: rgba(53,53,52,0.5); border-color: rgba(132,150,124,0.2); }
@@ -392,6 +514,7 @@ export class CalculatorComponent {
   private http = inject(HttpClient);
   private championshipService = inject(ChampionshipService);
   private breakpointObserver = inject(BreakpointObserver);
+  private dialog = inject(MatDialog);
 
   isMobile = toSignal(
     this.breakpointObserver.observe([Breakpoints.Handset]).pipe(map(r => r.matches)),
@@ -411,6 +534,8 @@ export class CalculatorComponent {
   loading = signal(true);
   error = signal('');
   balance = signal(0);
+  selling = signal(false);
+  sellResult = signal<{ success: boolean; message: string } | null>(null);
 
   // Selection state — use Record<string, boolean> for Angular change detection
   selectedIds = signal<Record<string, boolean>>({});
@@ -425,8 +550,13 @@ export class CalculatorComponent {
   // Players signal for reactive computations
   players = signal<RosterPlayer[]>([]);
 
+  // Players currently on sale
+  onSalePlayers = signal<any[]>([]);
+
   // Computed values
   selectedCount = computed(() => Object.keys(this.selectedIds()).length);
+
+  onSaleTotal = computed(() => this.onSalePlayers().reduce((sum, p) => sum + p.value, 0));
 
   selectedTotal = computed(() => {
     const ids = this.selectedIds();
@@ -436,7 +566,7 @@ export class CalculatorComponent {
       .reduce((sum, p) => sum + p.value + (p.change * days), 0);
   });
 
-  futureBalance = computed(() => this.balance() + this.selectedTotal());
+  futureBalance = computed(() => this.balance() + this.selectedTotal() + this.onSaleTotal());
 
   allSelected = computed(() => {
     const players = this.players();
@@ -463,15 +593,23 @@ export class CalculatorComponent {
     try {
       const params = new HttpParams().set('championship_id', this.championshipService.activeId());
 
-      // Load roster and market (for balance) in parallel
-      const [rosterData, marketData] = await Promise.all([
+      // Load roster, market (for balance), and on-sale players in parallel
+      const [rosterData, marketData, onSaleData] = await Promise.all([
         firstValueFrom(this.http.get<any>('/api/v1/roster/my', { params })),
         firstValueFrom(this.http.get<any>('/api/v1/market/today', { params })),
+        firstValueFrom(this.http.get<any>('/api/v1/roster/on-sale', { params })),
       ]);
 
       this.dataSource.data = rosterData.players || [];
       this.players.set(rosterData.players || []);
       this.balance.set(marketData.user_info?.balance || 0);
+      this.onSalePlayers.set(onSaleData.players || []);
+
+      // Filter out on-sale players from selectable list
+      const onSaleIds = new Set((onSaleData.players || []).map((p: any) => p.player_id));
+      const selectable = (rosterData.players || []).filter((p: any) => !onSaleIds.has(p.player_id));
+      this.dataSource.data = selectable;
+      this.players.set(selectable);
     } catch (err: any) {
       this.error.set(err?.error?.detail || err.message || 'Error cargando datos');
     } finally {
@@ -574,5 +712,86 @@ export class CalculatorComponent {
     if (p.includes('defensa')) return 'DF';
     if (p.includes('portero')) return 'PT';
     return position;
+  }
+
+  async sellPlayers() {
+    const ids = Object.keys(this.selectedIds());
+    if (!ids.length) return;
+
+    const count = ids.length;
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      data: {
+        title: 'Poner a la venta',
+        message: `¿Poner a la venta ${count} jugador${count > 1 ? 'es' : ''} a su valor de mercado actual?`,
+        confirmText: 'Vender',
+        cancelText: 'Cancelar',
+      },
+      width: '400px',
+    });
+
+    const confirmed = await firstValueFrom(dialogRef.afterClosed());
+    if (!confirmed) return;
+
+    this.selling.set(true);
+    this.sellResult.set(null);
+    try {
+      const resp = await firstValueFrom(this.http.post<any>('/api/v1/roster/sell', {
+        championship_id: this.championshipService.activeId(),
+        player_ids: ids,
+      }));
+      if (resp.sold === resp.total) {
+        this.sellResult.set({ success: true, message: `✅ ${resp.sold} jugador${resp.sold > 1 ? 'es' : ''} puesto${resp.sold > 1 ? 's' : ''} a la venta` });
+        // Remove sold players from the list
+        const remaining = this.players().filter(p => !this.selectedIds()[p.player_id]);
+        this.players.set(remaining);
+        this.dataSource.data = remaining;
+        this.selectedIds.set({});
+        // Reload on-sale players
+        this.loadOnSale();
+      } else {
+        const failed = resp.total - resp.sold;
+        this.sellResult.set({ success: false, message: `⚠️ ${resp.sold}/${resp.total} vendidos, ${failed} fallaron` });
+      }
+    } catch (err: any) {
+      this.sellResult.set({ success: false, message: err?.error?.detail || 'Error al poner a la venta' });
+    } finally {
+      this.selling.set(false);
+    }
+  }
+
+  async cancelSale(player: any) {
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      data: {
+        title: 'Cancelar venta',
+        message: `¿Retirar a ${player.name} del mercado?`,
+        confirmText: 'Retirar',
+        cancelText: 'No',
+        color: 'warn',
+      },
+      width: '400px',
+    });
+
+    const confirmed = await firstValueFrom(dialogRef.afterClosed());
+    if (!confirmed) return;
+
+    try {
+      await firstValueFrom(this.http.post<any>('/api/v1/roster/cancel-sale', {
+        championship_id: this.championshipService.activeId(),
+        player_id: player.player_id,
+      }));
+      // Remove from on-sale list and reload roster
+      this.onSalePlayers.set(this.onSalePlayers().filter(p => p.player_id !== player.player_id));
+      this.loadData();
+    } catch (err: any) {
+      this.sellResult.set({ success: false, message: err?.error?.detail || 'Error al cancelar venta' });
+    }
+  }
+
+  private async loadOnSale() {
+    try {
+      const params = new HttpParams().set('championship_id', this.championshipService.activeId());
+      const data = await firstValueFrom(this.http.get<any>('/api/v1/roster/on-sale', { params }));
+      this.onSalePlayers.set(data.players || []);
+    } catch { }
   }
 }
