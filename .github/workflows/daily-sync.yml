@@ -27,8 +27,27 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
-          # Get the machine ID and start it
-          MACHINE_ID=$(flyctl machines list --app futmondo-cron --json | jq -r '.[0].id')
+          # Wait for deploy to finish replacing the machine
+          echo "Waiting for machine to be ready after deploy..."
+          sleep 10
+
+          # Get the machine ID (filter out destroyed/replacing machines)
+          for i in 1 2 3 4 5; do
+            MACHINE_ID=$(flyctl machines list --app futmondo-cron --json | jq -r '[.[] | select(.state != "destroying" and .state != "replacing")][0].id')
+            if [ -n "$MACHINE_ID" ] && [ "$MACHINE_ID" != "null" ]; then
+              echo "Found machine: $MACHINE_ID (attempt $i)"
+              break
+            fi
+            echo "No ready machine found (attempt $i), waiting 10s..."
+            sleep 10
+          done
+
+          if [ -z "$MACHINE_ID" ] || [ "$MACHINE_ID" = "null" ]; then
+            echo "Error: Could not find a valid machine after 5 attempts"
+            flyctl machines list --app futmondo-cron
+            exit 1
+          fi
+
           echo "Starting machine: $MACHINE_ID"
           flyctl machine start "$MACHINE_ID" --app futmondo-cron
           echo "Machine started. It will run sync_data.py and stop when done."
