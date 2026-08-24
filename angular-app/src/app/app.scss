@@ -151,6 +151,7 @@
 @media (max-width: 768px) {
   .page-content {
     padding: 16px;
+    padding-bottom: 80px;  // Extra space so last card isn't cut off by home indicator
   }
 }
 
