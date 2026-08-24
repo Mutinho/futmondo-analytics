@@ -72,6 +72,8 @@ def build_sofascore_map(db, championship_id: str = None) -> dict:
     """Build sofascore lookup map from cache with proper starter_pct calculation.
     
     Returns dict keyed by lowercase player_name with rating, url, starter_pct.
+    When multiple players share the same name, also stores entries keyed by
+    'player_name|team' for disambiguation.
     """
     current_matchday = get_current_matchday(db, championship_id) if championship_id else 0
     
@@ -79,20 +81,41 @@ def build_sofascore_map(db, championship_id: str = None) -> dict:
     try:
         with db.get_connection() as conn:
             cursor = db.get_cursor(conn)
-            sql = "SELECT player_name, rating, sofascore_url, matches_started, season, matches_started_prev FROM sofascore_cache"
+            sql = "SELECT player_name, rating, sofascore_url, matches_started, season, matches_started_prev, team FROM sofascore_cache"
             cursor.execute(sql)
             for row in cursor.fetchall():
                 player_name = row[0]
                 matches_started = row[3] or 0
                 season_name = row[4] or ""
                 matches_started_prev = row[5] or 0
+                team = row[6] or ""
                 starter_pct = calculate_starter_pct(matches_started, season_name, current_matchday, matches_started_prev)
-                sofascore_map[player_name.lower()] = {
+                entry = {
                     "rating": row[1],
                     "url": row[2],
                     "starter_pct": starter_pct,
                 }
+                # Store by name (last wins for duplicates)
+                sofascore_map[player_name.lower()] = entry
+                # Also store by name|team for disambiguation
+                if team:
+                    sofascore_map[f"{player_name.lower()}|{team.lower()}"] = entry
     except Exception:
         pass
     
     return sofascore_map
+
+
+def lookup_sofascore(sofascore_map: dict, player_name: str, team: str = "") -> dict:
+    """Lookup a player in the sofascore map, trying team-specific key first.
+    
+    This handles players with the same name on different teams (e.g. Gueye).
+    """
+    name_lower = (player_name or "").lower()
+    if team:
+        # Try team-specific lookup first
+        entry = sofascore_map.get(f"{name_lower}|{team.lower()}")
+        if entry:
+            return entry
+    # Fallback to name-only
+    return sofascore_map.get(name_lower, {})

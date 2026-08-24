@@ -85,7 +85,7 @@ async def get_transactions_history(
             teams = [{"team_id": r[0], "team_name": r[1]} for r in cursor.fetchall()]
         
         # Enrich with Sofascore
-        from app.api.v1.endpoints._sofascore_helpers import build_sofascore_map
+        from app.api.v1.endpoints._sofascore_helpers import build_sofascore_map, lookup_sofascore
         sofascore_map = build_sofascore_map(db, championship_id)
         
         # LaLiga team map for resolving team names from IDs
@@ -147,7 +147,7 @@ async def get_transactions_history(
             else:
                 date_key = "Sin fecha"
             
-            sf = sofascore_map.get((player_name or '').lower(), {})
+            sf = lookup_sofascore(sofascore_map, player_name or '', resolved_team_name)
             
             # Resolve real team name/logo from ID
             team_info = LALIGA_TEAMS.get(real_team_id or '', {})

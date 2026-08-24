@@ -49,7 +49,7 @@ async def get_my_roster(
 
         # Enrich with Sofascore data from cache
         db = get_db()
-        from app.api.v1.endpoints._sofascore_helpers import build_sofascore_map
+        from app.api.v1.endpoints._sofascore_helpers import build_sofascore_map, lookup_sofascore
         sofascore_map = build_sofascore_map(db, championship_id)
 
         # Build response
@@ -97,7 +97,8 @@ async def get_my_roster(
 
             # Sofascore lookup
             player_name = p.get('name', '')
-            sf = sofascore_map.get(player_name.lower(), {})
+            player_team = p.get('team', '')
+            sf = lookup_sofascore(sofascore_map, player_name, player_team)
 
             profit = value - buy_price
 

@@ -66,6 +66,7 @@ export class App {
   allNavItems: NavItem[] = [
     { label: 'Presupuesto', icon: 'account_balance_wallet', route: '/budget' },
     { label: 'Mi Plantilla', icon: 'groups', route: '/my-roster' },
+    { label: 'Calculadora', icon: 'calculate', route: '/calculator' },
     { label: 'Mercado', icon: 'shopping_cart', route: '/market' },
     { label: 'Favoritos', icon: 'star', route: '/favorites' },
     { label: 'Transacciones', icon: 'receipt_long', route: '/transactions' },

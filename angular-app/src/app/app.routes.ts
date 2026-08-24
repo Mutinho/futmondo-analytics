@@ -57,6 +57,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/my-roster/my-roster.component').then(m => m.MyRosterComponent),
   },
   {
+    path: 'calculator',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/calculator/calculator.component').then(m => m.CalculatorComponent),
+  },
+  {
     path: 'analytics',
     canActivate: [authGuard],
     loadChildren: () => import('./features/analytics/analytics.routes'),

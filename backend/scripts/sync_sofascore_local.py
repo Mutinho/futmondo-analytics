@@ -259,9 +259,23 @@ class SofascoreLocal:
 
 
 def write_batch(conn, rows):
-    """Write a batch of Sofascore cache rows using UPSERT."""
+    """Write a batch of Sofascore cache rows using UPSERT.
+    Reconnects if the connection was dropped (Neon idle timeout).
+    """
     if not rows:
-        return
+        return conn
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1")  # Test connection
+        cursor.close()
+    except Exception:
+        print(f"  {YELLOW}🔄 Reconnecting to database...{RESET}", flush=True)
+        try:
+            conn.close()
+        except Exception:
+            pass
+        conn = get_db_connection()
+    
     cursor = conn.cursor()
     execute_values(cursor, """
         INSERT INTO sofascore_cache 
@@ -272,7 +286,7 @@ def write_batch(conn, rows):
          shots_on_target, tackles, interceptions, clean_sheets, saves,
          sofascore_url, synced_at)
         VALUES %s
-        ON CONFLICT (player_name) DO UPDATE SET
+        ON CONFLICT (player_name, team) DO UPDATE SET
             sofascore_id = EXCLUDED.sofascore_id, sofascore_name = EXCLUDED.sofascore_name,
             team = EXCLUDED.team, rating = EXCLUDED.rating, goals = EXCLUDED.goals,
             assists = EXCLUDED.assists, appearances = EXCLUDED.appearances,
@@ -293,6 +307,7 @@ def write_batch(conn, rows):
             synced_at = EXCLUDED.synced_at
     """, rows, page_size=50)
     cursor.close()
+    return conn
 
 
 def main():
@@ -316,10 +331,12 @@ def main():
     seen = set()
     for p in all_players:
         name = p["name"]
-        if name.lower() not in seen:
-            team_hint = SofascoreLocal.LALIGA_TEAMS.get(p.get("teamId", ""), "")
+        team_id = p.get("teamId", "")
+        key = f"{name.lower()}|{team_id}"
+        if key not in seen:
+            team_hint = SofascoreLocal.LALIGA_TEAMS.get(team_id, "")
             players_to_sync.append({"name": name, "team": team_hint})
-            seen.add(name.lower())
+            seen.add(key)
     
     total = len(players_to_sync)
     print(f"{CYAN}⚽ Starting Sofascore sync for {total} players...{RESET}\n", flush=True)
@@ -383,7 +400,7 @@ def main():
         
         # Write in batches
         if len(cache_rows) >= BATCH_SIZE:
-            write_batch(conn, cache_rows)
+            conn = write_batch(conn, cache_rows)
             cache_rows = []
         
         # Pause every N players
@@ -392,8 +409,9 @@ def main():
             time.sleep(PAUSE_DURATION)
     
     # Write remaining
+    # Write remaining
     if cache_rows:
-        write_batch(conn, cache_rows)
+        conn = write_batch(conn, cache_rows)
     
     conn.close()
     

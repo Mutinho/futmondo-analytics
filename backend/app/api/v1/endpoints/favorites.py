@@ -93,7 +93,7 @@ async def get_my_favorites(
             pass
         
         # Enrich with Sofascore data from cache
-        from app.api.v1.endpoints._sofascore_helpers import build_sofascore_map
+        from app.api.v1.endpoints._sofascore_helpers import build_sofascore_map, lookup_sofascore
         sofascore_map = build_sofascore_map(db, championship_id)
         
         # Build response
@@ -102,7 +102,8 @@ async def get_my_favorites(
         
         for p in fav_players:
             player_name = p.get('name', '')
-            sf = sofascore_map.get(player_name.lower(), {})
+            player_team = p.get('team', '')
+            sf = lookup_sofascore(sofascore_map, player_name, player_team)
             
             avg_data = p.get('average', {})
             average = avg_data.get('average', 0) if isinstance(avg_data, dict) else 0
