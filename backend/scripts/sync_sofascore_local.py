@@ -61,14 +61,27 @@ def get_db_connection():
 
 
 def get_players_from_db(conn):
-    """Get players from active championships (no Futmondo login needed)."""
+    """Get relevant players: those owned by users + favorites.
+    Excludes computer-only players not in any user's favorites.
+    """
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT DISTINCT p.name, p.real_team_id 
-        FROM players p
-        INNER JOIN player_championship_stats pcs ON pcs.player_id = p.player_id
-        INNER JOIN user_championships uc ON uc.championship_id = pcs.championship_id
-        WHERE p.name IS NOT NULL AND p.name != ''
+        SELECT DISTINCT p.name, p.real_team_id FROM (
+            -- Players owned by human users (all rosters)
+            SELECT p.player_id, p.name, p.real_team_id
+            FROM players p
+            INNER JOIN player_championship_stats pcs ON pcs.player_id = p.player_id
+            INNER JOIN user_championships uc ON uc.championship_id = pcs.championship_id
+            WHERE pcs.owner_team_id IS NOT NULL AND pcs.owner_team_id != ''
+            
+            UNION
+            
+            -- Favorites
+            SELECT p.player_id, p.name, p.real_team_id
+            FROM players p
+            INNER JOIN player_favorites pf ON pf.player_id = p.player_id
+            INNER JOIN user_championships uc ON uc.championship_id = pf.championship_id
+        ) p
         ORDER BY p.name
     """)
     players = [{"name": row[0], "teamId": row[1] or ""} for row in cursor.fetchall()]
@@ -313,6 +326,16 @@ def write_batch(conn, rows):
 def main():
     start_time = time.time()
     
+    # Parse optional chunk argument: --chunk 1/2 means first half, 2/2 means second half
+    chunk_current = None
+    chunk_total = None
+    for i, arg in enumerate(sys.argv[1:], 1):
+        if arg == '--chunk' and i < len(sys.argv) - 1:
+            parts = sys.argv[i + 1].split('/')
+            if len(parts) == 2:
+                chunk_current = int(parts[0])
+                chunk_total = int(parts[1])
+    
     # Connect to DB
     print(f"\n{CYAN}📡 Connecting to Neon PostgreSQL...{RESET}", flush=True)
     conn = get_db_connection()
@@ -339,6 +362,17 @@ def main():
             seen.add(key)
     
     total = len(players_to_sync)
+    
+    # Apply chunking if requested
+    if chunk_current and chunk_total:
+        chunk_size = (total + chunk_total - 1) // chunk_total  # ceil division
+        start_idx = (chunk_current - 1) * chunk_size
+        end_idx = min(start_idx + chunk_size, total)
+        players_to_sync = players_to_sync[start_idx:end_idx]
+        total_all = total
+        total = len(players_to_sync)
+        print(f"{CYAN}📦 Chunk {chunk_current}/{chunk_total}: players {start_idx+1}-{end_idx} of {total_all}{RESET}\n", flush=True)
+    
     print(f"{CYAN}⚽ Starting Sofascore sync for {total} players...{RESET}\n", flush=True)
     
     # Sync loop

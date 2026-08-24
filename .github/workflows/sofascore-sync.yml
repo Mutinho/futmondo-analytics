@@ -1,16 +1,23 @@
 name: Sofascore Sync (Local)
 
 on:
-  workflow_dispatch: # Manual trigger from GitHub Actions UI
+  workflow_dispatch:
+    inputs:
+      chunk:
+        description: 'Chunk to sync (e.g. 1/2, 2/2, or empty for all)'
+        required: false
+        default: ''
   schedule:
-    # 5:00 UTC = 7:00 CET — runs after daily data sync (6:30 CET)
+    # Chunk 1: 5:00 UTC = 7:00 CET
     - cron: '0 5 * * *'
+    # Chunk 2: 6:30 UTC = 8:30 CET (1.5h later, after ban expires)
+    - cron: '30 6 * * *'
 
 jobs:
   sofascore:
     name: Sync Sofascore Ratings
     runs-on: self-hosted
-    timeout-minutes: 120
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
 
@@ -19,7 +26,20 @@ jobs:
           python3 -c "import curl_cffi, psycopg2, dotenv" 2>/dev/null || \
           python3 -m pip install curl_cffi psycopg2-binary python-dotenv --break-system-packages -q
 
+      - name: Determine chunk
+        id: chunk
+        run: |
+          if [ -n "${{ github.event.inputs.chunk }}" ]; then
+            echo "arg=--chunk ${{ github.event.inputs.chunk }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 5 * * *" ]; then
+            echo "arg=--chunk 1/2" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "30 6 * * *" ]; then
+            echo "arg=--chunk 2/2" >> $GITHUB_OUTPUT
+          else
+            echo "arg=" >> $GITHUB_OUTPUT
+          fi
+
       - name: Run Sofascore sync
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: python3 backend/scripts/sync_sofascore_local.py
+        run: python3 backend/scripts/sync_sofascore_local.py ${{ steps.chunk.outputs.arg }}
