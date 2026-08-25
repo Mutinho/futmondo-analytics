@@ -52,6 +52,7 @@ import { ScrollTopComponent } from '../../shared/components/scroll-top.component
 import { ChampionshipService } from '../../core/services/championship.service';
 import { MatDialog } from '@angular/material/dialog';
 import { ConfirmDialogComponent } from '../market/confirm-dialog.component';
+import { PageHeaderComponent } from '../../shared/components/page-header.component';
 
 interface RosterPlayer {
   player_id: string;
@@ -88,11 +89,10 @@ interface RosterPlayer {
     MatButtonToggleModule, MatFormFieldModule, MatSelectModule,
     MatDatepickerModule, MatNativeDateModule, MatInputModule, FormsModule,
     MoneyPipe, StarterBadgeComponent, StarterCardBadgeComponent,
-    SofascoreBadgeComponent, SofascoreCardBadgeComponent, ScrollTopComponent
+    SofascoreBadgeComponent, SofascoreCardBadgeComponent, ScrollTopComponent, PageHeaderComponent
   ],
   template: `
-    <h1>🧮 Calculadora</h1>
-    <p class="description">Selecciona jugadores para simular ventas y proyecta su valor por tendencia.</p>
+    <app-page-header title="Calculadora" icon="calculate" description="Selecciona jugadores para simular ventas y proyecta su valor por tendencia." />
 
     @if (loading()) {
       <div class="loading"><mat-spinner diameter="40" /> <span>Cargando plantilla...</span></div>

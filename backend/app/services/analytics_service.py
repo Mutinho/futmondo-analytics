@@ -19,12 +19,20 @@ class AnalyticsService:
     def _safe_team_info(self, team_id: str) -> Dict:
         if not team_id:
             return {}
-        if hasattr(self.dm, "get_team_by_id"):
+        # Use per-instance cache to avoid N+1 queries
+        if not self._player_cache.get("__teams_loaded__"):
             try:
-                return self.dm.get_team_by_id(team_id) or {}
+                from app.services.db_connection import get_db
+                db = get_db()
+                with db.get_connection() as conn:
+                    cursor = db.get_cursor(conn)
+                    cursor.execute("SELECT team_id, user_id, team_name FROM teams")
+                    for row in cursor.fetchall():
+                        self._team_cache[row[0]] = {"team_id": row[0], "user_id": row[1], "team_name": row[2]}
+                self._player_cache["__teams_loaded__"] = True
             except Exception:
-                return {}
-        return {}
+                pass
+        return self._team_cache.get(team_id, {})
 
     LALIGA_TEAMS = {
         "504e581e4d8bec9a670000c6": "Real Madrid", "504e581e4d8bec9a670000c7": "Barcelona",

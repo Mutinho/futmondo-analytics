@@ -30,13 +30,14 @@ const STEP_LABELS: Record<string, string> = {
   rosters: 'Plantillas',
   team_standings: 'Clasificación',
   match_odds: 'Cuotas de partidos',
+  prizes: 'Premios',
   phantoms: 'Verificar fantasmas',
 };
 
 const ALL_STEPS = [
   'players', 'transactions', 'clauses', 'punishments_bonuses',
   'dream_teams', 'player_performance', 'rosters', 'team_standings', 'match_odds',
-  'phantoms'
+  'prizes', 'phantoms'
 ];
 
 @Component({

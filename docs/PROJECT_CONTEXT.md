@@ -1,6 +1,6 @@
 # Contexto del Proyecto — Futmondo Analytics
 
-## Estado Actual (24 agosto 2026) — v1.6.0
+## Estado Actual (25 agosto 2026) — v1.7.0
 
 ### Resumen
 Aplicación multi-usuario de gestión de ligas Futmondo (fantasy football). Frontend Angular 22 (PWA) + backend FastAPI. Autenticación JWT con HttpOnly cookies. Base de datos Neon PostgreSQL. Deploy en Fly.io.
@@ -9,7 +9,7 @@ Aplicación multi-usuario de gestión de ligas Futmondo (fantasy football). Fron
 - **GitHub**: https://github.com/Mutinho/futmondo-analytics
 - **Branch**: main
 - **Deploy**: Fly.io (futmondo-app.fly.dev / futmondo-api.fly.dev)
-- **Versión actual**: v1.6.0
+- **Versión actual**: v1.7.0
 
 ---
 
@@ -336,7 +336,81 @@ Usado como fallback estático cuando la API no devuelve nombre/logo del equipo r
 
 ---
 
-## Changelog v1.5.0 → v1.6.0 (24 agosto 2026)
+## Changelog v1.6.0 → v1.7.0 (25 agosto 2026)
+
+### Nuevas funcionalidades
+
+#### Página Agentes Libres (/free-agents)
+- Nueva página independiente en el sidebar (antes estaba oculta en Analytics/Market)
+- Vista dual tabla/tarjetas con fotos, escudos, badges Sofascore y titularidad
+- Filtros: nombre, club, posición
+- Botón de marcar/desmarcar favorito (llama API Futmondo + BD local)
+- Tarjetas favoritas destacadas con borde y fondo dorado
+- Ordenación: media, ratio, forma, tendencia, sofascore, titularidad, precio, nombre, equipo
+- Paginación (20/50/100)
+- Columnas Forma (🔥 si avg_last_five ≥ 8) y Tendencia (avg_last_five - avg_overall)
+- Endpoint POST /api/v1/favorites/mark para marcar favoritos en Futmondo
+
+#### Página Clasificación (/classification)
+- Nueva página independiente que fusiona Overview + Clasificación Dinámica de Analytics
+- Endpoint optimizado /championship/classification-full (una sola query JOIN, ~150ms)
+- Filtro por jornadas: Todas, Últ. 5, Últ. 10, Personalizado
+- Columnas: posición, equipo, puntos, media, PJ, máx, mín, momentum, última jornada
+- MatSort en todas las columnas
+
+#### Clausulables renovada
+- Vista dual tabla/tarjetas con fotos, escudos, badges
+- Filtros: nombre, dueño, posición
+- Filtro cláusula: botones "Inferior a: Todas | 10M | 20M | 30M | 40M | 50M | 60M"
+- Score simplificado: 50% media + 50% eficiencia cláusula/media
+- Columna valor de mercado añadida
+- Filtra jugadores del usuario logado (no muestra tus propios jugadores)
+- Filtra jugadores con media ≤ 0
+- Campo clause_date para filtrar protección (pendiente sync)
+- Endpoint enriquecido con slug, posición, equipo real, sofascore
+
+#### Sistema de Premios — Mejoras
+- Fix posiciones incorrectas: ahora usa API /1/ranking/round directamente (no team_standings)
+- Premio por puntos (money_per_point × puntos_ronda): nueva columna points_prize
+- Modal premios: columna "Puntos" visible solo si el campeonato lo usa
+- Paso "Premios" añadido al modal de sincronización (11 pasos)
+- Re-sincroniza siempre (no skip jornadas ya procesadas)
+
+#### Componente PageHeader
+- Nuevo componente compartido app-page-header (icono Material + título + descripción)
+- Aplicado en TODAS las páginas para consistencia visual con el sidebar
+- Iconos del sidebar usados en títulos de página
+
+### Eliminaciones
+- Eliminada sección Analytics del sidebar y rutas
+- Eliminada página Analytics/Players (cubierta por Agentes Libres)
+- Eliminada página Analytics/Opportunities (cubierta por Agentes Libres)
+- Eliminada página Analytics/Projections
+- Eliminada página Analytics/Market (movida a /free-agents)
+
+### Fixes
+- Fix auth middleware: `path.endswith("/")` matcheaba incorrectamente con `"/"` en exclusiones → cambiado a exact match
+- Fix premios: posiciones de ronda venían de team_standings (pares de enfrentamiento) en vez del ranking real
+- Fix clausulables: championship_id no se pasaba al endpoint (usaba default incorrecto)
+- Fix clausulables: score 94% para jugadores con media negativa (ahora se excluyen si ≤ 0)
+- Fix _safe_team_info: N+1 queries a BD → batch load con caché (eliminado cuello de botella)
+
+### Optimizaciones
+- Endpoint classification-full: una sola query JOIN (~150ms vs 2s anterior)
+- _safe_team_info: carga todos los teams en un SELECT y cachea
+- Watchlist endpoint: eliminado limit, frontend pagina
+
+---
+
+## TODO — Próxima sesión
+
+### Clausulables
+1. **Guardar futmondo_team_id automáticamente** — al detectar campeonatos en login/sync (endpoint userteam/information)
+2. **Filtro clause_date** — necesita sync para rellenar el campo (ya está implementado el filtro)
+
+### General
+1. **Actualizar PROJECT_CONTEXT** con nuevas rutas del sidebar
+2. **Deploy a producción** — verificar todo funciona en Fly.io
 
 ### Nuevas funcionalidades
 

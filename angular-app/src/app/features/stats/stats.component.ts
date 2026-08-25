@@ -7,15 +7,16 @@ import { StatsService } from '../../core/services/stats.service';
 import { ChampionshipService } from '../../core/services/championship.service';
 import { UserStats } from '../../core/models/stats.model';
 import { TeamMovementsDialogComponent, TeamMovementsDialogData } from './team-movements-dialog/team-movements-dialog.component';
+import { PageHeaderComponent } from '../../shared/components/page-header.component';
 
 const COLORS = ['#4CAF50', '#2196F3', '#FF9800', '#9C27B0', '#F44336', '#00BCD4', '#795548', '#607D8B', '#E91E63'];
 
 @Component({
   selector: 'app-stats',
   standalone: true,
-  imports: [MatProgressSpinnerModule, BaseChartDirective],
+  imports: [MatProgressSpinnerModule, BaseChartDirective, PageHeaderComponent],
   template: `
-    <h1>📈 Estadísticas</h1>
+    <app-page-header title="Estadísticas" icon="bar_chart" description="Datos por jugador y equipo." />
 
     @if (loading()) {
       <div class="loading-container">

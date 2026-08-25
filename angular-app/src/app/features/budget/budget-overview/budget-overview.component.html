@@ -1,8 +1,4 @@
-<div class="budget-header">
-  <h1>💰 Presupuesto por Equipo</h1>
-</div>
-
-<p class="description">Presupuesto base: {{ championshipBudget() }}. Saldo = {{ championshipBudget() }} − compras + ventas + premios. Haz clic en un equipo para ver detalle.</p>
+<app-page-header title="Presupuesto" icon="account_balance_wallet" [description]="'Presupuesto base: ' + championshipBudget() + '. Saldo = ' + championshipBudget() + ' − compras + ventas + premios. Haz clic en un equipo para ver detalle.'" />
 
 @if (loading()) {
   <div class="loading-container">

@@ -5,7 +5,7 @@ Returns top 20 players based on clause value analysis
 
 import logging
 from typing import Dict, List
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from app.core.config import CHAMPIONSHIP_ID
 from app.services.data_manager_v2 import DataManagerV2
@@ -15,8 +15,27 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _is_clausulable_now(player: dict, now) -> bool:
+    """Check if a player's clause protection period has expired."""
+    from datetime import datetime, timezone
+    clause_date = player.get("clause_date")
+    if not clause_date:
+        return True  # No date means no protection info, show it
+    # Parse the date string if needed
+    if isinstance(clause_date, str):
+        try:
+            clause_date = datetime.fromisoformat(clause_date.replace("Z", "+00:00"))
+        except (ValueError, TypeError):
+            return True
+    # If clause_date is a naive datetime, assume UTC
+    if clause_date.tzinfo is None:
+        clause_date = clause_date.replace(tzinfo=timezone.utc)
+    return now >= clause_date
+
+
 @router.get("/")
 async def get_clausulable_players(
+    request: Request,
     championship_id: str = Query(default=CHAMPIONSHIP_ID, description="Championship ID")
 ) -> Dict:
     """Get clausulable player scores using database-stored metrics.
@@ -40,6 +59,35 @@ async def get_clausulable_players(
                 "players": []
             }
 
+        # Filter out players still in protection period
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc)
+        players = [p for p in players if _is_clausulable_now(p, now)]
+
+        # Filter out the logged-in user's own players
+        try:
+            user = getattr(request.state, "user", None)
+            logger.info(f"request.state.user = {user}")
+            if user:
+                app_user_id = user.get("user_id", "")
+                if app_user_id:
+                    from app.services.db_connection import get_db as _get_db
+                    _db = _get_db()
+                    with _db.get_connection() as conn:
+                        cursor = _db.get_cursor(conn)
+                        cursor.execute(
+                            "SELECT futmondo_team_id FROM user_championships WHERE user_id = %s AND championship_id = %s",
+                            (app_user_id, championship_id)
+                        )
+                        row = cursor.fetchone()
+                        if row and row[0]:
+                            user_team_id = row[0]
+                            before = len(players)
+                            players = [p for p in players if p.get("owner_team_id") != user_team_id]
+                            logger.info(f"Filtered user's team {user_team_id}: {before} -> {len(players)}")
+        except Exception as e:
+            logger.warning(f"Could not filter user's own players: {e}")
+
         scored_players: List[Dict] = []
 
         for player in players:
@@ -52,6 +100,9 @@ async def get_clausulable_players(
                 continue
             if average_last_five in (None, 0) or average_overall in (None, 0):
                 continue
+            # Skip players with negative averages (they're not worth clausuring)
+            if average_last_five < 0 or average_overall < 0:
+                continue
 
             try:
                 clause_price_val = float(clause_price)
@@ -61,12 +112,10 @@ async def get_clausulable_players(
             except (TypeError, ValueError):
                 continue
 
-            if avg_last_five_val == 0 or avg_overall_val == 0 or clause_price_val == 0:
+            if avg_last_five_val <= 0 or avg_overall_val <= 0 or clause_price_val == 0:
                 continue
 
             metric1 = clause_price_val / avg_last_five_val
-            metric2 = suggested_clause_val / clause_price_val
-            metric3 = clause_price_val / avg_overall_val
 
             scored_players.append({
                 "player_id": player.get("player_id"),
@@ -78,8 +127,6 @@ async def get_clausulable_players(
                 "clause_price": clause_price_val,
                 "suggested_clause": suggested_clause_val,
                 "metric1": metric1,
-                "metric2": metric2,
-                "metric3": metric3
             })
 
         if not scored_players:
@@ -91,67 +138,88 @@ async def get_clausulable_players(
             }
 
         metric1_values = [p["metric1"] for p in scored_players if p["metric1"] != float('inf')]
-        metric2_values = [p["metric2"] for p in scored_players]
-        metric3_values = [p["metric3"] for p in scored_players if p["metric3"] != float('inf')]
+        avg_values = [p["average_last_five"] for p in scored_players]
 
         min_metric1 = min(metric1_values) if metric1_values else 0
         max_metric1 = max(metric1_values) if metric1_values else 1
-        min_metric2 = min(metric2_values) if metric2_values else 0
-        max_metric2 = max(metric2_values) if metric2_values else 1
-        min_metric3 = min(metric3_values) if metric3_values else 0
-        max_metric3 = max(metric3_values) if metric3_values else 1
+        max_avg = max(avg_values) if avg_values else 1
 
         range_metric1 = max_metric1 - min_metric1 if max_metric1 != min_metric1 else 1
-        range_metric2 = max_metric2 - min_metric2 if max_metric2 != min_metric2 else 1
-        range_metric3 = max_metric3 - min_metric3 if max_metric3 != min_metric3 else 1
 
         for player in scored_players:
+            # Metric1: clause/avg (lower = better, cheaper per point)
             if player["metric1"] == float('inf'):
-                normalized_metric1 = 0.0
+                normalized_price = 0.0
             else:
-                normalized_metric1 = (max_metric1 - player["metric1"]) / range_metric1
-                normalized_metric1 = max(0.0, min(1.0, normalized_metric1))
+                normalized_price = (max_metric1 - player["metric1"]) / range_metric1
+                normalized_price = max(0.0, min(1.0, normalized_price))
 
-            normalized_metric2 = (player["metric2"] - min_metric2) / range_metric2
-            normalized_metric2 = max(0.0, min(1.0, normalized_metric2))
+            # Average normalized (higher = better)
+            normalized_avg = player["average_last_five"] / max_avg if max_avg > 0 else 0
 
-            if player["metric3"] == float('inf'):
-                normalized_metric3 = 0.0
-            else:
-                normalized_metric3 = (max_metric3 - player["metric3"]) / range_metric3
-                normalized_metric3 = max(0.0, min(1.0, normalized_metric3))
+            # Score: 50% average + 50% price efficiency
+            final_score = (normalized_avg * 0.50) + (normalized_price * 0.50)
 
-            final_score = (
-                (normalized_metric1 * (1 / 3)) +
-                (normalized_metric2 * (1 / 3)) +
-                (normalized_metric3 * (1 / 3))
-            )
-
-            player["normalized_metric1"] = normalized_metric1
-            player["normalized_metric2"] = normalized_metric2
-            player["normalized_metric3"] = normalized_metric3
             player["final_score"] = final_score
 
         scored_players.sort(key=lambda x: x["final_score"], reverse=True)
 
+        # Enrich with player details (slug, position, real team) and sofascore
+        from app.services.db_connection import get_db
+        from app.api.v1.endpoints._sofascore_helpers import build_sofascore_map, lookup_sofascore
+
+        db = get_db()
+        player_ids = [p["player_id"] for p in scored_players]
+        player_info_map = {}
+        if player_ids:
+            with db.get_connection() as conn:
+                cursor = db.get_cursor(conn)
+                placeholders = ",".join(["%s"] * len(player_ids))
+                cursor.execute(f"SELECT player_id, name, role, role2, real_team_id, real_team_name, slug, value FROM players WHERE player_id IN ({placeholders})", tuple(player_ids))
+                for row in cursor.fetchall():
+                    player_info_map[row[0]] = {"role": row[2], "role2": row[3], "real_team_id": row[4], "real_team_name": row[5], "slug": row[6], "value": row[7]}
+
+        sofascore_map = build_sofascore_map(db, championship_id)
+
+        LALIGA_TEAMS = {
+            "504e581e4d8bec9a670000c6": "Real Madrid", "504e581e4d8bec9a670000c7": "Barcelona",
+            "504e581e4d8bec9a670000c8": "Atlético de Madrid", "504e581e4d8bec9a670000c9": "Athletic de Bilbao",
+            "504e581e4d8bec9a670000ca": "Rayo Vallecano", "504e581e4d8bec9a670000cb": "Valencia",
+            "504e581e4d8bec9a670000cc": "Betis", "504e581e4d8bec9a670000cd": "Getafe",
+            "504e581e4d8bec9a670000ce": "Real Sociedad", "504e581e4d8bec9a670000cf": "Levante",
+            "504e581e4d8bec9a670000d0": "Espanyol", "504e581e4d8bec9a670000d1": "Osasuna",
+            "504e581e4d8bec9a670000d5": "Sevilla", "504e581e4d8bec9a670000d6": "Málaga",
+            "504e581e4d8bec9a670000d8": "Deportivo de la Coruña", "504e581e4d8bec9a670000d9": "Celta de Vigo",
+            "51b889b1e401a15f2c0000f0": "Elche", "51b890f5b986415a2c000012": "Villarreal",
+            "52038563b8d07d930b00008a": "Alavés", "520e4ee4a776cc826b00004b": "Racing",
+        }
+
         result = []
         for player in scored_players:
+            pinfo = player_info_map.get(player["player_id"], {})
+            real_team_id = pinfo.get("real_team_id", "")
+            team_name = LALIGA_TEAMS.get(real_team_id or "", "") or pinfo.get("real_team_name", "")
+            sf = lookup_sofascore(sofascore_map, player["player_name"], team_name)
+
             result.append({
                 "player_id": player["player_id"],
                 "player_name": player["player_name"],
+                "slug": pinfo.get("slug", ""),
+                "position": pinfo.get("role", ""),
+                "position2": pinfo.get("role2", ""),
+                "team": team_name,
+                "real_team_id": real_team_id or "",
                 "owner_name": player["owner_name"],
                 "owner_id": player["owner_id"],
                 "average_last_five": round(player["average_last_five"], 2),
                 "average_overall": round(player["average_overall"], 2),
                 "clause_price": int(player["clause_price"]),
                 "suggested_clause": int(player["suggested_clause"]),
-                "metric1_score": round(player["normalized_metric1"], 4),
-                "metric2_score": round(player["normalized_metric2"], 4),
-                "metric3_score": round(player["normalized_metric3"], 4),
-                "final_score": round(player["final_score"], 4),
-                "metric1_raw": round(player["metric1"], 2),
-                "metric2_raw": round(player["metric2"], 4),
-                "metric3_raw": round(player["metric3"], 2)
+                "value": pinfo.get("value", 0) or 0,
+                "score": round(player["final_score"], 4),
+                "sofascore_rating": sf.get("rating"),
+                "sofascore_url": sf.get("url"),
+                "starter_pct": sf.get("starter_pct"),
             })
 
         logger.info(f"Returning {len(result)} clausulable players (all analyzed) from database")

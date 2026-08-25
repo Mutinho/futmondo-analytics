@@ -25,6 +25,7 @@ import { ScrollTopComponent } from '../../shared/components/scroll-top.component
 import { ChampionshipService } from '../../core/services/championship.service';
 import { SofascoreDetailDialogComponent } from '../market/sofascore-detail-dialog.component';
 import { ConfirmDialogComponent } from '../market/confirm-dialog.component';
+import { PageHeaderComponent } from '../../shared/components/page-header.component';
 
 interface FavoritePlayer {
   player_id: string;
@@ -53,11 +54,10 @@ interface FavoritePlayer {
   standalone: true,
   imports: [
     MatTableModule, MatSortModule, MatProgressSpinnerModule,
-    MatChipsModule, MatIconModule, MatTooltipModule, MatButtonModule, MatButtonToggleModule, MatFormFieldModule, MatSelectModule, MatSnackBarModule, MoneyPipe, StarterBadgeComponent, StarterCardBadgeComponent, SofascoreBadgeComponent, SofascoreCardBadgeComponent, ScrollTopComponent
+    MatChipsModule, MatIconModule, MatTooltipModule, MatButtonModule, MatButtonToggleModule, MatFormFieldModule, MatSelectModule, MatSnackBarModule, MoneyPipe, StarterBadgeComponent, StarterCardBadgeComponent, SofascoreBadgeComponent, SofascoreCardBadgeComponent, ScrollTopComponent, PageHeaderComponent
   ],
   template: `
-    <h1>⭐ Favoritos</h1>
-    <p class="description">Jugadores libres que tienes marcados como favoritos. Se actualizan con cada sincronización.</p>
+    <app-page-header title="Favoritos" icon="star" description="Jugadores libres que tienes marcados como favoritos. Se actualizan con cada sincronización." />
 
     @if (loading()) {
       <div class="loading"><mat-spinner diameter="40" /> <span>Cargando favoritos...</span></div>

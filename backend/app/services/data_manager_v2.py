@@ -3062,6 +3062,7 @@ class DataManagerV2:
                 suggested_clause = data.get("suggested_clause")
                 average_last_five = data.get("average_last_five")
                 average_overall = data.get("average_overall")
+                clause_date = data.get("clause_date")
                 
                 try:
                     clause_price = int(clause_price) if clause_price is not None else None
@@ -3083,7 +3084,7 @@ class DataManagerV2:
                 values.append((
                     championship_id, player_id, owner_team_id, owner_team_name,
                     owner_user_id, clause_price, suggested_clause,
-                    average_last_five, average_overall, now
+                    average_last_five, average_overall, clause_date, now
                 ))
             
             if not values:
@@ -3095,7 +3096,7 @@ class DataManagerV2:
                 execute_values(raw_cursor, '''
                     INSERT INTO player_championship_stats
                     (championship_id, player_id, owner_team_id, owner_team_name, owner_user_id,
-                     clause_price, suggested_clause, average_last_five, average_overall, updated_at)
+                     clause_price, suggested_clause, average_last_five, average_overall, clause_date, updated_at)
                     VALUES %s
                     ON CONFLICT (championship_id, player_id) DO UPDATE SET
                         owner_team_id = EXCLUDED.owner_team_id,
@@ -3105,14 +3106,15 @@ class DataManagerV2:
                         suggested_clause = EXCLUDED.suggested_clause,
                         average_last_five = EXCLUDED.average_last_five,
                         average_overall = EXCLUDED.average_overall,
+                        clause_date = EXCLUDED.clause_date,
                         updated_at = EXCLUDED.updated_at
                 ''', values, page_size=100)
             else:
                 sql = '''
                     INSERT OR REPLACE INTO player_championship_stats
                     (championship_id, player_id, owner_team_id, owner_team_name, owner_user_id,
-                     clause_price, suggested_clause, average_last_five, average_overall, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     clause_price, suggested_clause, average_last_five, average_overall, clause_date, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 '''
                 cursor.executemany(sql, values)
             
@@ -3133,7 +3135,8 @@ class DataManagerV2:
                     pcs.clause_price,
                     pcs.suggested_clause,
                     pcs.average_last_five,
-                    pcs.average_overall
+                    pcs.average_overall,
+                    pcs.clause_date
                 FROM player_championship_stats pcs
                 LEFT JOIN players p ON p.player_id = pcs.player_id
                 WHERE pcs.championship_id = ?
@@ -3153,7 +3156,8 @@ class DataManagerV2:
                 "clause_price": row[5],
                 "suggested_clause": row[6],
                 "average_last_five": row[7],
-                "average_overall": row[8]
+                "average_overall": row[8],
+                "clause_date": row[9],
             })
         return results
 

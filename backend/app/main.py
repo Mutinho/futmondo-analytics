@@ -85,7 +85,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if not path.startswith("/api/v1") and not path.startswith("/auth"):
             return await call_next(request)
         
-        if any(path.endswith(excluded) for excluded in AUTH_EXCLUDED_PATHS):
+        if path in AUTH_EXCLUDED_PATHS:
             return await call_next(request)
         
         if path.startswith("/auth"):

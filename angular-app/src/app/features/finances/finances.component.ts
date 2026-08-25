@@ -4,13 +4,14 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
 import { StatsService } from '../../core/services/stats.service';
 import { PlayerFinance } from '../../core/models/stats.model';
+import { PageHeaderComponent } from '../../shared/components/page-header.component';
 
 @Component({
   selector: 'app-finances',
   standalone: true,
-  imports: [MatTableModule, MatProgressSpinnerModule, MoneyPipe],
+  imports: [MatTableModule, MatProgressSpinnerModule, MoneyPipe, PageHeaderComponent],
   template: `
-    <h1>💰 Finanzas de Usuarios</h1>
+    <app-page-header title="Finanzas" icon="account_balance_wallet" description="Desglose económico detallado por usuario." />
 
     @if (loading()) {
       <div class="loading-container">

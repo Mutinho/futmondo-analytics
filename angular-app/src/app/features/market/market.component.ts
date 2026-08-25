@@ -25,6 +25,7 @@ import { ChampionshipService } from '../../core/services/championship.service';
 import { ConfirmDialogComponent } from './confirm-dialog.component';
 import { BidDialogComponent, BidDialogData, BidDialogResult } from './bid-dialog.component';
 import { SofascoreDetailDialogComponent } from './sofascore-detail-dialog.component';
+import { PageHeaderComponent } from '../../shared/components/page-header.component';
 
 interface MarketPlayer {
   player_id: string;
@@ -58,10 +59,9 @@ interface MarketPlayer {
 @Component({
   selector: 'app-market',
   standalone: true,
-  imports: [MatTableModule, MatSortModule, MatProgressSpinnerModule, MatChipsModule, MatButtonModule, MatButtonToggleModule, MatIconModule, MatFormFieldModule, MatSelectModule, MatSnackBarModule, MoneyPipe, StarterBadgeComponent, StarterCardBadgeComponent, SofascoreBadgeComponent, SofascoreCardBadgeComponent, ScrollTopComponent],
+  imports: [MatTableModule, MatSortModule, MatProgressSpinnerModule, MatChipsModule, MatButtonModule, MatButtonToggleModule, MatIconModule, MatFormFieldModule, MatSelectModule, MatSnackBarModule, MoneyPipe, StarterBadgeComponent, StarterCardBadgeComponent, SofascoreBadgeComponent, SofascoreCardBadgeComponent, ScrollTopComponent, PageHeaderComponent],
   template: `
-    <h1>🛒 Mercado de Hoy</h1>
-    <p class="description">Jugadores del computer disponibles para fichar. La puja sugerida se basa en el historial de compras similares.</p>
+    <app-page-header title="Mercado" icon="shopping_cart" description="Jugadores del computer disponibles para fichar. La puja sugerida se basa en el historial de compras similares." />
 
     @if (loading()) {
       <div class="loading"><mat-spinner diameter="40" /> <span>Cargando mercado...</span></div>

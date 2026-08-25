@@ -11,6 +11,7 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
+import { PageHeaderComponent } from '../../shared/components/page-header.component';
 
 interface ChampionshipConfig {
   championship_id: string;
@@ -33,12 +34,11 @@ interface ChampionshipConfig {
   imports: [
     FormsModule, MatCardModule, MatFormFieldModule, MatInputModule,
     MatButtonModule, MatIconModule, MatSlideToggleModule,
-    MatProgressSpinnerModule, MatSnackBarModule, MoneyPipe
+    MatProgressSpinnerModule, MatSnackBarModule, MoneyPipe, PageHeaderComponent
   ],
   template: `
     <div class="settings-container">
-      <h2>Configuración de Campeonatos</h2>
-      <p class="description">Configuración de tus campeonatos. Puedes resincronizar los valores desde Futmondo o editarlos manualmente.</p>
+      <app-page-header title="Ajustes" icon="settings" description="Configuración de tus campeonatos. Puedes resincronizar los valores desde Futmondo o editarlos manualmente." />
 
       @if (loading()) {
         <div class="loading">

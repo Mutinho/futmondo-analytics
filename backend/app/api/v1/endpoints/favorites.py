@@ -220,3 +220,51 @@ async def unfollow_player(
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.post("/mark")
+async def mark_favorite(
+    request: Request,
+    championship_id: str = Query(...),
+    player_id: str = Query(...),
+) -> Dict:
+    """Mark a player as favorite in Futmondo and save to local DB."""
+    try:
+        client = get_user_futmondo_client(request)
+
+        # Call Futmondo API to mark favorite
+        request_data = {
+            "header": {"token": client.token, "userid": client.user_id},
+            "query": {"championshipId": championship_id, "playerId": player_id},
+            "answer": {}
+        }
+        resp = client.session.post(
+            f"{client.base_url}/5/championship/markfavorite",
+            json=request_data, timeout=15
+        )
+
+        if resp.status_code != 200:
+            raise HTTPException(status_code=resp.status_code, detail="Error al marcar favorito en Futmondo")
+
+        result = resp.json()
+        if result.get("answer", {}).get("code") != "api.general.ok":
+            raise HTTPException(status_code=400, detail="Futmondo no pudo marcar el favorito")
+
+        # Save to local DB
+        db = get_db()
+        with db.get_connection() as conn:
+            cursor = db.get_cursor(conn)
+            sql = """
+                INSERT INTO player_favorites (championship_id, user_id, player_id)
+                VALUES (?, ?, ?)
+                ON CONFLICT (championship_id, user_id, player_id) DO NOTHING
+            """
+            sql = db.adapt_params(sql)
+            cursor.execute(sql, (championship_id, client.user_id, player_id))
+
+        return {"success": True, "message": "Favorito marcado"}
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))

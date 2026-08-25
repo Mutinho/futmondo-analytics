@@ -36,6 +36,7 @@ class SpanishDateAdapter extends NativeDateAdapter {
   }
 }
 import { ChampionshipService } from '../../core/services/championship.service';
+import { PageHeaderComponent } from '../../shared/components/page-header.component';
 
 interface Transaction {
   transaction_id: number;
@@ -80,7 +81,7 @@ interface Team {
   imports: [
     FormsModule, MatProgressSpinnerModule, MatSelectModule,
     MatFormFieldModule, MatInputModule, MatIconModule, MatButtonModule,
-    MatDatepickerModule, MatNativeDateModule, MoneyPipe, ScrollTopComponent, StarterCardBadgeComponent
+    MatDatepickerModule, MatNativeDateModule, MoneyPipe, ScrollTopComponent, StarterCardBadgeComponent, PageHeaderComponent
   ],
   providers: [
     { provide: MAT_DATE_LOCALE, useValue: 'es-ES' },
@@ -89,8 +90,7 @@ interface Team {
   ],
 
   template: `
-    <h1>📋 Transacciones</h1>
-    <p class="description">Historial de compras y ventas del campeonato.</p>
+    <app-page-header title="Transacciones" icon="receipt_long" description="Historial de compras y ventas del campeonato." />
 
     <!-- Filters -->
     <div class="filters-toggle" (click)="filtersOpen = !filtersOpen">

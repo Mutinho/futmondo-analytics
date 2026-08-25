@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
@@ -11,6 +11,7 @@ interface PrizeRound {
   matchday: number;
   ranking_prize: number;
   mvp_prize: number;
+  points_prize: number;
   position: number;
   total: number;
 }
@@ -40,6 +41,10 @@ interface PrizeRound {
             <th mat-header-cell *matHeaderCellDef>Ranking</th>
             <td mat-cell *matCellDef="let r">{{ r.ranking_prize | money }}</td>
           </ng-container>
+          <ng-container matColumnDef="points_prize">
+            <th mat-header-cell *matHeaderCellDef>Puntos</th>
+            <td mat-cell *matCellDef="let r">{{ r.points_prize | money }}</td>
+          </ng-container>
           <ng-container matColumnDef="mvp_prize">
             <th mat-header-cell *matHeaderCellDef>MVP</th>
             <td mat-cell *matCellDef="let r">
@@ -50,8 +55,8 @@ interface PrizeRound {
             <th mat-header-cell *matHeaderCellDef>Total</th>
             <td mat-cell *matCellDef="let r"><strong>{{ r.total | money }}</strong></td>
           </ng-container>
-          <tr mat-header-row *matHeaderRowDef="columns"></tr>
-          <tr mat-row *matRowDef="let row; columns: columns"></tr>
+          <tr mat-header-row *matHeaderRowDef="columns()"></tr>
+          <tr mat-row *matRowDef="let row; columns: columns()"></tr>
         </table>
         <div class="total-row">
           <span>Total acumulado:</span>
@@ -67,6 +72,8 @@ interface PrizeRound {
     .loading { display: flex; justify-content: center; padding: 40px; }
     .empty { text-align: center; color: var(--mat-sys-on-surface-variant); padding: 20px; }
     table { width: 100%; }
+    :host ::ng-deep .mat-mdc-cell, :host ::ng-deep .mat-mdc-header-cell { padding: 8px 6px !important; font-size: 0.85em; white-space: nowrap; }
+    :host ::ng-deep .mdc-dialog__surface { max-width: 95vw; }
     .total-row {
       display: flex; justify-content: space-between; align-items: center;
       padding: 16px 0 8px; border-top: 2px solid var(--mat-sys-outline-variant);
@@ -81,7 +88,16 @@ export class PrizesDialogComponent implements OnInit {
   loading = signal(true);
   rounds = signal<PrizeRound[]>([]);
   totalPrizes = signal(0);
-  columns = ['matchday', 'position', 'ranking_prize', 'mvp_prize', 'total'];
+  hasPointsPrize = signal(false);
+
+  columns = computed(() => {
+    const cols = ['matchday', 'position', 'ranking_prize'];
+    if (this.hasPointsPrize()) {
+      cols.push('points_prize');
+    }
+    cols.push('mvp_prize', 'total');
+    return cols;
+  });
 
   async ngOnInit() {
     try {
@@ -89,8 +105,11 @@ export class PrizesDialogComponent implements OnInit {
       const resp = await firstValueFrom(
         this.http.get<any>(`/api/v1/analytics/prizes/${this.data.team_id}`, { params })
       );
-      this.rounds.set(resp.rounds || []);
+      const rounds: PrizeRound[] = resp.rounds || [];
+      this.rounds.set(rounds);
       this.totalPrizes.set(resp.total_prizes || 0);
+      // Show points column only if any round has points_prize > 0
+      this.hasPointsPrize.set(rounds.some(r => (r.points_prize || 0) > 0));
     } catch { }
     this.loading.set(false);
   }

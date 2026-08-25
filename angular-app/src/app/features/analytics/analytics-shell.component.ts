@@ -2,13 +2,14 @@ import { Component, inject, computed } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { MatTabsModule } from '@angular/material/tabs';
 import { ChampionshipService } from '../../core/services/championship.service';
+import { PageHeaderComponent } from '../../shared/components/page-header.component';
 
 @Component({
   selector: 'app-analytics-shell',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, MatTabsModule],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, MatTabsModule, PageHeaderComponent],
   template: `
-    <h1>📊 Analytics Avanzado</h1>
+    <app-page-header title="Analytics" icon="analytics" description="Dashboard avanzado con clasificación, jugadores y oportunidades." />
     <nav mat-tab-nav-bar [tabPanel]="tabPanel">
       @for (tab of visibleTabs(); track tab.route) {
         <a mat-tab-link
@@ -36,8 +37,6 @@ export class AnalyticsShellComponent {
   allTabs = [
     { label: 'General', icon: '🌐', route: 'overview', requiresClauses: false },
     { label: 'Clasificación', icon: '🏆', route: 'classification', requiresClauses: false },
-    { label: 'Jugadores', icon: '🔥', route: 'players', requiresClauses: false },
-    { label: 'Mercado', icon: '💹', route: 'market', requiresClauses: false },
     { label: 'Oportunidades', icon: '⚡', route: 'opportunities', requiresClauses: false },
     { label: 'Proyecciones', icon: '🎯', route: 'projections', requiresClauses: false },
   ];

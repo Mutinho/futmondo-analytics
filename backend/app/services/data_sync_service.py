@@ -1438,6 +1438,7 @@ class DataSyncService:
                     "owner_user_id": owner_user_id,
                     "clause_price": clause_data.get("price"),
                     "suggested_clause": clause_data.get("suggestedClause"),
+                    "clause_date": clause_data.get("date"),
                     "average_last_five": average_data.get("averageLastFive"),
                     "average_overall": average_data.get("average")
                 })
@@ -1476,6 +1477,29 @@ class DataSyncService:
             )
             
             logger.info(f"Player sync complete: {total_synced} players in {duration:.2f}s")
+            
+            # Save user's team_id for this championship (used to filter own players in clausulables)
+            try:
+                standings = self.client.get_matchday_standings(self.championship_id)
+                if standings:
+                    team_list = standings.get("teams", standings.get("ranking", []))
+                    for t in team_list:
+                        uid = t.get("userid") or t.get("userId")
+                        if uid == self.client.user_id:
+                            user_team_id = t.get("teamid") or t.get("id")
+                            if user_team_id:
+                                from app.services.db_connection import get_db
+                                db = get_db()
+                                with db.get_connection() as conn:
+                                    cursor = db.get_cursor(conn)
+                                    cursor.execute(
+                                        "UPDATE user_championships SET futmondo_team_id = %s WHERE championship_id = %s AND futmondo_team_id IS NULL",
+                                        (user_team_id, self.championship_id)
+                                    )
+                                logger.info(f"Saved futmondo_team_id={user_team_id} for championship {self.championship_id}")
+                            break
+            except Exception as team_err:
+                logger.warning(f"Could not save futmondo_team_id: {team_err}")
             
             return {
                 "status": status,
@@ -1580,7 +1604,7 @@ class DataSyncService:
             # Get config from any user's championship settings
             with db.get_connection() as conn:
                 cursor = db.get_cursor(conn)
-                sql = "SELECT money_per_ranking, mvp_bonus, ranking_mode, users_to_rank FROM user_championships WHERE championship_id = ? LIMIT 1"
+                sql = "SELECT money_per_ranking, mvp_bonus, ranking_mode, users_to_rank, money_per_point FROM user_championships WHERE championship_id = ? LIMIT 1"
                 sql = db.adapt_params(sql)
                 cursor.execute(sql, (self.championship_id,))
                 row = cursor.fetchone()
@@ -1592,8 +1616,9 @@ class DataSyncService:
             mvp_bonus = row[1] or 0
             ranking_mode = row[2] or "top"
             users_to_rank = row[3] if row[3] is not None else -1
+            money_per_point = row[4] or 0
 
-            if money_per_ranking <= 0 and mvp_bonus <= 0:
+            if money_per_ranking <= 0 and mvp_bonus <= 0 and money_per_point <= 0:
                 return {"status": "no_prizes_configured", "records_synced": 0, "duration_seconds": time.time() - start_time}
 
             # Get teams from standings
@@ -1622,13 +1647,8 @@ class DataSyncService:
             if not closed_rounds:
                 return {"status": "no_closed_rounds", "records_synced": 0, "duration_seconds": time.time() - start_time}
 
-            # Check which rounds already have prizes synced
-            with db.get_connection() as conn:
-                cursor = db.get_cursor(conn)
-                sql = "SELECT DISTINCT matchday FROM team_prizes WHERE championship_id = ?"
-                sql = db.adapt_params(sql)
-                cursor.execute(sql, (self.championship_id,))
-                synced_matchdays = {r[0] for r in cursor.fetchall()}
+            # Check which rounds already have prizes synced — skip none, always recalculate
+            # (positions from API may have changed or been stored incorrectly)
 
             records_synced = 0
             rounds_processed = 0
@@ -1639,8 +1659,6 @@ class DataSyncService:
 
                 if not matchday or not round_id:
                     continue
-                if matchday in synced_matchdays:
-                    continue  # Already synced
 
                 # Verify all matches are finished (status: "F")
                 matches_data = self.client.get_round_matches(self.championship_id, round_id, sample_userteam_id)
@@ -1654,28 +1672,19 @@ class DataSyncService:
                 
                 time.sleep(0.3)
 
-                # Get ranking from DB (already synced in team_standings step)
-                with db.get_connection() as conn:
-                    cursor = db.get_cursor(conn)
-                    sql = "SELECT team_id, position FROM team_standings WHERE championship_id = ? AND matchday = ?"
-                    sql = db.adapt_params(sql)
-                    cursor.execute(sql, (self.championship_id, matchday))
-                    ranking_list = [{"id": row[0], "position": row[1]} for row in cursor.fetchall()]
-
-                if not ranking_list:
-                    # Fallback: fetch from API if DB doesn't have it yet
-                    logger.warning(f"Round {matchday}: no ranking in DB, falling back to API")
-                    ranking_data = self.client.get_round_ranking(
-                        championship_id=self.championship_id,
-                        round_number=matchday,
-                        round_id=round_id,
-                        userteam_id=sample_userteam_id
-                    )
-                    if isinstance(ranking_data, dict):
-                        ranking_list = ranking_data.get("ranking", ranking_data.get("teams", []))
-                    elif isinstance(ranking_data, list):
-                        ranking_list = ranking_data
-                    time.sleep(0.3)
+                # Get ranking directly from API (team_standings may have match-pair positions, not round ranking)
+                ranking_data = self.client.get_round_ranking(
+                    championship_id=self.championship_id,
+                    round_number=matchday,
+                    round_id=round_id,
+                    userteam_id=sample_userteam_id
+                )
+                ranking_list = []
+                if isinstance(ranking_data, dict):
+                    ranking_list = ranking_data.get("ranking", ranking_data.get("teams", []))
+                elif isinstance(ranking_data, list):
+                    ranking_list = ranking_data
+                time.sleep(0.3)
 
                 if not ranking_list:
                     logger.warning(f"No ranking data for round {matchday} (DB nor API)")
@@ -1709,6 +1718,7 @@ class DataSyncService:
                 for entry in ranking_list:
                     team_id = entry.get("id") or entry.get("teamid")
                     position = entry.get("position", 0)
+                    round_points = entry.get("points", 0) or 0
                     
                     if not team_id or not position or position > members:
                         continue
@@ -1723,20 +1733,23 @@ class DataSyncService:
                     # MVP prize
                     team_mvp_prize = mvp_bonus if team_id == mvp_team_id else 0
 
+                    # Points prize
+                    points_prize = round(round_points * money_per_point) if money_per_point > 0 else 0
+
                     prizes_to_save.append((
                         self.championship_id, team_id, matchday,
-                        ranking_prize, team_mvp_prize, position
+                        ranking_prize, team_mvp_prize, position, points_prize
                     ))
 
                 # Save to DB
                 if prizes_to_save:
                     with db.get_connection() as conn:
                         cursor = db.get_cursor(conn)
-                        sql = """INSERT INTO team_prizes (championship_id, team_id, matchday, ranking_prize, mvp_prize, position, synced_at)
-                                 VALUES (?, ?, ?, ?, ?, ?, NOW())
+                        sql = """INSERT INTO team_prizes (championship_id, team_id, matchday, ranking_prize, mvp_prize, position, points_prize, synced_at)
+                                 VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
                                  ON CONFLICT (championship_id, team_id, matchday) DO UPDATE SET
                                  ranking_prize = EXCLUDED.ranking_prize, mvp_prize = EXCLUDED.mvp_prize,
-                                 position = EXCLUDED.position, synced_at = NOW()"""
+                                 position = EXCLUDED.position, points_prize = EXCLUDED.points_prize, synced_at = NOW()"""
                         sql = db.adapt_params(sql)
                         for row in prizes_to_save:
                             cursor.execute(sql, row)

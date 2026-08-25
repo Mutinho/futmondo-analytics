@@ -4,6 +4,7 @@ import { BaseChartDirective } from 'ng2-charts';
 import { ChartConfiguration, ChartOptions } from 'chart.js';
 import { EvolutionService } from '../../core/services/evolution.service';
 import { ChampionshipService } from '../../core/services/championship.service';
+import { PageHeaderComponent } from '../../shared/components/page-header.component';
 import { TeamEvolution } from '../../core/models/evolution.model';
 
 // Colores para los equipos
@@ -16,7 +17,7 @@ const TEAM_COLORS = [
 @Component({
   selector: 'app-evolution',
   standalone: true,
-  imports: [MatProgressSpinnerModule, BaseChartDirective],
+  imports: [MatProgressSpinnerModule, BaseChartDirective, PageHeaderComponent],
   templateUrl: './evolution.component.html',
   styleUrl: './evolution.component.scss',
 })

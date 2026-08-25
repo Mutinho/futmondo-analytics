@@ -16,6 +16,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatDialog } from '@angular/material/dialog';
 import { MoneyPipe } from '../../../shared/pipes/money.pipe';
 import { ScrollTopComponent } from '../../../shared/components/scroll-top.component';
+import { PageHeaderComponent } from '../../../shared/components/page-header.component';
 import { BudgetService } from '../../../core/services/budget.service';
 import { ChampionshipService } from '../../../core/services/championship.service';
 import { TeamBudget } from '../../../core/models/budget.model';
@@ -35,6 +36,7 @@ import { PrizesDialogComponent } from './prizes-dialog.component';
     MatSelectModule,
     MoneyPipe,
     ScrollTopComponent,
+    PageHeaderComponent,
   ],
   templateUrl: './budget-overview.component.html',
   styleUrl: './budget-overview.component.scss',
@@ -143,7 +145,8 @@ export class BudgetOverviewComponent {
     if (team.prizes <= 0) return;
     this.dialog.open(PrizesDialogComponent, {
       data: { team_id: team.team_id, team_name: team.team_name, championship_id: this.championshipService.activeId() },
-      width: '500px',
+      width: '600px',
+      maxWidth: '95vw',
     });
   }
 }

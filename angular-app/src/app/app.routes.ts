@@ -62,9 +62,14 @@ export const routes: Routes = [
     loadComponent: () => import('./features/calculator/calculator.component').then(m => m.CalculatorComponent),
   },
   {
-    path: 'analytics',
+    path: 'free-agents',
     canActivate: [authGuard],
-    loadChildren: () => import('./features/analytics/analytics.routes'),
+    loadComponent: () => import('./features/analytics/market/market.component').then(m => m.MarketComponent),
+  },
+  {
+    path: 'classification',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/classification/classification.component').then(m => m.ClassificationPageComponent),
   },
   {
     path: 'settings',

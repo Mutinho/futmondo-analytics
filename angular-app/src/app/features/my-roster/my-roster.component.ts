@@ -23,6 +23,7 @@ import { SofascoreCardBadgeComponent } from '../../shared/components/sofascore-c
 import { ScrollTopComponent } from '../../shared/components/scroll-top.component';
 import { ChampionshipService } from '../../core/services/championship.service';
 import { SofascoreDetailDialogComponent } from '../market/sofascore-detail-dialog.component';
+import { PageHeaderComponent } from '../../shared/components/page-header.component';
 
 interface RosterPlayer {
   player_id: string;
@@ -60,11 +61,10 @@ interface RosterSummary {
   standalone: true,
   imports: [
     MatTableModule, MatSortModule, MatProgressSpinnerModule,
-    MatChipsModule, MatIconModule, MatTooltipModule, MatButtonModule, MatButtonToggleModule, MatFormFieldModule, MatSelectModule, MoneyPipe, StarterBadgeComponent, StarterCardBadgeComponent, SofascoreBadgeComponent, SofascoreCardBadgeComponent, ScrollTopComponent
+    MatChipsModule, MatIconModule, MatTooltipModule, MatButtonModule, MatButtonToggleModule, MatFormFieldModule, MatSelectModule, MoneyPipe, StarterBadgeComponent, StarterCardBadgeComponent, SofascoreBadgeComponent, SofascoreCardBadgeComponent, ScrollTopComponent, PageHeaderComponent
   ],
   template: `
-    <h1>👤 Mi Plantilla</h1>
-    <p class="description">Tu plantilla actual con rendimiento y valoración.</p>
+    <app-page-header title="Mi Plantilla" icon="groups" description="Tu plantilla actual con rendimiento y valoración." />
 
     @if (loading()) {
       <div class="loading"><mat-spinner diameter="40" /> <span>Cargando plantilla...</span></div>
