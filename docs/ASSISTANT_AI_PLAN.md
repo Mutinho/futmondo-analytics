@@ -209,16 +209,74 @@ return response.text
 
 ---
 
-## Costes
+## Control de uso — Nunca superar el free tier
 
-| Concepto | Coste |
-|----------|-------|
-| Gemini 2.0 Flash API | **Gratis** (15 RPM, 1M tok/día) |
-| Almacenamiento | Ninguno (historial en memoria) |
-| Infraestructura | Ninguno (usa el backend existente en Fly.io) |
-| **Total mensual** | **0€** |
+### Límites Gemini 2.0 Flash (gratis)
+- **15 requests/minuto**
+- **1.000.000 tokens/día** (input + output)
+- **32.000 tokens max output** por request
 
-Si algún día superas los 15 RPM (improbable con 1 usuario), Gemini cobra $0.10/1M tokens input y $0.40/1M tokens output — aun así serían céntimos al mes.
+### Implementación del control
+
+```python
+# backend/app/services/assistant_usage.py
+
+# Tabla en BD: assistant_usage
+# - month (TEXT, formato "2026-08")
+# - total_input_tokens (INTEGER)
+# - total_output_tokens (INTEGER)
+# - total_requests (INTEGER)
+# - updated_at (TIMESTAMP)
+
+MONTHLY_TOKEN_LIMIT = 25_000_000  # 25M tokens/mes (muy conservador, el free tier da 30M)
+DAILY_REQUEST_LIMIT = 50          # Max 50 preguntas al día (para no acercarse a 15 RPM)
+
+class AssistantUsageTracker:
+    def can_make_request(self) -> tuple[bool, str]:
+        """Check if we're within budget. Returns (allowed, reason)."""
+        # 1. Check monthly tokens
+        # 2. Check daily requests
+        # 3. If over limit → return (False, "Límite mensual alcanzado")
+        
+    def record_usage(self, input_tokens: int, output_tokens: int):
+        """Record token usage after each request."""
+        # Upsert monthly counter
+        
+    def get_usage_summary(self) -> dict:
+        """Return current month usage for display."""
+        # {tokens_used, tokens_limit, requests_today, pct_used}
+```
+
+### Flujo con control
+
+```
+1. Usuario envía pregunta
+2. Backend: assistant_usage.can_make_request()
+   → Si NO: devuelve error "Has alcanzado el límite mensual gratuito"
+   → Si SÍ: continúa
+3. Llama a Gemini
+4. assistant_usage.record_usage(input_tokens, output_tokens)
+5. Devuelve respuesta
+```
+
+### Endpoint de consulta de uso
+
+```
+GET /api/v1/assistant/usage
+→ { "tokens_used": 1234567, "tokens_limit": 25000000, "pct_used": 4.9, "requests_today": 3 }
+```
+
+Se puede mostrar en el panel del chat como barra de progreso sutil.
+
+### Hard limits (nunca se cobran)
+- Si se llega al 80% del límite mensual → aviso en el chat
+- Si se llega al 100% → el asistente se desactiva hasta el mes siguiente
+- **No hay tarjeta de crédito asociada** — la API key gratis de Google simplemente deja de funcionar si superas el free tier, no cobra
+
+### Seguridad adicional
+- En Google AI Studio, NO activar billing en el proyecto
+- Así aunque se supere el límite, Google devuelve 429 (rate limit) y nunca cobra
+
 
 ---
 
