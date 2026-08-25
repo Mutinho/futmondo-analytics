@@ -1642,10 +1642,13 @@ class DataSyncService:
 
             # Get rounds
             rounds_info = self.client.get_userteam_rounds(self.championship_id, sample_userteam_id) or []
-            closed_rounds = [r for r in rounds_info if r.get("status") == "closed"]
+            # Process ALL rounds (not just closed) — points_prize is paid immediately,
+            # ranking_prize only when the round is fully closed
+            all_rounds = [r for r in rounds_info if r.get("number")]
+            closed_statuses = {"closed"}
 
-            if not closed_rounds:
-                return {"status": "no_closed_rounds", "records_synced": 0, "duration_seconds": time.time() - start_time}
+            if not all_rounds:
+                return {"status": "no_rounds", "records_synced": 0, "duration_seconds": time.time() - start_time}
 
             # Check which rounds already have prizes synced — skip none, always recalculate
             # (positions from API may have changed or been stored incorrectly)
@@ -1653,26 +1656,15 @@ class DataSyncService:
             records_synced = 0
             rounds_processed = 0
 
-            for round_info in closed_rounds:
+            for round_info in all_rounds:
                 matchday = round_info.get("number")
                 round_id = round_info.get("id") or round_info.get("_id")
+                is_closed = round_info.get("status") in closed_statuses
 
                 if not matchday or not round_id:
                     continue
 
-                # Verify all matches are finished (status: "F")
-                matches_data = self.client.get_round_matches(self.championship_id, round_id, sample_userteam_id)
-                if matches_data:
-                    matches = matches_data.get("matches", [])
-                    if matches:
-                        all_finished = all(m.get("status") == "F" for m in matches)
-                        if not all_finished:
-                            logger.info(f"Round {matchday} has unfinished matches (postponed), skipping prizes")
-                            continue
-                
-                time.sleep(0.3)
-
-                # Get ranking directly from API (team_standings may have match-pair positions, not round ranking)
+                # Get ranking directly from API
                 ranking_data = self.client.get_round_ranking(
                     championship_id=self.championship_id,
                     round_number=matchday,
@@ -1687,12 +1679,12 @@ class DataSyncService:
                 time.sleep(0.3)
 
                 if not ranking_list:
-                    logger.warning(f"No ranking data for round {matchday} (DB nor API)")
+                    logger.info(f"No ranking data for round {matchday}, skipping")
                     continue
 
-                # Get dream team to find MVP
+                # Get dream team to find MVP (only for closed rounds)
                 mvp_team_id = None
-                if mvp_bonus > 0:
+                if mvp_bonus > 0 and is_closed:
                     dream_data = self.client.get_dream_team(self.championship_id, round_id=round_id)
                     mvp_player_id = None
                     if dream_data and isinstance(dream_data, dict):
@@ -1723,15 +1715,15 @@ class DataSyncService:
                     if not team_id or not position or position > members:
                         continue
 
-                    # Calculate ranking prize
+                    # Calculate ranking prize (only for closed rounds)
                     if ranking_mode == "flop":
                         ratio = position / total_pct
                     else:
                         ratio = (members - position + 1) / total_pct
-                    ranking_prize = round(money_per_ranking * ratio) if money_per_ranking > 0 else 0
+                    ranking_prize = round(money_per_ranking * ratio) if (money_per_ranking > 0 and is_closed) else 0
 
-                    # MVP prize
-                    team_mvp_prize = mvp_bonus if team_id == mvp_team_id else 0
+                    # MVP prize (only for closed rounds)
+                    team_mvp_prize = mvp_bonus if (team_id == mvp_team_id and is_closed) else 0
 
                     # Points prize
                     points_prize = round(round_points * money_per_point) if money_per_point > 0 else 0
