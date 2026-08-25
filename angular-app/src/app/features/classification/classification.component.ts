@@ -182,7 +182,7 @@ export class ClassificationPageComponent {
       const window = mode === 'all' ? undefined : mode === 'custom' ? this.customWindow : parseInt(mode, 10);
 
       // Single combined endpoint — classification + momentum
-      const data = await this.svc.getClassificationFull(window);
+      const data = await this.svc.getClassificationFull(window, this.championshipService.activeId());
       const teams: any[] = data?.classification || [];
 
       const entries: ClassificationEntry[] = teams.map((t: any, idx: number) => ({

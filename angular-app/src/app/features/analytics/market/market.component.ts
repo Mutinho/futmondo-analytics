@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, ViewChild } from '@angular/core';
+import { Component, inject, signal, computed, effect, ViewChild } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
@@ -573,12 +573,15 @@ export class MarketComponent {
     if (this.isMobile() && !localStorage.getItem('futmondo_view_watchlist')) {
       this.viewMode.set('cards');
     }
-    this.load();
+    effect(() => {
+      const id = this.championshipService.activeId();
+      if (id) this.load();
+    });
   }
 
   async load() {
     try {
-      const d = await this.svc.getWatchlist();
+      const d = await this.svc.getWatchlist(this.championshipService.activeId());
       const players: WatchlistPlayer[] = d?.players || [];
       this.allPlayers.set(players);
       this.applyFiltersToTable();

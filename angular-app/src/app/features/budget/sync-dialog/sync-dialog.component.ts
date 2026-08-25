@@ -170,7 +170,7 @@ const ALL_STEPS = [
     .no-phantoms { display: flex; align-items: center; gap: 8px; padding: 12px 0; color: #16a34a; }
     .no-phantoms mat-icon { font-size: 20px; width: 20px; height: 20px; }
     .bg-hint { font-size: 0.8em; color: var(--mat-sys-on-surface-variant); margin-right: auto; }
-    mat-dialog-content { min-width: 450px; }
+    mat-dialog-content { min-width: min(450px, 80vw); }
   `]
 })
 export class SyncDialogComponent {

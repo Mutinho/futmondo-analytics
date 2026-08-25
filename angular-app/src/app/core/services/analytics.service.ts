@@ -39,13 +39,16 @@ export class AnalyticsService {
     return firstValueFrom(this.http.get(`${this.base}/users/market-activity`, { params: { window_days: windowDays } }));
   }
 
-  getWatchlist(): Promise<any> {
-    return firstValueFrom(this.http.get(`${this.base}/market/watchlist`));
+  getWatchlist(championshipId?: string): Promise<any> {
+    const params: any = {};
+    if (championshipId) params.championship_id = championshipId;
+    return firstValueFrom(this.http.get(`${this.base}/market/watchlist`, { params }));
   }
 
-  getClassificationFull(window?: number): Promise<any> {
+  getClassificationFull(window?: number, championshipId?: string): Promise<any> {
     const params: any = {};
     if (window) params.window = window;
+    if (championshipId) params.championship_id = championshipId;
     return firstValueFrom(this.http.get(`${this.base}/championship/classification-full`, { params }));
   }
 
