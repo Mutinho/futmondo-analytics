@@ -404,13 +404,18 @@ Usado como fallback estático cuando la API no devuelve nombre/logo del equipo r
 
 ## TODO — Próxima sesión
 
-### Clausulables
-1. **Guardar futmondo_team_id automáticamente** — al detectar campeonatos en login/sync (endpoint userteam/information)
-2. **Filtro clause_date** — necesita sync para rellenar el campo (ya está implementado el filtro)
+### Asistente IA (Gemini 2.0 Flash) — ver docs/ASSISTANT_AI_PLAN.md
+1. **Obtener API key** — https://aistudio.google.com/apikey (gratis)
+2. **Backend**: endpoint POST /api/v1/assistant/ask + context builder + system prompt
+3. **Frontend**: FAB flotante (🤖) + panel chat overlay + chips sugerencias
+4. **Estimado**: 3-4 horas
+
+### Clausulables — Pendientes
+1. **Guardar futmondo_team_id automáticamente** — al detectar campeonatos en login/sync
+2. **Filtro clause_date** — necesita sync para rellenar el campo (ya implementado el filtro)
 
 ### General
-1. **Actualizar PROJECT_CONTEXT** con nuevas rutas del sidebar
-2. **Deploy a producción** — verificar todo funciona en Fly.io
+1. **Deploy a producción** — verificar todo funciona en Fly.io después de v1.7.1
 
 ### Nuevas funcionalidades
 
