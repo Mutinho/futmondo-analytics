@@ -2,7 +2,7 @@ import { InfoCardComponent } from '../../../shared/components/info-card.componen
 import { Component, inject, signal } from '@angular/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTableModule } from '@angular/material/table';
-import { AnalyticsService } from '../../../core/services/analytics.service';
+import { AnalyticsService, TeamTrend } from '../../../core/services/analytics.service';
 
 @Component({
   selector: 'app-analytics-overview',
@@ -51,7 +51,7 @@ export class OverviewComponent {
   private analyticsService = inject(AnalyticsService);
   loading = signal(true);
   hasData = signal(false);
-  trends = signal<any[]>([]);
+  trends = signal<(TeamTrend & { points: number })[]>([]);
   columns = ['team_name', 'points', 'momentum'];
 
   constructor() { this.load(); }
@@ -59,9 +59,9 @@ export class OverviewComponent {
   async load() {
     try {
       const data = await this.analyticsService.getTrends();
-      const teams = (data?.teams || data?.data?.teams || []).map((t: any) => ({
+      const teams = data.teams.map(t => ({
         ...t,
-        points: t.total_points || t.points || 0,
+        points: t.total_points,
       }));
       this.trends.set(teams);
       this.hasData.set(teams.length > 0);

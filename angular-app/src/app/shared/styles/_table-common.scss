@@ -1,0 +1,123 @@
+// Table-related styles shared across feature components
+
+.table-container {
+  overflow-x: auto;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+table {
+  width: 100%;
+}
+
+// Player photo in table rows
+.player-photo {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #f0f0f0;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+// Player wrapper: flex row with photo + name
+.player-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+// Team logo in table rows
+.team-logo {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+// Team wrapper: flex row with logo + name
+.team-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+// Position chip with color variants
+.pos-chip {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.8em;
+  font-weight: 600;
+  color: #333;
+}
+
+.pos-secondary {
+  margin-left: 3px;
+  opacity: 0.8;
+}
+
+.pos-fwd {
+  background: #e57373;
+}
+
+.pos-mid {
+  background: #64b5f6;
+}
+
+.pos-def {
+  background: #ffb74d;
+}
+
+.pos-gk {
+  background: #4caf50;
+}
+
+// Trend indicators
+.trend-up {
+  color: #2e7d32;
+  font-weight: 600;
+}
+
+.trend-down {
+  color: #d32f2f;
+  font-weight: 600;
+}
+
+.trend-neutral {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+// Shared link and badge styles
+.player-link {
+  color: var(--mat-sys-on-surface);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.sofascore-na {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.matches-info {
+  font-size: 0.8em;
+  color: var(--mat-sys-on-surface-variant);
+  margin-left: 4px;
+}
+
+.average-main {
+  font-weight: 700;
+  font-size: 1.1em;
+}
+
+.average-detail {
+  font-size: 0.75em;
+  color: var(--mat-sys-on-surface-variant);
+  margin-left: 6px;
+  white-space: nowrap;
+}

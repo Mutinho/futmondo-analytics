@@ -1,0 +1,17 @@
+@if (loading()) {
+  <div class="loading">
+    <mat-spinner diameter="40" />
+    <span>{{ loadingMessage() }}</span>
+  </div>
+} @else if (error()) {
+  <div class="error-message">
+    <span>❌</span> {{ error() }}
+  </div>
+} @else if (isEmpty()) {
+  <div class="empty">
+    <span class="empty-icon">{{ emptyIcon() }}</span>
+    <p>{{ emptyMessage() }}</p>
+  </div>
+} @else {
+  <ng-content />
+}

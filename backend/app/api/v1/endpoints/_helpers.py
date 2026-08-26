@@ -6,6 +6,20 @@ from fastapi import Request, HTTPException
 from app.services.futmondo_client import FutmondoClient
 
 
+def clean_float(val, default=None):
+    """Clean NaN/None/invalid values to float or default.
+    
+    Used across multiple endpoints to handle Futmondo API's inconsistent number fields.
+    """
+    if val is None or val == "NaN" or val == "":
+        return default
+    try:
+        result = float(val)
+        return default if result != result else result  # NaN check
+    except (ValueError, TypeError):
+        return default
+
+
 def get_championship_config(championship_id: str, request: Request) -> dict:
     """Get championship config from user_championships table.
     

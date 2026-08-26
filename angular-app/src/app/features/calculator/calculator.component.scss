@@ -1,0 +1,153 @@
+    .description { color: var(--mat-sys-on-surface-variant); font-size: 13px; margin-bottom: 24px; }
+    .player-count { color: var(--mat-sys-on-surface-variant); font-size: 13px; margin: 0 0 12px; font-weight: 500; }
+    .loading { display: flex; align-items: center; gap: 16px; padding: 60px; justify-content: center; color: var(--mat-sys-on-surface-variant); }
+    .error-message { padding: 16px; background: #ffebee; color: #d32f2f; border-radius: 8px; }
+
+    /* Header */
+    .calc-header {
+      display: flex; gap: 24px; flex-wrap: wrap; padding: 20px 24px;
+      background: var(--mat-sys-surface-container); border-radius: 12px; margin-bottom: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    .calc-header-item { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 120px; }
+    .calc-header-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--mat-sys-on-surface-variant); font-weight: 600; }
+    .calc-header-value { font-size: 1.4em; font-weight: 700; color: var(--mat-sys-on-surface); }
+    .calc-header-value.positive { color: #2e7d32; }
+    .calc-header-value.negative { color: #d32f2f; }
+    .calc-header-value.sales { color: #1565c0; }
+    .calc-header-value.on-sale { color: #e65100; }
+    .calc-header-value.count { color: var(--mat-sys-on-surface); }
+
+    /* On-sale section */
+    .on-sale-section { margin-bottom: 20px; }
+    .on-sale-title { font-size: 1em; margin: 0 0 12px; color: var(--mat-sys-on-surface); }
+    .on-sale-cards { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; flex-wrap: wrap; }
+    .on-sale-cards::-webkit-scrollbar { height: 4px; }
+    .on-sale-cards::-webkit-scrollbar-thumb { background: var(--mat-sys-outline-variant); border-radius: 4px; }
+    .on-sale-card {
+      min-width: 240px; flex-shrink: 0;
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 16px; border-radius: 12px;
+      background: var(--mat-sys-surface-container);
+      border: 1px dashed #e65100;
+      opacity: 0.75;
+    }
+    @media (max-width: 768px) {
+      .on-sale-cards { flex-wrap: nowrap; }
+    }
+    .on-sale-card-info { display: flex; align-items: center; gap: 10px; flex: 1; }
+    .on-sale-card-info div { display: flex; flex-direction: column; }
+    .on-sale-photo { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background: #f0f0f0; }
+    .on-sale-team { font-size: 0.8em; color: var(--mat-sys-on-surface-variant); }
+    .on-sale-card-price { font-weight: 700; font-size: 0.9em; color: #e65100; white-space: nowrap; }
+    .on-sale-cancel { color: #d32f2f; }
+
+    /* Date row */
+    .date-row { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+
+    /* Sell FAB */
+    .sell-fab {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 100;
+      display: flex; align-items: center; gap: 8px;
+      padding: 14px 24px; border-radius: 28px;
+      background: #2e7d32; color: #fff;
+      font-weight: 700; font-size: 0.95em;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+      cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .sell-fab:hover { transform: translateX(-50%) scale(1.03); box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
+    .sell-fab:active { transform: translateX(-50%) scale(0.97); }
+    .sell-fab mat-icon { font-size: 20px; width: 20px; height: 20px; }
+    .dark-theme .sell-fab { background: #14FF00; color: #000; }
+    .sell-toast {
+      position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); z-index: 100;
+      padding: 10px 20px; border-radius: 20px; font-size: 0.85em; font-weight: 600;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+    }
+    .sell-toast.success { background: #e8f5e9; color: #2e7d32; }
+    .sell-toast.error { background: #ffebee; color: #d32f2f; }
+    .date-field { width: 200px; }
+    .days-label { font-size: 0.9em; color: var(--mat-sys-on-surface-variant); font-weight: 500; }
+
+    /* View toggle */
+    .view-toggle { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-bottom: 16px; }
+    .sort-field { flex: 1; font-size: 0.9em; }
+
+    /* Table */
+    .table-container { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+    table { width: 100%; }
+    .player-cell .player-wrapper { display: inline-flex; align-items: center; gap: 10px; }
+    .player-photo { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: #f0f0f0; flex-shrink: 0; }
+    .team-cell .team-wrapper { display: inline-flex; align-items: center; gap: 8px; }
+    .team-logo { width: 32px; height: 32px; object-fit: contain; flex-shrink: 0; }
+    .pos-chip { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600; color: #333; }
+    .pos-fwd { background: #e57373; }
+    .pos-mid { background: #64b5f6; }
+    .pos-def { background: #ffb74d; }
+    .pos-gk { background: #4caf50; }
+    .trend-up { color: #2e7d32; font-weight: 600; }
+    .trend-down { color: #d32f2f; font-weight: 600; }
+    .trend-neutral { color: var(--mat-sys-on-surface-variant); }
+    .projected { font-weight: 700; }
+    .projection-delta { font-size: 0.8em; margin-left: 6px; }
+    .selected-row { background: rgba(76, 175, 80, 0.08); }
+    .dark-theme .selected-row { background: rgba(20, 255, 0, 0.06); }
+
+    /* Cards */
+    .cards-container { display: grid; grid-template-columns: 1fr; gap: 16px; }
+    @media (min-width: 900px) { .cards-container { grid-template-columns: repeat(2, 1fr); } }
+    @media (min-width: 1300px) { .cards-container { grid-template-columns: repeat(3, 1fr); } }
+    @media (min-width: 1700px) { .cards-container { grid-template-columns: repeat(4, 1fr); } }
+    .player-card {
+      padding: 20px; border-radius: 16px; cursor: pointer;
+      background: var(--mat-sys-surface-container);
+      border: 1px solid var(--mat-sys-outline-variant);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .player-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+    .selected-card {
+      border-color: #0c370e;
+      background: #0c370e;
+      .card-player-name, .card-team-name, .card-stat-val, .card-stat-label { color: #fff; }
+      .card-stats-box { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
+      .pos-chip { opacity: 0.9; }
+    }
+    .dark-theme .selected-card {
+      border-color: #14FF00;
+      background: rgba(20, 255, 0, 0.1);
+    }
+    .dark-theme .player-card { border-color: rgba(20, 255, 0, 0.15); }
+    .card-header { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 16px; position: relative; }
+    .card-avatar { width: 56px; height: 56px; border-radius: 50%; overflow: hidden; border: 2px solid var(--mat-sys-primary); padding: 2px; flex-shrink: 0; }
+    .card-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+    .card-name-block { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+    .card-player-name { font-size: 1.15em; font-weight: 700; margin: 0; color: var(--mat-sys-on-surface); }
+    .card-team-row { display: flex; align-items: center; gap: 8px; }
+    .card-team-logo { width: 22px; height: 22px; object-fit: contain; }
+    .card-team-name { font-size: 0.9em; color: var(--mat-sys-on-surface-variant); font-weight: 500; }
+    .card-pos-top { position: absolute; top: 4px; right: 44px; }
+    .card-select { position: absolute; top: 4px; right: 4px; }
+    .check-circle {
+      width: 28px; height: 28px; border-radius: 50%;
+      border: 2px solid var(--mat-sys-outline);
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+    .check-circle:hover { border-color: #4caf50; }
+    .check-circle.selected {
+      background: #4caf50; border-color: #4caf50;
+      mat-icon { color: #fff; font-size: 18px; width: 18px; height: 18px; }
+    }
+    .dark-theme .check-circle.selected { background: #14FF00; border-color: #14FF00; mat-icon { color: #000; } }
+    .card-badges { display: flex; gap: 10px; margin-top: 8px; }
+    .card-stats-box { background: var(--mat-sys-surface-container-highest); border-radius: 12px; padding: 14px; border: 1px solid var(--mat-sys-outline-variant); }
+    .dark-theme .card-stats-box { background: rgba(53,53,52,0.5); border-color: rgba(132,150,124,0.2); }
+    .card-stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .card-stat-item { display: flex; flex-direction: column; gap: 2px; }
+    .card-stat-label { font-size: 0.65em; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--mat-sys-on-surface-variant); }
+    .card-stat-val { font-size: 1.05em; font-weight: 600; color: var(--mat-sys-on-surface); }
+    .card-stat-val.trend.up { color: #00C424; }
+    .dark-theme .card-stat-val.trend.up { color: #14FF00; }
+    .card-stat-val.trend.down { color: #d32f2f; }

@@ -3,11 +3,6 @@ Main FastAPI application
 """
 
 import os
-import ssl
-
-# Disable SSL verification in Docker environments (corporate proxy / cert issues)
-if os.getenv("SSL_VERIFY", "1") == "0":
-    ssl._create_default_https_context = ssl._create_unverified_context
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -37,6 +32,7 @@ from app.api.v1.endpoints.transactions import router as transactions_router
 from app.api.v1.endpoints.sofascore_sync import router as sofascore_sync_router
 from app.api.v1.endpoints.sofascore_detail import router as sofascore_detail_router
 from app.api.v1.endpoints.user import router as user_router
+from app.api.v1.endpoints.assistant import router as assistant_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -57,11 +53,21 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Add CORS middleware - allow frontend origin
-# Allow all origins when accessed through ngrok or localhost
+# Add CORS middleware - whitelist allowed origins
+ALLOWED_ORIGINS = [
+    "https://futmondo-app.fly.dev",
+    "http://futmondo.localhost",
+    "http://localhost:4200",
+    "http://localhost:3000",
+]
+# Allow extra origin via env var (for ngrok, staging, etc.)
+_extra = os.getenv("EXTRA_CORS_ORIGIN", "")
+if _extra:
+    ALLOWED_ORIGINS.append(_extra)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins (ngrok domains change)
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -151,6 +157,7 @@ app.include_router(transactions_router, prefix="/api/v1/transactions", tags=["tr
 app.include_router(sofascore_sync_router, prefix="/api/v1/sync", tags=["sofascore"])
 app.include_router(sofascore_detail_router, prefix="/api/v1/sofascore", tags=["sofascore"])
 app.include_router(user_router, prefix="/api/v1/user", tags=["user"])
+app.include_router(assistant_router, prefix="/api/v1/assistant", tags=["assistant"])
 
 # Also serve routes without /api prefix (to avoid redirect loops)
 # Include the same router with the old prefix

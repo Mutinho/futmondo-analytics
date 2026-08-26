@@ -76,4 +76,5 @@ export const routes: Routes = [
     canActivate: [authGuard],
     loadComponent: () => import('./features/settings/championships-config.component').then(m => m.ChampionshipsConfigComponent),
   },
+  { path: '**', redirectTo: '/budget' },
 ];

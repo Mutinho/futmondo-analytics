@@ -1,0 +1,258 @@
+    <app-page-header title="Mercado" icon="shopping_cart" description="Jugadores del computer disponibles para fichar. La puja sugerida se basa en el historial de compras similares." />
+
+    <app-loading-state [loading]="loading()" [error]="error()" [isEmpty]="!dataSource.data.length" emptyMessage="No hay jugadores del computer en el mercado ahora mismo." emptyIcon="🛒" loadingMessage="Cargando mercado...">
+      <!-- Banner info usuario -->
+      @if (userInfo()) {
+        <div class="user-info-banner">
+          <div class="info-item">
+            <span class="info-label">Presupuesto</span>
+            <span class="info-value">{{ userInfo()!.balance | money }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">En pujas</span>
+            <span class="info-value bids">{{ userInfo()!.active_bids_total | money }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Balance</span>
+            <span class="info-value" [class]="(userInfo()!.balance - userInfo()!.active_bids_total) >= 0 ? 'available' : 'danger'">
+              {{ userInfo()!.balance - userInfo()!.active_bids_total | money }}
+            </span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Puja máxima</span>
+            <span class="info-value max">{{ userInfo()!.max_bid | money }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Disponible</span>
+            <span class="info-value" [class]="userInfo()!.available_for_bids > 0 ? 'available' : 'danger'">
+              {{ userInfo()!.available_for_bids | money }}
+            </span>
+          </div>
+        </div>
+      }
+      <p class="count">{{ dataSource.data.length }} jugadores disponibles</p>
+
+      <app-view-toggle
+        [viewMode]="viewMode()"
+        [sortOptions]="sortOptions"
+        [sortField]="sortField()"
+        (viewModeChange)="setViewMode($event)"
+        (sortChange)="onSortChange($event)"
+      />
+
+      @if (viewMode() === 'table') {
+      <div class="table-container">
+        <table mat-table [dataSource]="dataSource" matSort>
+          <ng-container matColumnDef="name">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Jugador</th>
+            <td mat-cell *matCellDef="let p" class="player-cell">
+              <div class="player-wrapper">
+                <img [src]="getPlayerPhoto(p.slug)" class="player-photo" [alt]="p.name" loading="lazy"
+                     (error)="onImgError($event)" />
+                @if (p.is_favorite) {
+                  <span class="fav-star-table">⭐</span>
+                }
+                @if (p.sofascore_url) {
+                  <a [href]="p.sofascore_url" target="_blank" class="player-link"><strong>{{ p.name }}</strong></a>
+                } @else {
+                  <strong>{{ p.name }}</strong>
+                }
+              </div>
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="team">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Equipo</th>
+            <td mat-cell *matCellDef="let p" class="team-cell">
+              <div class="team-wrapper">
+                <img [src]="getTeamLogo(p.team_logo)" class="team-logo" [alt]="p.team" loading="lazy"
+                     (error)="onImgError($event)" />
+                <span>{{ p.team }}</span>
+              </div>
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="position">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Pos</th>
+            <td mat-cell *matCellDef="let p">
+              <app-position-chip [position]="p.position" />
+              @if (p.position2) {
+                <app-position-chip [position]="p.position2" />
+              }
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="sofascore_rating">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Sofascore</th>
+            <td mat-cell *matCellDef="let p">
+              <app-sofascore-badge [rating]="p.sofascore_rating" (click)="openSofascoreDetail(p, $event)" />
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="starter_pct">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>% Titular</th>
+            <td mat-cell *matCellDef="let p">
+              @if (p.starter_pct != null) {
+                <app-starter-badge [pct]="p.starter_pct" />
+              } @else {
+                <span class="sofascore-na">-</span>
+              }
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="value">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Valor</th>
+            <td mat-cell *matCellDef="let p">{{ p.value | money }}</td>
+          </ng-container>
+          <ng-container matColumnDef="change">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Tendencia</th>
+            <td mat-cell *matCellDef="let p" [class]="p.change >= 0 ? 'trend-up' : 'trend-down'">
+              {{ p.change >= 0 ? '▲' : '▼' }} {{ p.change | money }}
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="points">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Puntos</th>
+            <td mat-cell *matCellDef="let p">
+              <strong>{{ p.points }}</strong>
+              @if (p.matches > 0) {
+                <span class="matches-info">({{ p.matches }}J)</span>
+              }
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="average">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Media</th>
+            <td mat-cell *matCellDef="let p">
+              @if (p.average > 0) {
+                <strong>{{ p.average.toFixed(1) }}</strong>
+              } @else {
+                <span class="sofascore-na">-</span>
+              }
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="market_price">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Precio Mercado</th>
+            <td mat-cell *matCellDef="let p">{{ p.market_price | money }}</td>
+          </ng-container>
+          <ng-container matColumnDef="current_bid">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Puja Actual</th>
+            <td mat-cell *matCellDef="let p" class="current-bid">
+              @if (p.current_bid) {
+                {{ p.current_bid | money }}
+                <button mat-icon-button color="warn" class="cancel-btn"
+                        (click)="cancelBid(p, $event)"
+                        [disabled]="bidding()"
+                        title="Cancelar puja">
+                  <mat-icon>close</mat-icon>
+                </button>
+              } @else {
+                -
+              }
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="suggested_bid">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Puja Sugerida</th>
+            <td mat-cell *matCellDef="let p" class="suggested">
+              {{ p.suggested_bid | money }}
+              <button mat-icon-button color="primary" class="bid-btn"
+                      (click)="confirmBid(p, $event)"
+                      [disabled]="bidding()"
+                      title="Pujar por {{ p.suggested_bid | money }}">
+                <mat-icon>gavel</mat-icon>
+              </button>
+            </td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="columns"></tr>
+          <tr mat-row *matRowDef="let row; columns: columns" [class.favorite-row]="row.is_favorite"></tr>
+        </table>
+      </div>
+      }
+
+      @if (viewMode() === 'cards') {
+      <div class="cards-container">
+        @for (p of dataSource.data; track p.player_id) {
+          <article class="player-card" [class.favorite-card]="p.is_favorite">
+            <!-- Header -->
+            <div class="card-header">
+              @if (p.sofascore_url) {
+                <a [href]="p.sofascore_url" target="_blank" class="card-avatar">
+                  <img [src]="getPlayerPhoto(p.slug)" [alt]="p.name" loading="lazy"
+                       (error)="onImgError($event)" />
+                </a>
+              } @else {
+                <div class="card-avatar">
+                  <img [src]="getPlayerPhoto(p.slug)" [alt]="p.name" loading="lazy"
+                       (error)="onImgError($event)" />
+                </div>
+              }
+              <div class="card-name-block">
+                <h3 class="card-player-name">
+                  @if (p.sofascore_url) {
+                    <a [href]="p.sofascore_url" target="_blank" class="player-link">{{ p.name }}</a>
+                  } @else {
+                    {{ p.name }}
+                  }
+                </h3>
+                <div class="card-team-row">
+                  <img [src]="getTeamLogo(p.team_logo)" class="card-team-logo" [alt]="p.team" loading="lazy"
+                       (error)="onImgError($event)" />
+                  <span class="card-team-name">{{ p.team }}</span>
+                </div>
+                <div class="card-badges">
+                  <app-sofascore-card-badge [rating]="p.sofascore_rating" (click)="openSofascoreDetail(p, $event)" />
+                  <app-starter-card-badge [pct]="p.starter_pct" />
+                </div>
+              </div>
+              <app-position-chip [position]="p.position" class="card-pos-top" />
+              @if (p.position2) {
+                <app-position-chip [position]="p.position2" class="card-pos-top card-pos-secondary" />
+              }
+            </div>
+            <!-- Stats grid -->
+            <div class="card-stats-box">
+              <div class="card-stats-grid">
+                <div class="card-stat-item">
+                  <span class="card-stat-label">VALOR</span>
+                  <span class="card-stat-val">{{ p.value | money }}</span>
+                </div>
+                <div class="card-stat-item">
+                  <span class="card-stat-label">TENDENCIA</span>
+                  <span class="card-stat-val trend" [class.up]="p.change >= 0" [class.down]="p.change < 0">
+                    {{ p.change >= 0 ? '↗' : '↘' }} {{ p.change | money }}
+                  </span>
+                </div>
+                <div class="card-stat-item">
+                  <span class="card-stat-label">PRECIO MERCADO</span>
+                  <span class="card-stat-val">{{ p.market_price | money }}</span>
+                </div>
+                <div class="card-stat-item">
+                  <span class="card-stat-label accent">SUGERIDA</span>
+                  <span class="card-stat-val accent">{{ p.suggested_bid | money }}</span>
+                </div>
+              </div>
+              <div class="card-stats-grid" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--mat-sys-outline-variant);">
+                <div class="card-stat-item">
+                  <span class="card-stat-label">PUNTOS</span>
+                  <span class="card-stat-val">{{ p.points > 0 ? p.points : '-' }}@if (p.matches > 0) { ({{ p.matches }}J) }</span>
+                </div>
+                <div class="card-stat-item">
+                  <span class="card-stat-label">MEDIA</span>
+                  <span class="card-stat-val">{{ p.average > 0 ? p.average.toFixed(1) : '-' }}</span>
+                </div>
+              </div>
+            </div>
+            <!-- Actions -->
+            @if (p.current_bid) {
+              <div class="card-bid-active-row">
+                <mat-icon class="bid-icon">sell</mat-icon>
+                <span class="bid-active-text">Puja activa: {{ p.current_bid | money }}</span>
+                <button mat-icon-button class="bid-cancel" (click)="cancelBid(p, $event)" [disabled]="bidding()">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+            } @else {
+              <button class="card-bid-btn" (click)="confirmBid(p, $event)" [disabled]="bidding()">
+                <mat-icon>gavel</mat-icon>
+                PUJAR {{ p.suggested_bid | money }}
+              </button>
+            }
+          </article>
+        }
+      </div>
+      <app-scroll-top />
+      }
+    </app-loading-state>

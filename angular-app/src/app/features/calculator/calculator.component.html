@@ -1,0 +1,261 @@
+    <app-page-header title="Calculadora" icon="calculate" description="Selecciona jugadores para simular ventas y proyecta su valor por tendencia." />
+
+    @if (loading()) {
+      <div class="loading"><mat-spinner diameter="40" /> <span>Cargando plantilla...</span></div>
+    } @else if (error()) {
+      <div class="error-message">{{ error() }}</div>
+    } @else {
+      <!-- Summary header -->
+      <div class="calc-header">
+        <div class="calc-header-item">
+          <span class="calc-header-label">Saldo actual</span>
+          <span class="calc-header-value" [class]="balance() >= 0 ? 'positive' : 'negative'">{{ balance() | money }}</span>
+        </div>
+        <div class="calc-header-item">
+          <span class="calc-header-label">En venta</span>
+          <span class="calc-header-value on-sale">{{ onSaleTotal() | money }}</span>
+        </div>
+        <div class="calc-header-item">
+          <span class="calc-header-label">Seleccionadas</span>
+          <span class="calc-header-value sales">{{ selectedTotal() | money }}</span>
+        </div>
+        <div class="calc-header-item">
+          <span class="calc-header-label">Saldo futuro</span>
+          <span class="calc-header-value" [class]="futureBalance() >= 0 ? 'positive' : 'negative'">{{ futureBalance() | money }}</span>
+        </div>
+      </div>
+
+      <!-- On-sale players -->
+      @if (onSalePlayers().length > 0) {
+        <div class="on-sale-section">
+          <h3 class="on-sale-title">🏷️ En venta ({{ onSalePlayers().length }})</h3>
+          <div class="on-sale-cards">
+            @for (p of onSalePlayers(); track p.player_id) {
+              <div class="on-sale-card">
+                <div class="on-sale-card-info">
+                  <img [src]="getPlayerPhoto(p.slug)" class="on-sale-photo" [alt]="p.name" loading="lazy"
+                       (error)="$event.target.style.display='none'" />
+                  <div>
+                    <strong>{{ p.name }}</strong>
+                    <span class="on-sale-team">{{ p.team }}</span>
+                  </div>
+                </div>
+                <div class="on-sale-card-price">{{ p.value | money }}</div>
+                <button mat-icon-button class="on-sale-cancel" (click)="cancelSale(p)" matTooltip="Cancelar venta">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+            }
+          </div>
+        </div>
+      }
+
+      <!-- Sell FAB (floating) -->
+      @if (selectedCount() > 0) {
+        <div class="sell-fab" (click)="sellPlayers()">
+          @if (selling()) {
+            <mat-spinner diameter="22" />
+          } @else {
+            <mat-icon>storefront</mat-icon>
+          }
+          <span class="sell-fab-label">Vender ({{ selectedCount() }})</span>
+        </div>
+      }
+      @if (sellResult()) {
+        <div class="sell-toast" [class]="sellResult()!.success ? 'success' : 'error'">
+          {{ sellResult()!.message }}
+        </div>
+      }
+
+      <!-- Date picker for projection -->
+      <div class="date-row">
+        <mat-form-field appearance="outline" class="date-field" subscriptSizing="dynamic">
+          <mat-label>Fecha de venta</mat-label>
+          <input matInput [matDatepicker]="picker" [min]="minDate" [(ngModel)]="targetDate" (dateChange)="onDateChange()">
+          <mat-datepicker-toggle matIconSuffix [for]="picker" />
+          <mat-datepicker #picker />
+        </mat-form-field>
+        <span class="days-label">
+          @if (daysAhead() > 0) {
+            {{ daysAhead() }} {{ daysAhead() === 1 ? 'día' : 'días' }} a futuro
+          } @else {
+            Hoy (valor actual)
+          }
+        </span>
+      </div>
+
+      <!-- View toggle + sort -->
+      <div class="view-toggle">
+        @if (viewMode() === 'cards') {
+          <mat-form-field appearance="outline" class="sort-field" subscriptSizing="dynamic">
+            <mat-label>Ordenar por</mat-label>
+            <mat-select [value]="sortField()" (selectionChange)="onSortChange($event.value)">
+              <mat-option value="projected_value">Valor proyectado</mat-option>
+              <mat-option value="value">Valor actual</mat-option>
+              <mat-option value="change">Tendencia</mat-option>
+              <mat-option value="profit">Plusvalía</mat-option>
+            </mat-select>
+          </mat-form-field>
+        }
+        <mat-button-toggle-group [value]="viewMode()" (change)="setViewMode($event.value)" hideSingleSelectionIndicator>
+          <mat-button-toggle value="cards"><mat-icon>grid_view</mat-icon></mat-button-toggle>
+          <mat-button-toggle value="table"><mat-icon>table_rows</mat-icon></mat-button-toggle>
+        </mat-button-toggle-group>
+      </div>
+
+      <p class="player-count">{{ players().length }} jugadores disponibles</p>
+
+      @if (viewMode() === 'table') {
+      <div class="table-container">
+        <table mat-table [dataSource]="dataSource" matSort>
+          <!-- Checkbox -->
+          <ng-container matColumnDef="select">
+            <th mat-header-cell *matHeaderCellDef>
+              <mat-checkbox [checked]="allSelected()" [indeterminate]="someSelected()" (change)="toggleAll($event.checked)" />
+            </th>
+            <td mat-cell *matCellDef="let p">
+              <mat-checkbox [checked]="isSelected(p)" (click)="$event.stopPropagation()" (change)="togglePlayer(p, $event.checked)" />
+            </td>
+          </ng-container>
+
+          <!-- Name -->
+          <ng-container matColumnDef="name">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Jugador</th>
+            <td mat-cell *matCellDef="let p" class="player-cell">
+              <div class="player-wrapper">
+                <img [src]="getPlayerPhoto(p.slug)" class="player-photo" [alt]="p.name" loading="lazy"
+                     (error)="$event.target.style.display='none'" />
+                <strong>{{ p.name }}</strong>
+              </div>
+            </td>
+          </ng-container>
+
+          <!-- Position -->
+          <ng-container matColumnDef="position">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Pos</th>
+            <td mat-cell *matCellDef="let p">
+              <span class="pos-chip" [class]="'pos-' + getPositionKey(p.position)">{{ getPositionLabel(p.position) }}</span>
+            </td>
+          </ng-container>
+
+          <!-- Team -->
+          <ng-container matColumnDef="team">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Equipo</th>
+            <td mat-cell *matCellDef="let p" class="team-cell">
+              <div class="team-wrapper">
+                <img [src]="getTeamLogo(p.team_logo)" class="team-logo" [alt]="p.team" loading="lazy"
+                     (error)="$event.target.style.display='none'" />
+                <span>{{ p.team }}</span>
+              </div>
+            </td>
+          </ng-container>
+
+          <!-- Current Value -->
+          <ng-container matColumnDef="value">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Valor actual</th>
+            <td mat-cell *matCellDef="let p">{{ p.value | money }}</td>
+          </ng-container>
+
+          <!-- Trend -->
+          <ng-container matColumnDef="change">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Tendencia</th>
+            <td mat-cell *matCellDef="let p" [class]="p.change > 0 ? 'trend-up' : p.change < 0 ? 'trend-down' : 'trend-neutral'">
+              @if (p.change !== 0) {
+                {{ p.change > 0 ? '▲' : '▼' }} {{ p.change | money }}
+              } @else {
+                -
+              }
+            </td>
+          </ng-container>
+
+          <!-- Projected Value -->
+          <ng-container matColumnDef="projected_value">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Valor proyectado</th>
+            <td mat-cell *matCellDef="let p">
+              <span class="projected" [class]="getProjectedValue(p) >= p.value ? 'trend-up' : 'trend-down'">
+                {{ getProjectedValue(p) | money }}
+              </span>
+              @if (daysAhead() > 0 && p.change !== 0) {
+                <span class="projection-delta" [class]="p.change > 0 ? 'trend-up' : 'trend-down'">
+                  ({{ p.change > 0 ? '+' : '' }}{{ getProjectionDelta(p) | money }})
+                </span>
+              }
+            </td>
+          </ng-container>
+
+          <!-- Profit -->
+          <ng-container matColumnDef="profit">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Plusvalía</th>
+            <td mat-cell *matCellDef="let p" [class]="p.profit >= 0 ? 'trend-up' : 'trend-down'">
+              {{ p.profit >= 0 ? '+' : '' }}{{ p.profit | money }}
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="columns"></tr>
+          <tr mat-row *matRowDef="let row; columns: columns" [class.selected-row]="isSelected(row)" (click)="togglePlayer(row, !isSelected(row))"></tr>
+        </table>
+      </div>
+      }
+
+      @if (viewMode() === 'cards') {
+      <div class="cards-container">
+        @for (p of dataSource.data; track p.player_id) {
+          <article class="player-card" [class.selected-card]="isSelected(p)" (click)="togglePlayer(p, !isSelected(p))">
+            <div class="card-header">
+              <div class="card-avatar">
+                <img [src]="getPlayerPhoto(p.slug)" [alt]="p.name" loading="lazy"
+                     (error)="$event.target.style.display='none'" />
+              </div>
+              <div class="card-name-block">
+                <h3 class="card-player-name">{{ p.name }}</h3>
+                <div class="card-team-row">
+                  <img [src]="getTeamLogo(p.team_logo)" class="card-team-logo" [alt]="p.team" loading="lazy"
+                       (error)="$event.target.style.display='none'" />
+                  <span class="card-team-name">{{ p.team }}</span>
+                </div>
+                <div class="card-badges">
+                  <app-sofascore-card-badge [rating]="p.sofascore_rating" />
+                  <app-starter-card-badge [pct]="p.starter_pct" />
+                </div>
+              </div>
+              <div class="card-select" (click)="$event.stopPropagation(); togglePlayer(p, !isSelected(p))">
+                @if (isSelected(p)) {
+                  <div class="check-circle selected">
+                    <mat-icon>check</mat-icon>
+                  </div>
+                } @else {
+                  <div class="check-circle"></div>
+                }
+              </div>
+              <span class="pos-chip card-pos-top" [class]="'pos-' + getPositionKey(p.position)">{{ getPositionLabel(p.position) }}</span>
+            </div>
+            <div class="card-stats-box">
+              <div class="card-stats-grid">
+                <div class="card-stat-item">
+                  <span class="card-stat-label">VALOR ACTUAL</span>
+                  <span class="card-stat-val">{{ p.value | money }}</span>
+                </div>
+                <div class="card-stat-item">
+                  <span class="card-stat-label">TENDENCIA</span>
+                  <span class="card-stat-val trend" [class.up]="p.change > 0" [class.down]="p.change < 0">
+                    @if (p.change !== 0) { {{ p.change > 0 ? '↗' : '↘' }} {{ p.change | money }} } @else { - }
+                  </span>
+                </div>
+                <div class="card-stat-item">
+                  <span class="card-stat-label">VALOR PROYECTADO</span>
+                  <span class="card-stat-val trend" [class.up]="getProjectedValue(p) >= p.value" [class.down]="getProjectedValue(p) < p.value">
+                    {{ getProjectedValue(p) | money }}
+                  </span>
+                </div>
+                <div class="card-stat-item">
+                  <span class="card-stat-label">PLUSVALÍA</span>
+                  <span class="card-stat-val trend" [class.up]="p.profit >= 0" [class.down]="p.profit < 0">{{ p.profit >= 0 ? '+' : '' }}{{ p.profit | money }}</span>
+                </div>
+              </div>
+            </div>
+          </article>
+        }
+      </div>
+      <app-scroll-top />
+      }
+    }

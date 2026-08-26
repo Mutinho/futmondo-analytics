@@ -1,11 +1,12 @@
-import { Component, Input } from '@angular/core';
+import { Component, ChangeDetectionStrategy, input } from '@angular/core';
 
 @Component({
   selector: 'app-sofascore-badge',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    @if (rating != null) {
-      <span class="sofascore-badge" [class]="getClass()">{{ rating.toFixed(1) }}</span>
+    @if (rating() != null) {
+      <span class="sofascore-badge" [class]="getClass()">{{ rating()!.toFixed(1) }}</span>
     } @else {
       <span class="sofascore-na">-</span>
     }
@@ -21,14 +22,15 @@ import { Component, Input } from '@angular/core';
   `]
 })
 export class SofascoreBadgeComponent {
-  @Input() rating: number | null = null;
+  rating = input<number | null>(null);
 
   getClass(): string {
-    if (this.rating == null) return '';
-    if (this.rating >= 9) return 's-90';
-    if (this.rating >= 8) return 's-80';
-    if (this.rating >= 7) return 's-70';
-    if (this.rating >= 6.5) return 's-65';
+    const r = this.rating();
+    if (r == null) return '';
+    if (r >= 9) return 's-90';
+    if (r >= 8) return 's-80';
+    if (r >= 7) return 's-70';
+    if (r >= 6.5) return 's-65';
     return 's-60';
   }
 }

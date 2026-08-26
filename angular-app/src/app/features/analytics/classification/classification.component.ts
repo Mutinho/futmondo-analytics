@@ -6,7 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { FormsModule } from '@angular/forms';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
-import { AnalyticsService } from '../../../core/services/analytics.service';
+import { AnalyticsService, ClassificationTeam } from '../../../core/services/analytics.service';
 
 @Component({
   selector: 'app-analytics-classification',
@@ -66,7 +66,7 @@ export class ClassificationComponent {
   private analyticsService = inject(AnalyticsService);
   loading = signal(true);
   hasData = signal(false);
-  classification = signal<any[]>([]);
+  classification = signal<(ClassificationTeam & { points: number; average: number })[]>([]);
   columns = ['position', 'team_name', 'points', 'average'];
   window = 5;
 
@@ -76,10 +76,10 @@ export class ClassificationComponent {
     this.loading.set(true);
     try {
       const data = await this.analyticsService.getCustomClassification(this.window);
-      const teams = (data?.classification || data?.teams || []).map((t: any) => ({
+      const teams = data.classification.map(t => ({
         ...t,
-        points: t.total_points || t.points || 0,
-        average: t.average_points || t.average || 0,
+        points: t.total_points,
+        average: t.average_points,
       }));
       this.classification.set(teams);
       this.hasData.set(teams.length > 0);

@@ -308,6 +308,9 @@ def _auto_detect_championships(user_id: str, client):
                 has_clauses = False
                 excluded_teams = "[]"
             
+            # Pro mode (from activechampionships response)
+            is_pro = champ.get("pro", False)
+            
             # Fetch championship-specific configuration
             money_per_point = 0
             money_per_ranking = 0
@@ -341,14 +344,14 @@ def _auto_detect_championships(user_id: str, client):
             
             if db.db_type in ["postgresql", "postgres"]:
                 cursor.execute("""
-                    INSERT INTO user_championships (user_id, championship_id, name, initial_budget, has_clauses, excluded_teams, money_per_point, money_per_ranking, dream_team_bonus, mvp_bonus, ranking_mode, users_to_rank)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (user_id, championship_id) DO NOTHING
-                """, (user_id, champ_id, champ_name, initial_budget, has_clauses, excluded_teams, money_per_point, money_per_ranking, dream_team_bonus, mvp_bonus, ranking_mode, users_to_rank))
+                    INSERT INTO user_championships (user_id, championship_id, name, initial_budget, has_clauses, excluded_teams, money_per_point, money_per_ranking, dream_team_bonus, mvp_bonus, ranking_mode, users_to_rank, is_pro)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (user_id, championship_id) DO UPDATE SET is_pro = EXCLUDED.is_pro
+                """, (user_id, champ_id, champ_name, initial_budget, has_clauses, excluded_teams, money_per_point, money_per_ranking, dream_team_bonus, mvp_bonus, ranking_mode, users_to_rank, is_pro))
             else:
                 cursor.execute("""
-                    INSERT OR IGNORE INTO user_championships (user_id, championship_id, name, initial_budget, has_clauses, excluded_teams, money_per_point, money_per_ranking, dream_team_bonus, mvp_bonus, ranking_mode, users_to_rank)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (user_id, champ_id, champ_name, initial_budget, has_clauses, excluded_teams, money_per_point, money_per_ranking, dream_team_bonus, mvp_bonus, ranking_mode, users_to_rank))
+                    INSERT OR REPLACE INTO user_championships (user_id, championship_id, name, initial_budget, has_clauses, excluded_teams, money_per_point, money_per_ranking, dream_team_bonus, mvp_bonus, ranking_mode, users_to_rank, is_pro)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (user_id, champ_id, champ_name, initial_budget, has_clauses, excluded_teams, money_per_point, money_per_ranking, dream_team_bonus, mvp_bonus, ranking_mode, users_to_rank, is_pro))
     
     logger.info(f"Auto-detected {len(championships)} championships for user {user_id}")

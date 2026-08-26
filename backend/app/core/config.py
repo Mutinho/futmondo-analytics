@@ -69,4 +69,14 @@ API_PORT = int(os.getenv("API_PORT", "8000"))
 
 
 # JWT Authentication
-JWT_SECRET = os.getenv("JWT_SECRET", "futmondo-dev-secret-change-in-prod")
+JWT_SECRET = os.getenv("JWT_SECRET", "")
+if not JWT_SECRET:
+    if os.getenv("FLY_APP_NAME"):  # Running on Fly.io = production
+        raise RuntimeError("FATAL: JWT_SECRET must be set in production!")
+    JWT_SECRET = "futmondo-dev-secret-change-in-prod"
+
+# Gemini AI Assistant
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+
+# Groq AI (fallback)
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")

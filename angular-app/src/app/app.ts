@@ -1,4 +1,4 @@
-import { Component, signal, inject, computed, effect, untracked } from '@angular/core';
+import { Component, signal, inject, computed, effect, untracked, DestroyRef } from '@angular/core';
 import { Router, RouterOutlet, RouterLink, RouterLinkActive, NavigationEnd } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom, filter, map } from 'rxjs';
@@ -12,10 +12,11 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { ScrollingModule } from '@angular/cdk/scrolling';
 import { MatDialog } from '@angular/material/dialog';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { toSignal, takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ChampionshipService } from './core/services/championship.service';
 import { AuthService } from './core/services/auth.service';
 import { SyncDialogComponent } from './features/budget/sync-dialog/sync-dialog.component';
+import { AssistantFabComponent } from './shared/components/assistant-fab.component';
 import { APP_VERSION } from './version';
 
 interface NavItem {
@@ -39,6 +40,7 @@ interface NavItem {
     MatSelectModule,
     MatFormFieldModule,
     ScrollingModule,
+    AssistantFabComponent,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss'
@@ -49,6 +51,7 @@ export class App {
   private http = inject(HttpClient);
   private router = inject(Router);
   private authService = inject(AuthService);
+  private destroyRef = inject(DestroyRef);
   championshipService = inject(ChampionshipService);
 
   appVersion = APP_VERSION;
@@ -88,13 +91,14 @@ export class App {
 
     // Track route to hide shell on login/splash pages
     this.router.events.pipe(
-      filter(e => e instanceof NavigationEnd)
+      filter(e => e instanceof NavigationEnd),
+      takeUntilDestroyed(this.destroyRef)
     ).subscribe(() => {
       const url = this.router.url;
       const hideShell = url === '/login' || url === '/';
       this.isLoginPage.set(hideShell);
       if (!hideShell) {
-        document.body.removeAttribute('style');
+        document.body.classList.remove('splash-bg');
         localStorage.setItem('futmondo_last_route', url);
       }
     });

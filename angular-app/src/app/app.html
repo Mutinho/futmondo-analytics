@@ -87,6 +87,11 @@
     <main class="page-content">
       <router-outlet />
     </main>
+
+    <!-- AI Assistant FAB (inside content area, respects sidebar) -->
+    @defer (on idle) {
+      <app-assistant-fab />
+    }
   </mat-sidenav-content>
 </mat-sidenav-container>
 }

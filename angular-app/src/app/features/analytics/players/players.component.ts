@@ -3,7 +3,7 @@ import { Component, inject, signal } from '@angular/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTableModule } from '@angular/material/table';
 import { DecimalPipe } from '@angular/common';
-import { AnalyticsService } from '../../../core/services/analytics.service';
+import { AnalyticsService, PlayerForm } from '../../../core/services/analytics.service';
 
 @Component({
   selector: 'app-analytics-players',
@@ -34,11 +34,11 @@ import { AnalyticsService } from '../../../core/services/analytics.service';
 export class PlayersComponent {
   private svc = inject(AnalyticsService);
   loading = signal(true);
-  players = signal<any[]>([]);
+  players = signal<PlayerForm[]>([]);
   columns = ['name', 'team', 'average', 'trend'];
   constructor() { this.load(); }
   async load() {
-    try { const d = await this.svc.getPlayerForm(); this.players.set(d?.players || []); }
+    try { const d = await this.svc.getPlayerForm(); this.players.set(d.players); }
     catch {}
     finally { this.loading.set(false); }
   }

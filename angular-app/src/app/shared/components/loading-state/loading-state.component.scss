@@ -1,0 +1,13 @@
+@use '../../styles/loading-states';
+
+.empty {
+  .empty-icon {
+    font-size: 3em;
+    display: block;
+    margin-bottom: 12px;
+  }
+
+  p {
+    margin: 0;
+  }
+}

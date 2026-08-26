@@ -1,0 +1,107 @@
+<div class="chat-panel" [class.expanded]="expanded()" [class.show-sidebar]="sidebarOpen()">
+
+  <!-- Conversations sidebar -->
+  @if (sidebarOpen()) {
+    <div class="conversations-sidebar">
+      <div class="sidebar-header">
+        <span class="sidebar-title">Conversaciones</span>
+        <button mat-icon-button (click)="newConversation()" matTooltip="Nueva conversación" class="sidebar-btn">
+          <mat-icon>add</mat-icon>
+        </button>
+      </div>
+      <div class="conversations-list">
+        @for (conv of conversations(); track conv.id) {
+          <div
+            class="conversation-item"
+            [class.active]="conv.id === activeConversationId()"
+            (click)="loadConversation(conv.id)"
+          >
+            <span class="conv-title">{{ conv.title }}</span>
+            <button mat-icon-button class="conv-delete" (click)="deleteConversation(conv.id, $event)" matTooltip="Eliminar">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+        } @empty {
+          <div class="no-conversations">Sin conversaciones</div>
+        }
+      </div>
+    </div>
+  }
+
+  <!-- Main chat area -->
+  <div class="chat-main">
+    <!-- Header -->
+    <div class="chat-header">
+      <div class="header-left">
+        <button mat-icon-button (click)="sidebarOpen.update(v => !v)" class="header-btn" matTooltip="Conversaciones">
+          <mat-icon>{{ sidebarOpen() ? 'chevron_left' : 'history' }}</mat-icon>
+        </button>
+        <span class="chat-title">🤖 Asistente</span>
+      </div>
+      <div class="header-actions">
+        <button mat-icon-button (click)="newConversation()" class="header-btn" matTooltip="Nueva conversación">
+          <mat-icon>add_comment</mat-icon>
+        </button>
+        <button mat-icon-button (click)="expanded.update(v => !v)" class="header-btn" [matTooltip]="expanded() ? 'Minimizar' : 'Maximizar'">
+          <mat-icon>{{ expanded() ? 'close_fullscreen' : 'open_in_full' }}</mat-icon>
+        </button>
+        <button mat-icon-button (click)="closed.emit()" class="header-btn">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+    </div>
+
+    <!-- Messages -->
+    <div class="chat-body" #chatBody>
+      @if (messages().length === 0) {
+        <div class="empty-state">
+          <mat-icon class="empty-icon">smart_toy</mat-icon>
+          <p>¡Hola! Soy tu asistente de Futmondo.</p>
+          <p class="subtitle">Pregúntame sobre tu plantilla, el mercado, fichajes o estrategia.</p>
+        </div>
+      }
+
+      @for (msg of messages(); track $index) {
+        <div class="message" [class.user]="msg.role === 'user'" [class.assistant]="msg.role === 'assistant'">
+          <div class="bubble" [innerHTML]="formatMarkdown(msg.content)"></div>
+        </div>
+      }
+
+      @if (loading()) {
+        <div class="message assistant">
+          <div class="bubble typing">
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+          </div>
+        </div>
+      }
+    </div>
+
+    <!-- Quick suggestions (always visible) -->
+    <div class="suggestions">
+      <mat-chip-set>
+        <mat-chip (click)="sendSuggestion('¿Qué fichajes me recomiendas hoy del mercado?')">🛒 Fichajes</mat-chip>
+        <mat-chip (click)="sendSuggestion('¿Qué agentes libres me convienen?')">🔍 Libres</mat-chip>
+        <mat-chip (click)="sendSuggestion('¿Qué jugadores debería vender?')">💰 Ventas</mat-chip>
+        <mat-chip (click)="sendSuggestion('¿Qué once pongo esta jornada?')">⚽ Once</mat-chip>
+      </mat-chip-set>
+    </div>
+
+    <!-- Input -->
+    <div class="chat-footer">
+      <mat-form-field appearance="outline" class="input-field">
+        <input
+          matInput
+          [(ngModel)]="inputText"
+          placeholder="Escribe tu pregunta..."
+          (keydown.enter)="send()"
+          [disabled]="loading()"
+        />
+      </mat-form-field>
+      <button mat-icon-button color="primary" (click)="send()" [disabled]="loading() || !inputText.trim()">
+        <mat-icon>send</mat-icon>
+      </button>
+    </div>
+  </div>
+</div>

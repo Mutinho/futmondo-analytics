@@ -1,0 +1,20 @@
+// Responsive grid for cards container
+// 1 column mobile → 2 columns tablet → 3 columns desktop → 4 columns wide
+
+.cards-container {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+
+  @media (min-width: 900px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (min-width: 1300px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  @media (min-width: 1700px) {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}

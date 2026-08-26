@@ -3,9 +3,9 @@
 import logging
 from datetime import datetime
 from typing import Dict
-from fastapi import APIRouter, Query, Depends, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Request
 from app.core.config import CHAMPIONSHIP_ID
-from app.services.futmondo_service import FutmondoService
+from app.api.v1.endpoints._helpers import get_user_futmondo_client
 from app.services.sofascore_client import get_sofascore_client
 from app.services.db_connection import get_db
 
@@ -15,8 +15,8 @@ router = APIRouter()
 
 @router.post("/sofascore")
 async def sync_sofascore(
+    request: Request,
     championship_id: str = Query(default=CHAMPIONSHIP_ID),
-    service: FutmondoService = Depends(FutmondoService),
 ) -> Dict:
     """Sincroniza ratings de Sofascore para los jugadores del mercado actual.
     
@@ -24,9 +24,7 @@ async def sync_sofascore(
     y los guarda en caché.
     """
     try:
-        if not service.client or not service.client.is_authenticated():
-            service.login()
-        client = service.client
+        client = get_user_futmondo_client(request)
 
         # Obtener team_id del usuario
         standings = client.get_matchday_standings(championship_id)

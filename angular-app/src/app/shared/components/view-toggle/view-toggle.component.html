@@ -1,0 +1,16 @@
+<div class="view-toggle">
+  @if (viewMode() === 'cards' && showSort() && sortOptions().length > 0) {
+    <mat-form-field appearance="outline" class="sort-field" subscriptSizing="dynamic">
+      <mat-label>Ordenar por</mat-label>
+      <mat-select [value]="sortField()" (selectionChange)="sortChange.emit($event.value)">
+        @for (opt of sortOptions(); track opt.value) {
+          <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+  }
+  <mat-button-toggle-group [value]="viewMode()" (change)="viewModeChange.emit($event.value)" hideSingleSelectionIndicator>
+    <mat-button-toggle value="cards"><mat-icon>grid_view</mat-icon></mat-button-toggle>
+    <mat-button-toggle value="table"><mat-icon>table_rows</mat-icon></mat-button-toggle>
+  </mat-button-toggle-group>
+</div>

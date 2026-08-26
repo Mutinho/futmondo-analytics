@@ -5,8 +5,7 @@ Returns statistics about users: unique players, clauses, transactions
 
 import logging
 from typing import Dict
-from fastapi import APIRouter, Depends, HTTPException, Query
-from app.services.futmondo_service import FutmondoService
+from fastapi import APIRouter, HTTPException, Query
 from app.services.data_manager_v2 import DataManagerV2
 from app.core.config import CHAMPIONSHIP_ID
 
@@ -18,7 +17,6 @@ router = APIRouter()
 @router.get("/")
 async def get_user_statistics(
     championship_id: str = Query(default=CHAMPIONSHIP_ID),
-    service: FutmondoService = Depends(FutmondoService)
 ) -> Dict:
     """Get user statistics including:
     - Unique players aligned
@@ -28,7 +26,6 @@ async def get_user_statistics(
     """
     try:
         dm = DataManagerV2()
-        _ = service  # Dependency retained for compatibility, no direct API usage here
 
         unique_players_stats = dm.get_users_unique_players_stats(championship_id)
         clauses_stats = dm.get_user_clauses_stats(championship_id)

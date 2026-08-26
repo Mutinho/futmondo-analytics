@@ -91,7 +91,24 @@ def init_auth_tables():
                 )
             ''')
         
-        logger.info("Auth tables ensured")
+        # Migrations: add columns if they don't exist
+        conn.commit()
+
+    # Run migrations in separate transactions (PostgreSQL aborts tx on error)
+    migrations = [
+        "ALTER TABLE user_championships ADD COLUMN is_pro BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE user_championships ADD COLUMN futmondo_team_id TEXT",
+    ]
+    for sql in migrations:
+        try:
+            with db.get_connection() as conn2:
+                cursor2 = db.get_cursor(conn2)
+                cursor2.execute(sql)
+                conn2.commit()
+        except Exception:
+            pass  # Column already exists
+
+    logger.info("Auth tables ensured")
 
 
 def save_refresh_token(token_hash: str, user_id: str, expires_at: datetime):

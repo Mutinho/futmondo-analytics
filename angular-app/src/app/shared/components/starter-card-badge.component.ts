@@ -1,13 +1,14 @@
-import { Component, Input } from '@angular/core';
+import { Component, ChangeDetectionStrategy, input } from '@angular/core';
 
 @Component({
   selector: 'app-starter-card-badge',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    @if (pct != null) {
+    @if (pct() != null) {
       <span class="card-badge" [class]="getClass()">
         <span class="card-badge-label">Tit</span>
-        <span class="card-badge-value">{{ pct }}%</span>
+        <span class="card-badge-value">{{ pct() }}%</span>
       </span>
     }
   `,
@@ -23,14 +24,15 @@ import { Component, Input } from '@angular/core';
   `]
 })
 export class StarterCardBadgeComponent {
-  @Input() pct: number | null = null;
+  pct = input<number | null>(null);
 
   getClass(): string {
-    if (this.pct == null) return '';
-    if (this.pct >= 80) return 's-80';
-    if (this.pct >= 60) return 's-60';
-    if (this.pct >= 40) return 's-40';
-    if (this.pct >= 20) return 's-20';
+    const p = this.pct();
+    if (p == null) return '';
+    if (p >= 80) return 's-80';
+    if (p >= 60) return 's-60';
+    if (p >= 40) return 's-40';
+    if (p >= 20) return 's-20';
     return 's-0';
   }
 }

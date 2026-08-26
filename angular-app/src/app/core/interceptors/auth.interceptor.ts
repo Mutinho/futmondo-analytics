@@ -1,7 +1,7 @@
 import { HttpInterceptorFn, HttpErrorResponse } from '@angular/common/http';
 import { inject } from '@angular/core';
-import { catchError, switchMap, throwError } from 'rxjs';
-import { from } from 'rxjs';
+import { catchError, switchMap, throwError, filter, take } from 'rxjs';
+import { from, BehaviorSubject } from 'rxjs';
 import { AuthService } from '../services/auth.service';
 
 /** URLs that should NOT get the Authorization header */
@@ -12,6 +12,9 @@ const COOKIE_URLS = ['/auth/'];
 
 /** Flag to prevent multiple simultaneous refresh attempts */
 let isRefreshing = false;
+
+/** Subject that emits the new token once refresh completes. null = not yet ready. */
+const refreshTokenSubject = new BehaviorSubject<string | null>(null);
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
@@ -42,31 +45,55 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
         return throwError(() => error);
       }
 
-      if (error.status === 401 && !isRefreshing) {
-        isRefreshing = true;
+      if (error.status === 401) {
+        if (!isRefreshing) {
+          // First 401 — start the refresh
+          isRefreshing = true;
+          refreshTokenSubject.next(null); // reset
 
-        return from(authService.refresh()).pipe(
-          switchMap((newToken) => {
-            isRefreshing = false;
+          return from(authService.refresh()).pipe(
+            switchMap((newToken) => {
+              isRefreshing = false;
 
-            if (newToken) {
-              // Retry original request with new token
+              if (newToken) {
+                refreshTokenSubject.next(newToken); // notify queued requests
+                // Retry original request with new token
+                const retryReq = req.clone({
+                  setHeaders: { Authorization: `Bearer ${newToken}` }
+                });
+                return next(retryReq);
+              }
+
+              // Refresh failed — logout and reject all
+              refreshTokenSubject.next(''); // unblock waiting requests (they'll fail)
+              authService.logout();
+              return throwError(() => error);
+            }),
+            catchError((refreshError) => {
+              isRefreshing = false;
+              refreshTokenSubject.next(''); // unblock waiting requests
+              authService.logout();
+              return throwError(() => refreshError);
+            })
+          );
+        } else {
+          // Another request got 401 while refresh is in progress — wait for it
+          return refreshTokenSubject.pipe(
+            filter(token => token !== null), // wait until refresh completes
+            take(1),
+            switchMap((newToken) => {
+              if (!newToken) {
+                // Refresh failed
+                return throwError(() => error);
+              }
+              // Retry with the new token
               const retryReq = req.clone({
                 setHeaders: { Authorization: `Bearer ${newToken}` }
               });
               return next(retryReq);
-            }
-
-            // Refresh failed — logout
-            authService.logout();
-            return throwError(() => error);
-          }),
-          catchError((refreshError) => {
-            isRefreshing = false;
-            authService.logout();
-            return throwError(() => refreshError);
-          })
-        );
+            })
+          );
+        }
       }
 
       return throwError(() => error);

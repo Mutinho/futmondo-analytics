@@ -1,0 +1,182 @@
+// Player card styles shared across feature components
+
+.player-card {
+  padding: 20px;
+  border-radius: 16px;
+  background: var(--mat-sys-surface-container);
+  border: 1px solid var(--mat-sys-outline-variant);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+
+  .dark-theme & {
+    border-color: rgba(20, 255, 0, 0.15);
+  }
+}
+
+// Card header: flex row with avatar + name block + position chip
+.card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 16px;
+  position: relative;
+}
+
+// Circular player photo avatar
+.card-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid var(--mat-sys-primary);
+  padding: 2px;
+  flex-shrink: 0;
+  display: block;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+  }
+}
+
+// Player name + team block
+.card-name-block {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.card-player-name {
+  font-size: 1.25em;
+  font-weight: 700;
+  margin: 0;
+  color: var(--mat-sys-on-surface);
+}
+
+// Team info in card
+.card-team-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-team-logo {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
+.card-team-name {
+  font-size: 0.95em;
+  color: var(--mat-sys-on-surface-variant);
+  font-weight: 500;
+}
+
+// Position chip positioned at top-right of card header
+.card-pos-top {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+.card-pos-secondary {
+  top: 28px;
+  opacity: 0.8;
+}
+
+// Sofascore/starter badges container
+.card-badges {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.card-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 0.85em;
+  font-weight: 700;
+  border: 1px solid;
+
+  &.sofascore {
+    background: rgba(0, 196, 36, 0.1);
+    color: #00C424;
+    border-color: rgba(0, 196, 36, 0.25);
+    cursor: pointer;
+  }
+
+  &.starter {
+    background: rgba(0, 196, 36, 0.1);
+    color: #00C424;
+    border-color: rgba(0, 196, 36, 0.25);
+  }
+}
+
+.card-badge-label {
+  font-size: 0.8em;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  opacity: 0.8;
+}
+
+.card-badge-value {
+  font-weight: 800;
+  font-size: 1.1em;
+}
+
+// Stats grid in card
+.card-stats-box {
+  background: var(--mat-sys-surface-container-highest);
+  border-radius: 12px;
+  padding: 14px;
+  border: 1px solid var(--mat-sys-outline-variant);
+
+  .dark-theme & {
+    background: rgba(53, 53, 52, 0.5);
+    border-color: rgba(132, 150, 124, 0.2);
+  }
+}
+
+.card-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+// Individual stat display
+.card-stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.card-stat-label {
+  font-size: 0.65em;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.card-stat-val {
+  font-size: 1.05em;
+  font-weight: 600;
+  color: var(--mat-sys-on-surface);
+
+  &.trend.up {
+    color: #00C424;
+
+    .dark-theme & {
+      color: #14FF00;
+    }
+  }
+
+  &.trend.down {
+    color: #d32f2f;
+  }
+}

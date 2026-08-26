@@ -163,18 +163,7 @@ def _sync_sofascore(championship_id: str, client) -> Dict:
     existing_names = set()
     
     # Use LALIGA team map for team hints
-    LALIGA_TEAMS = {
-        "504e581e4d8bec9a670000c6": "Real Madrid", "504e581e4d8bec9a670000c7": "Barcelona",
-        "504e581e4d8bec9a670000c8": "Atlético de Madrid", "504e581e4d8bec9a670000c9": "Athletic de Bilbao",
-        "504e581e4d8bec9a670000ca": "Rayo Vallecano", "504e581e4d8bec9a670000cb": "Valencia",
-        "504e581e4d8bec9a670000cc": "Betis", "504e581e4d8bec9a670000cd": "Getafe",
-        "504e581e4d8bec9a670000ce": "Real Sociedad", "504e581e4d8bec9a670000cf": "Levante",
-        "504e581e4d8bec9a670000d0": "Espanyol", "504e581e4d8bec9a670000d1": "Osasuna",
-        "504e581e4d8bec9a670000d5": "Sevilla", "504e581e4d8bec9a670000d6": "Málaga",
-        "504e581e4d8bec9a670000d8": "Deportivo de la Coruña", "504e581e4d8bec9a670000d9": "Celta de Vigo",
-        "51b889b1e401a15f2c0000f0": "Elche", "51b890f5b986415a2c000012": "Villarreal",
-        "52038563b8d07d930b00008a": "Alavés", "520e4ee4a776cc826b00004b": "Racing",
-    }
+    from app.core.constants import LALIGA_TEAM_NAMES as LALIGA_TEAMS
     
     for p in all_champ_players:
         pname = p.get("name", "")

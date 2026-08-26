@@ -1,0 +1,33 @@
+.info-banner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 12px 16px;
+  background: var(--mat-sys-surface-container);
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.info-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--mat-sys-on-surface-variant);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.info-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--mat-sys-on-surface);
+}
+
+.info-value.positive { color: #16a34a; }
+.info-value.negative { color: #dc2626; }
+.info-value.primary { color: var(--mat-sys-primary); }

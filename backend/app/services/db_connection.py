@@ -78,6 +78,9 @@ class DBConnection:
         else:
             self.db_type = DATABASE_TYPE.lower() if DATABASE_TYPE else "sqlite"
         
+        if self.db_type == "postgres":
+            self.db_type = "postgresql"
+        
         self.db_path = DATABASE_PATH
         self._pool = None  # Connection pool for PostgreSQL
         
@@ -128,10 +131,10 @@ class DBConnection:
         self.connector = psycopg2
         
         try:
-            self._pool = psycopg2.pool.SimpleConnectionPool(
+            self._pool = psycopg2.pool.ThreadedConnectionPool(
                 5, 20, connection_string
             )
-            logger.info("✅ PostgreSQL connection pool created (5-20 connections)")
+            logger.info("✅ PostgreSQL threaded connection pool created (5-20 connections)")
         except Exception as e:
             logger.warning(f"Could not create connection pool, using direct connections: {e}")
             self._pool = None
@@ -192,7 +195,7 @@ class DBConnection:
                             except Exception:
                                 pass
                             import psycopg2.pool
-                            self._pool = psycopg2.pool.SimpleConnectionPool(
+                            self._pool = psycopg2.pool.ThreadedConnectionPool(
                                 5, 20, self.connection_string
                             )
                             conn = self._pool.getconn()

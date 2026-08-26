@@ -3,7 +3,7 @@ import { Component, inject, signal } from '@angular/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCardModule } from '@angular/material/card';
 import { DatePipe } from '@angular/common';
-import { AnalyticsService } from '../../../core/services/analytics.service';
+import { AnalyticsService, ProjectionMatch } from '../../../core/services/analytics.service';
 
 @Component({
   selector: 'app-analytics-projections',
@@ -50,12 +50,12 @@ import { AnalyticsService } from '../../../core/services/analytics.service';
 export class ProjectionsComponent {
   private svc = inject(AnalyticsService);
   loading = signal(true);
-  matches = signal<any[]>([]);
+  matches = signal<ProjectionMatch[]>([]);
 
   constructor() { this.load(); }
 
   async load() {
-    try { const d = await this.svc.getProjections(); this.matches.set(d?.matches || []); }
+    try { const d = await this.svc.getProjections(); this.matches.set(d.matches); }
     catch {}
     finally { this.loading.set(false); }
   }

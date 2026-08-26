@@ -1,0 +1,11 @@
+.settings-container { padding: 24px; max-width: 800px; }
+.description { color: var(--mat-sys-on-surface-variant); font-size: 0.9em; margin-bottom: 24px; }
+.loading { display: flex; align-items: center; gap: 16px; padding: 40px; color: var(--mat-sys-on-surface-variant); }
+.empty { text-align: center; padding: 60px 20px; color: var(--mat-sys-on-surface-variant); }
+.empty mat-icon { font-size: 48px; width: 48px; height: 48px; margin-bottom: 16px; }
+.championships-list { display: flex; flex-direction: column; gap: 16px; }
+.champ-card { border-radius: 12px; }
+.config-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 12px; }
+.field-md { width: 200px; }
+.field-sm { width: 150px; }
+.full-width { width: 100%; margin-top: 8px; }

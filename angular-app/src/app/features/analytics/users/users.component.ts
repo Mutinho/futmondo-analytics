@@ -2,7 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTableModule } from '@angular/material/table';
 import { MoneyPipe } from '../../../shared/pipes/money.pipe';
-import { AnalyticsService } from '../../../core/services/analytics.service';
+import { AnalyticsService, TeamMarketActivity } from '../../../core/services/analytics.service';
 
 @Component({
   selector: 'app-analytics-users',
@@ -32,11 +32,11 @@ import { AnalyticsService } from '../../../core/services/analytics.service';
 export class UsersComponent {
   private svc = inject(AnalyticsService);
   loading = signal(true);
-  users = signal<any[]>([]);
+  users = signal<TeamMarketActivity[]>([]);
   columns = ['team_name', 'purchases', 'sales', 'spent'];
   constructor() { this.load(); }
   async load() {
-    try { const d = await this.svc.getUserMarketActivity(); this.users.set(d?.users || d?.teams || []); }
+    try { const d = await this.svc.getUserMarketActivity(); this.users.set(d.teams); }
     catch {}
     finally { this.loading.set(false); }
   }

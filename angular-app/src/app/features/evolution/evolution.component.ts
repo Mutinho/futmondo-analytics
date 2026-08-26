@@ -1,4 +1,4 @@
-import { Component, inject, signal, effect } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, effect } from '@angular/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartConfiguration, ChartOptions } from 'chart.js';
@@ -17,6 +17,7 @@ const TEAM_COLORS = [
 @Component({
   selector: 'app-evolution',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [MatProgressSpinnerModule, BaseChartDirective, PageHeaderComponent],
   templateUrl: './evolution.component.html',
   styleUrl: './evolution.component.scss',

@@ -1,0 +1,133 @@
+<h2 mat-dialog-title>⚽ {{ data.player_name }}</h2>
+<mat-dialog-content>
+  @if (loading()) {
+    <div class="loading">
+      <mat-spinner diameter="36" />
+      <span>Cargando stats de Sofascore...</span>
+    </div>
+  } @else if (error()) {
+    <div class="error-msg">
+      <mat-icon>error</mat-icon>
+      <span>{{ error() }}</span>
+    </div>
+  } @else if (stats()) {
+    <!-- Rating grande -->
+    <div class="rating-hero">
+      <div class="rating-circle" [class]="getRatingClass(stats()!.rating)">
+        {{ stats()!.rating ? (stats()!.rating! | number:'1.1-1') : '-' }}
+      </div>
+      <div class="rating-meta">
+        @if (stats()!.position) { <span class="meta-item">📋 {{ formatPosition(stats()!.position!) }}</span> }
+        @if (stats()!.nationality) { <span class="meta-item">🌍 {{ stats()!.nationality }}</span> }
+        @if (stats()!.age) { <span class="meta-item">🎂 {{ stats()!.age }} años</span> }
+        @if (stats()!.tournament) { <span class="meta-item">🏆 {{ stats()!.tournament }}</span> }
+        @if (stats()!.season) { <span class="meta-item">📅 {{ stats()!.season }}</span> }
+      </div>
+    </div>
+
+    <!-- Stats grid -->
+    <div class="stats-grid">
+      <mat-card class="stat-card">
+        <mat-card-content>
+          <div class="stat-value">{{ stats()!.appearances ?? '-' }}</div>
+          <div class="stat-label">Partidos</div>
+        </mat-card-content>
+      </mat-card>
+      <mat-card class="stat-card">
+        <mat-card-content>
+          <div class="stat-value">{{ stats()!.matches_started ?? '-' }}</div>
+          <div class="stat-label">Titular</div>
+        </mat-card-content>
+      </mat-card>
+      <mat-card class="stat-card">
+        <mat-card-content>
+          <div class="stat-value" [class]="getStarterClass(stats()!.starter_pct)">{{ stats()!.starter_pct != null ? stats()!.starter_pct + '%' : '-' }}</div>
+          <div class="stat-label">% Titularidad</div>
+        </mat-card-content>
+      </mat-card>
+      <mat-card class="stat-card">
+        <mat-card-content>
+          <div class="stat-value">{{ stats()!.minutes_played ?? '-' }}</div>
+          <div class="stat-label">Minutos</div>
+        </mat-card-content>
+      </mat-card>
+      <mat-card class="stat-card goals">
+        <mat-card-content>
+          <div class="stat-value">{{ stats()!.goals ?? '-' }}</div>
+          <div class="stat-label">Goles</div>
+        </mat-card-content>
+      </mat-card>
+      <mat-card class="stat-card assists">
+        <mat-card-content>
+          <div class="stat-value">{{ stats()!.assists ?? '-' }}</div>
+          <div class="stat-label">Asistencias</div>
+        </mat-card-content>
+      </mat-card>
+      <mat-card class="stat-card">
+        <mat-card-content>
+          <div class="stat-value yellow">{{ stats()!.yellow_cards ?? '-' }}</div>
+          <div class="stat-label">Amarillas</div>
+        </mat-card-content>
+      </mat-card>
+      <mat-card class="stat-card">
+        <mat-card-content>
+          <div class="stat-value red">{{ stats()!.red_cards ?? '-' }}</div>
+          <div class="stat-label">Rojas</div>
+        </mat-card-content>
+      </mat-card>
+      <mat-card class="stat-card">
+        <mat-card-content>
+          <div class="stat-value">{{ stats()!.accurate_passes_pct != null ? (stats()!.accurate_passes_pct! | number:'1.0-1') + '%' : '-' }}</div>
+          <div class="stat-label">Pases precisos</div>
+        </mat-card-content>
+      </mat-card>
+      <mat-card class="stat-card">
+        <mat-card-content>
+          <div class="stat-value">{{ stats()!.successful_dribbles ?? '-' }}</div>
+          <div class="stat-label">Regates</div>
+        </mat-card-content>
+      </mat-card>
+      <mat-card class="stat-card">
+        <mat-card-content>
+          <div class="stat-value">{{ stats()!.shots_on_target ?? '-' }}</div>
+          <div class="stat-label">Tiros a puerta</div>
+        </mat-card-content>
+      </mat-card>
+      <mat-card class="stat-card">
+        <mat-card-content>
+          <div class="stat-value">{{ stats()!.tackles ?? '-' }}</div>
+          <div class="stat-label">Tackles</div>
+        </mat-card-content>
+      </mat-card>
+      <mat-card class="stat-card">
+        <mat-card-content>
+          <div class="stat-value">{{ stats()!.interceptions ?? '-' }}</div>
+          <div class="stat-label">Intercepciones</div>
+        </mat-card-content>
+      </mat-card>
+      @if (stats()!.clean_sheets != null) {
+        <mat-card class="stat-card">
+          <mat-card-content>
+            <div class="stat-value">{{ stats()!.clean_sheets }}</div>
+            <div class="stat-label">Porterías a cero</div>
+          </mat-card-content>
+        </mat-card>
+      }
+      @if (stats()!.saves != null) {
+        <mat-card class="stat-card">
+          <mat-card-content>
+            <div class="stat-value">{{ stats()!.saves }}</div>
+            <div class="stat-label">Paradas</div>
+          </mat-card-content>
+        </mat-card>
+      }
+    </div>
+
+    @if (stats()!.synced_at) {
+      <p class="synced-at">Última actualización: {{ stats()!.synced_at }}</p>
+    }
+  }
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button mat-button mat-dialog-close>Cerrar</button>
+</mat-dialog-actions>

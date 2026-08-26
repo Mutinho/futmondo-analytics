@@ -1,0 +1,24 @@
+// Loading, error, and empty state styles shared across feature components
+
+.loading {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 60px;
+  justify-content: center;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.error-message {
+  padding: 16px;
+  background: #ffebee;
+  color: #d32f2f;
+  border-radius: 8px;
+}
+
+.empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 1.1em;
+}

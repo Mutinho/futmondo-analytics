@@ -1,4 +1,4 @@
-import { Component, inject, signal, effect, ViewChild, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, effect, ViewChild, computed } from '@angular/core';
 import { Router } from '@angular/router';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
@@ -25,6 +25,7 @@ import { PrizesDialogComponent } from './prizes-dialog.component';
 @Component({
   selector: 'app-budget-overview',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     MatTableModule,
     MatSortModule,

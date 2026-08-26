@@ -1,0 +1,40 @@
+<article class="player-card" [class.highlighted]="highlighted()" [class]="highlightClass()">
+  <div class="card-header">
+    <div class="card-avatar">
+      <img [src]="getPlayerPhoto(slug())" (error)="onImgError($event)" />
+    </div>
+    <div class="card-name-block">
+      <h3 class="card-player-name">{{ name() }}</h3>
+      <div class="card-team-row">
+        @if (teamLogo()) {
+          <img [src]="getTeamLogo(teamLogo())" class="card-team-logo" (error)="onTeamImgError($event)" />
+        }
+        <span class="card-team-name">{{ team() }}</span>
+      </div>
+      <div class="card-badges">
+        @if (sofascoreRating() !== null) {
+          <app-sofascore-card-badge [rating]="sofascoreRating()" />
+        }
+        @if (starterPct() !== null) {
+          <app-starter-card-badge [pct]="starterPct()" />
+        }
+      </div>
+    </div>
+    @if (position()) {
+      <app-position-chip [position]="position()" class="card-pos-top" />
+    }
+  </div>
+  <div class="card-stats-box">
+    <div class="card-stats-grid">
+      @for (stat of stats(); track stat.label) {
+        <div class="card-stat-item">
+          <span class="card-stat-label">{{ stat.label }}</span>
+          <span class="card-stat-val" [class]="stat.class || ''">{{ stat.value }}</span>
+        </div>
+      }
+    </div>
+  </div>
+  <div class="card-actions">
+    <ng-content />
+  </div>
+</article>

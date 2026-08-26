@@ -1,0 +1,32 @@
+.config-section { display: flex; flex-direction: column; gap: 12px; padding: 8px 0; }
+.config-hint { color: var(--mat-sys-on-surface-variant); margin: 0; }
+.sync-steps { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.step-row { display: flex; align-items: center; gap: 10px; padding: 4px 0; transition: opacity 0.2s; }
+.step-row.pending { opacity: 0.4; }
+.step-row.active { opacity: 1; font-weight: 500; }
+.step-row.done { opacity: 0.8; }
+.step-icon { width: 18px; height: 18px; font-size: 18px; }
+.step-icon.done { color: #16a34a; }
+.step-icon.pending { color: var(--mat-sys-on-surface-variant); }
+.step-label { flex: 1; }
+.step-records { font-size: 0.8em; color: var(--mat-sys-on-surface-variant); }
+.progress-text { text-align: center; font-size: 0.85em; color: var(--mat-sys-on-surface-variant); margin-top: 8px; }
+.sync-result { display: flex; align-items: flex-start; gap: 12px; padding: 16px 0; }
+.sync-result.success mat-icon { color: #16a34a; font-size: 32px; width: 32px; height: 32px; }
+.sync-result.error mat-icon { color: #dc2626; font-size: 32px; width: 32px; height: 32px; }
+.result-details p { margin: 4px 0; }
+.duration { color: var(--mat-sys-on-surface-variant); font-size: 0.85em; }
+.phantoms-section { margin-top: 16px; }
+.phantoms-section h3 { color: #d97706; margin-bottom: 4px; font-size: 1em; }
+.phantom-hint { color: var(--mat-sys-on-surface-variant); font-size: 0.8em; margin-bottom: 12px; }
+.phantom-list { max-height: 200px; overflow-y: auto; }
+.phantom-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--mat-sys-outline-variant); flex-wrap: wrap; }
+.phantom-player { font-weight: 600; }
+.phantom-team { color: var(--mat-sys-on-surface-variant); font-size: 0.85em; }
+.phantom-badge { font-size: 0.75em; padding: 2px 8px; border-radius: 12px; }
+.phantom-badge.roster { background: #fef3c7; color: #92400e; }
+.phantom-badge.sold { background: #fee2e2; color: #991b1b; }
+.no-phantoms { display: flex; align-items: center; gap: 8px; padding: 12px 0; color: #16a34a; }
+.no-phantoms mat-icon { font-size: 20px; width: 20px; height: 20px; }
+.bg-hint { font-size: 0.8em; color: var(--mat-sys-on-surface-variant); margin-right: auto; }
+mat-dialog-content { min-width: min(450px, 80vw); }

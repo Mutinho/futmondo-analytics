@@ -18,7 +18,7 @@ html {
 body {
   background-color: var(--mat-sys-surface-container-lowest);
   color: var(--mat-sys-on-surface);
-  font-family: 'Inter', 'Roboto', sans-serif;
+  font-family: 'Roboto', sans-serif;
   font-size: 14px;
   margin: 0;
   height: 100%;
@@ -55,6 +55,12 @@ h3 { font-size: 16px; font-weight: 600; margin: 0 0 8px; color: var(--mat-sys-on
   .mat-mdc-row:hover {
     background: var(--mat-sys-surface-container-high);
   }
+}
+
+// Splash background (replaces inline style on <body>)
+body.splash-bg {
+  margin: 0;
+  background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 50%, #43a047 100%);
 }
 
 // Dark mode overrides (solo para clases custom, Material se encarga del resto)
