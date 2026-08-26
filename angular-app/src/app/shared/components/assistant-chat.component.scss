@@ -280,6 +280,7 @@
   .chat-panel.show-sidebar.expanded {
     width: 100vw;
     height: 100vh;
+    height: 100dvh;
     border-radius: 0;
     position: fixed;
     top: 0;
@@ -289,5 +290,13 @@
     z-index: 1001;
   }
 
-  .conversations-sidebar { width: 200px; }
+  .chat-header {
+    padding-top: calc(8px + env(safe-area-inset-top));
+  }
+
+  .chat-footer {
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  }
+
+  .conversations-sidebar { width: 200px; padding-top: env(safe-area-inset-top); }
 }

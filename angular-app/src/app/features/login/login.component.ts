@@ -20,7 +20,7 @@ import { AuthService } from '../../core/services/auth.service';
     <div class="login-wrapper">
       <mat-card class="login-card">
         <div class="login-header">
-          <img src="icon.svg" alt="Futmondo" class="logo" />
+          <img src="icon-192.png" alt="Futmondo" class="logo" />
           <h1>Futmondo Analytics</h1>
           <p class="subtitle">Inicia sesión con tu cuenta de Futmondo</p>
         </div>

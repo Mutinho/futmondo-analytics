@@ -9,7 +9,7 @@ import { AuthService } from '../../core/services/auth.service';
   imports: [MatProgressSpinnerModule],
   template: `
     <div class="splash">
-      <img src="icon.svg" alt="Futmondo" class="logo" />
+      <img src="icon-192.png" alt="Futmondo" class="logo" />
       <mat-spinner diameter="40" color="accent" />
     </div>
   `,
