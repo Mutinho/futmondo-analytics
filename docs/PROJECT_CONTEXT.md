@@ -1,48 +1,243 @@
 # Contexto del Proyecto — Futmondo Analytics
 
-## Estado Actual (25 agosto 2026) — v1.7.0
+## Estado Actual (26 agosto 2026) — v2.1.0
 
 ### Resumen
-Aplicación multi-usuario de gestión de ligas Futmondo (fantasy football). Frontend Angular 22 (PWA) + backend FastAPI. Autenticación JWT con HttpOnly cookies. Base de datos Neon PostgreSQL. Deploy en Fly.io.
+Aplicación multi-usuario de gestión de ligas Futmondo (fantasy football). Frontend Angular 22 (PWA) + backend FastAPI. Autenticación JWT con HttpOnly cookies. Base de datos Neon PostgreSQL. Deploy en Fly.io. Incluye asistente IA conversacional (Groq/Gemini).
 
 ### Repo
 - **GitHub**: https://github.com/Mutinho/futmondo-analytics
 - **Branch**: main
 - **Deploy**: Fly.io (futmondo-app.fly.dev / futmondo-api.fly.dev)
-- **Versión actual**: v1.7.0
+- **Versión actual**: v2.1.0
 
 ---
 
 ## Arquitectura Técnica
 
 ### Frontend (angular-app/)
-- **Angular 22.1.0** con standalone components y signals
+- **Angular 22.1.0** con standalone components, signals, OnPush
 - **Angular Material 22** — tema custom verde + dark mode
 - **ng2-charts** (Chart.js) para gráficos
-- **PWA** — service worker, manifest, instalable en iPhone
-- **Auth** — access token en memoria, refresh via HttpOnly cookie
+- **marked** (18.0.11) para renderizado markdown en chat del asistente
+- **PWA** — service worker, manifest, instalable en iPhone/Android
+- **Auth** — access token en memoria, refresh via HttpOnly cookie, interceptor con queuing
 - **Build**: multi-stage Docker (Node 24 → nginx)
-- **Componentes compartidos** (`shared/components/`): ScrollTopComponent, SofascoreBadgeComponent, SofascoreCardBadgeComponent, StarterBadgeComponent, StarterCardBadgeComponent
+- **Routing**: lazy loading + PreloadAllModules + provideAnimationsAsync
+- **Detección responsive**: `injectIsMobile()` shared (BreakpointObserver)
 
 ### Backend (backend/)
 - **FastAPI** (Python 3.12)
 - **Neon PostgreSQL** (serverless, eu-central-1 Frankfurt)
 - **PyJWT** para autenticación
 - **curl_cffi** para Sofascore (bypass TLS fingerprinting)
-- **psycopg2** con connection pool (5-20 conexiones, reconnect automático)
+- **psycopg2** con ThreadedConnectionPool (5-20 conexiones, thread-safe)
+- **google-genai** + **groq** para asistente IA
 - **Puerto**: 8000
 
 ### Base de datos
 - **Neon PostgreSQL** (free tier: 0.5GB)
 - Latencia: ~95ms desde Docker local, ~30ms desde Fly.io (París→Frankfurt)
-- Connection pool con validación automática (handles idle timeout de Neon)
+- ThreadedConnectionPool con validación automática (handles idle timeout de Neon)
+- db_type normalizado a "postgresql" siempre
 
 ### Deploy
 - **Fly.io** — 3 máquinas (frontend + backend + cron), región París (cdg)
-- **GitHub Actions** — deploy automático en push a main (a veces falla, usar `flyctl deploy` directamente)
-- **Cron diario** — GitHub Actions schedule a las 6:30 CET → `flyctl deploy` de `futmondo-cron` (sync completo + Sofascore)
+- **GitHub Actions** — deploy automático en push a main
+- **Cron diario** — GitHub Actions schedule a las 6:30 CET (sync datos) + 7:00 CET (Sofascore local)
 - **HTTPS** automático via Fly.io
+- **Secrets en Fly**: DATABASE_URL, JWT_SECRET, FUTMONDO_EMAIL, FUTMONDO_PASSWORD, GEMINI_API_KEY, GROQ_API_KEY
 - **Deploy manual**: `cd backend && ~/.fly/bin/flyctl deploy && cd ../angular-app && ~/.fly/bin/flyctl deploy`
+
+### Seguridad (v2.0)
+- **CORS**: whitelist de orígenes (futmondo-app.fly.dev, futmondo.localhost, localhost:4200) + EXTRA_CORS_ORIGIN env var
+- **JWT_SECRET**: RuntimeError si no está seteado en producción (detecta FLY_APP_NAME)
+- **SSL**: verificación activa (no se deshabilita globalmente)
+- **Auth interceptor**: encola requests durante refresh con BehaviorSubject
+- **Auth guard**: espera tryRecoverSession() antes de verificar (fix F5 deep link)
+
+---
+
+## Arquitectura Frontend Detallada
+
+### Estructura de archivos
+```
+angular-app/src/app/
+├── app.ts / app.html / app.scss       # Shell: sidebar + router-outlet + assistant FAB
+├── app.config.ts                       # Providers (router, animations, http)
+├── app.routes.ts                       # Rutas lazy-loaded + authGuard + wildcard 404
+├── version.ts                          # APP_VERSION constant
+│
+├── core/                               # Singleton services, interceptors, guards
+│   ├── services/
+│   │   ├── auth.service.ts             # Login, refresh, logout, initialized signal
+│   │   ├── championship.service.ts     # Active championship signal + load
+│   │   ├── analytics.service.ts        # 12 métodos tipados (18 interfaces exportadas)
+│   │   ├── assistant.service.ts        # Chat IA (ask + conversations + usage)
+│   │   ├── budget.service.ts           # Balances
+│   │   ├── evolution.service.ts        # Evolution charts (cache con TTL 5min)
+│   │   ├── favorites.service.ts        # Get/unfollow favorites
+│   │   ├── roster.service.ts           # My roster, sell, cancel-sale, on-sale
+│   │   ├── stats.service.ts            # User stats (cache con TTL 5min)
+│   │   └── sync.service.ts             # Trigger sync + polling
+│   ├── guards/
+│   │   └── auth.guard.ts              # Async guard con tryRecoverSession()
+│   └── interceptors/
+│       └── auth.interceptor.ts        # Bearer token + refresh queue (BehaviorSubject)
+│
+├── shared/                             # Componentes y utils reutilizables
+│   ├── components/
+│   │   ├── loading-state/             # Loading/error/empty wrapper (content projection)
+│   │   ├── view-toggle/              # Cards/table toggle + sort dropdown
+│   │   ├── player-card/              # Tarjeta genérica de jugador con slots
+│   │   ├── position-chip/            # Badge de posición (DL/MC/DF/PT) coloreado
+│   │   ├── info-banner/              # Banner key-value stats
+│   │   ├── page-header.component.ts  # Icono + título + descripción de página
+│   │   ├── scroll-top.component.ts   # FAB scroll to top
+│   │   ├── sofascore-badge.component.ts      # Píldora rating (tabla)
+│   │   ├── sofascore-card-badge.component.ts # Badge rating (tarjeta)
+│   │   ├── starter-badge.component.ts        # Píldora titularidad (tabla)
+│   │   ├── starter-card-badge.component.ts   # Badge titularidad (tarjeta)
+│   │   ├── info-card.component.ts            # Tarjeta genérica
+│   │   ├── assistant-fab.component.ts        # FAB flotante (@defer on idle)
+│   │   └── assistant-chat.component.ts/.html/.scss  # Panel chat IA
+│   ├── utils/
+│   │   ├── player.utils.ts           # getPlayerPhoto, getTeamLogo, getPositionKey/Label, onImgError
+│   │   ├── responsive.ts             # injectIsMobile() — shared signal
+│   │   ├── spanish-date-adapter.ts   # NativeDateAdapter español + ES_DATE_FORMATS
+│   │   └── team-logos.ts             # TEAM_LOGO_MAP + getTeamLogoById()
+│   ├── styles/
+│   │   ├── _loading-states.scss      # .loading, .error-message, .empty
+│   │   ├── _table-common.scss        # .table-container, .player-photo, .pos-chip, .trend-*
+│   │   ├── _player-card.scss         # .player-card, .card-header, .card-avatar, etc.
+│   │   ├── _responsive-grid.scss     # .cards-container breakpoints
+│   │   └── _index.scss               # Barrel @forward
+│   └── pipes/
+│       └── money.pipe.ts             # Formato €
+│
+├── features/                           # Páginas (lazy-loaded, OnPush)
+│   ├── splash/                        # Splash → tryRecoverSession → redirect
+│   ├── login/                         # Login con credenciales Futmondo
+│   ├── budget/                        # Presupuestos (overview + detail + sync-dialog + prizes-dialog)
+│   ├── market/                        # Mercado (bid-dialog, sofascore-detail-dialog, confirm-dialog)
+│   ├── favorites/                     # Jugadores favoritos
+│   ├── my-roster/                     # Mi plantilla
+│   ├── calculator/                    # Calculadora de ventas
+│   ├── transactions/                  # Historial compras/ventas
+│   ├── evolution/                     # Gráficos de evolución
+│   ├── classification/                # Clasificación dinámica
+│   ├── clausulable/                   # Jugadores clausulables
+│   ├── stats/                         # Estadísticas
+│   ├── finances/                      # Finanzas
+│   ├── analytics/                     # Sub-rutas: overview, classification, players, users, market, opportunities, projections
+│   └── settings/                      # Configuración de campeonatos
+```
+
+### Patrones del frontend
+- **Todos los componentes**: `standalone: true` + `ChangeDetectionStrategy.OnPush`
+- **Signal inputs**: `input()` / `input.required()` en shared components
+- **Templates externos**: `.html` + `.scss` separados (12 componentes migrados)
+- **State management**: Angular signals (0 BehaviorSubjects en componentes)
+- **Lazy loading**: Todas las rutas con `loadComponent` / `loadChildren`
+- **Shared components**: LoadingState, ViewToggle, PositionChip reemplazan código duplicado en market, favorites, my-roster
+- **Caching**: signal-based con TTL 5min en evolution/stats services
+- **isMobile**: `injectIsMobile()` en shared/utils (inyectable, no duplicado)
+- **PWA**: NGSW cachea Google Fonts + imágenes estáticas de Futmondo CDN
+
+---
+
+## Arquitectura Backend Detallada
+
+### Estructura de archivos
+```
+backend/app/
+├── main.py                            # FastAPI app, CORS, routers, middleware
+├── core/
+│   ├── config.py                      # Env vars (DATABASE_URL, JWT_SECRET, GEMINI/GROQ keys)
+│   └── constants.py                   # LALIGA_TEAMS map + LALIGA_TEAM_NAMES (shared)
+├── auth/
+│   ├── routes.py                      # /auth/login, /auth/refresh, /auth/logout + auto-detect championships
+│   ├── jwt_utils.py                   # create/verify access token
+│   ├── token_store.py                 # Refresh tokens table + migrations
+│   ├── session_store.py               # Futmondo sessions por usuario (12h TTL)
+│   ├── dependencies.py                # get_current_user dependency
+│   └── models.py                      # Pydantic models
+├── api/v1/endpoints/
+│   ├── _helpers.py                    # get_user_futmondo_client, get_championship_config, clean_float
+│   ├── _sofascore_helpers.py          # calculate_starter_pct, get_current_matchday, lookup_sofascore
+│   ├── analytics.py                   # /championship/trends, /classification-full, watchlist, etc.
+│   ├── assistant.py                   # /ask, /conversations CRUD, /usage
+│   ├── balances.py                    # /balances (presupuestos por equipo)
+│   ├── championships.py              # /championships (CRUD)
+│   ├── clausulable_players.py        # /clausulable-players
+│   ├── favorites.py                   # /favorites/my, /mark, /unfollow
+│   ├── market.py                      # /market/today, /market/bid (cache market_today)
+│   ├── matchdays.py                   # /matchdays/evolution
+│   ├── phantoms.py                    # Verificar fantasmas
+│   ├── player_finances.py            # /player-finances
+│   ├── roster.py                      # /roster/my, /sell, /cancel-sale, /on-sale
+│   ├── sofascore_detail.py           # /sofascore/player/:id
+│   ├── sofascore_sync.py             # /sync/sofascore
+│   ├── statistics.py                  # /user-stats
+│   ├── sync.py                        # /sync/trigger + background thread (10 pasos)
+│   ├── transactions.py               # /transactions/history
+│   ├── user.py                        # /user/me, /user/championships
+│   └── user_stats.py                  # /user-stats
+├── services/
+│   ├── assistant_service.py           # IA: context builder, guardrails, factual answers, LLM (Groq→Gemini)
+│   ├── analytics_service.py           # Lógica analytics (usa LALIGA_TEAM_NAMES desde constants)
+│   ├── data_manager_v2.py            # Queries complejas a BD
+│   ├── data_sync_service.py          # Sync completo (10 pasos)
+│   ├── db_connection.py              # ThreadedConnectionPool + adapt_params + reconnect
+│   ├── futmondo_client.py            # HTTP client para API Futmondo
+│   ├── futmondo_service.py           # Legacy (solo usado por initialize.py)
+│   ├── photo_service.py              # Descarga y cachea fotos de jugadores
+│   ├── sofascore_client.py           # HTTP client para Sofascore (curl_cffi)
+│   └── task_manager.py               # Background task tracking
+```
+
+### Patrones del backend
+- **Helpers compartidos**: `_helpers.py` (get_championship_config, clean_float, get_user_futmondo_client)
+- **Constantes centralizadas**: `core/constants.py` (LALIGA_TEAMS en un solo lugar, antes duplicado en 6 archivos)
+- **Seguridad**: CORS whitelist, JWT prod-only check, ThreadedConnectionPool
+- **Asistente IA**: guardrails → factual DB → LLM (ahorra tokens en 3 capas)
+- **Provider fallback**: Groq (gpt-oss-120b, rápido) → Gemini (gemini-3.6-flash → gemini-3.5-flash)
+- **Market cache**: tabla `market_today` evita llamadas live a API Futmondo
+- **Usage tracking**: tabla `assistant_usage` con límites mensuales/diarios
+
+---
+
+## Asistente IA
+
+### Arquitectura
+```
+Frontend (FAB → chat panel) → POST /api/v1/assistant/ask → Backend
+                                                              │
+                                                              ├─ 1. Guardrails (off-topic? → rechaza sin tokens)
+                                                              ├─ 2. Factual answer (saldo, plantilla, clasificación → responde de BD)
+                                                              └─ 3. LLM call (Groq → Gemini fallback)
+                                                                    ├─ Context builder (roster, budget, market, matches, etc.)
+                                                                    └─ System prompt con identidad usuario + reglas
+```
+
+### Optimizaciones de tokens
+- Formato compacto CSV en contexto (no tablas con `|`)
+- Follow-ups solo inyectan presupuesto (si no cambian de tema)
+- Historial limitado a 4 mensajes
+- max_output_tokens: 2048 (Groq y Gemini)
+- Chips de sugerencia cortos ("¿Qué vendo?" no párrafos largos)
+- System prompt prohíbe tablas markdown (usa listas)
+- Sin llamada live a API Futmondo (solo BD)
+
+### Conversaciones
+- Persistidas en tabla `assistant_conversations` (user_id, messages JSON, title)
+- Frontend: sidebar overlay con backdrop oscuro
+- Auto-selecciona última conversación al abrir
+
+### Control de uso
+- Monthly limit: 25M tokens
+- Daily limit: 50 requests
+- Tabla `assistant_usage` con upsert mensual/diario
 
 ---
 
@@ -50,43 +245,47 @@ Aplicación multi-usuario de gestión de ligas Futmondo (fantasy football). Fron
 
 | Ruta | Página | Descripción |
 |------|--------|-------------|
-| `/budget` | Presupuesto | Vista general de equipos con balance, valor plantilla, rendimiento. Vista tabla y tarjetas |
-| `/my-roster` | Mi Plantilla | Jugadores del usuario con valor, plusvalía, puntos, media, ventas recomendadas |
-| `/market` | Mercado | Jugadores del computer para pujar, puja sugerida basada en % real de sobrepago. Favoritos destacados con borde/fondo dorado |
-| `/favorites` | Favoritos | Jugadores libres marcados como favoritos, con botón de unfollow |
-| `/transactions` | Transacciones | Historial compras/ventas por fecha, con pujas competidoras y plusvalías |
+| `/` | Splash | Recovery de sesión → redirect |
+| `/login` | Login | Credenciales Futmondo |
+| `/budget` | Presupuesto | Vista general de equipos con balance, valor, premios |
+| `/my-roster` | Mi Plantilla | Jugadores con valor, plusvalía, ventas recomendadas |
+| `/market` | Mercado | Jugadores del computer, puja sugerida, favoritos dorados |
+| `/favorites` | Favoritos | Jugadores libres marcados como favoritos |
+| `/transactions` | Transacciones | Historial compras/ventas por fecha |
 | `/evolution` | Evolución | Gráficos de progresión |
-| `/stats` | Estadísticas | Datos por jugador y equipo |
-| `/finances` | Finanzas | Desglose económico detallado |
+| `/classification` | Clasificación | Clasificación dinámica con filtros |
 | `/clausulable` | Clausulables | Jugadores susceptibles de cláusula |
-| `/analytics` | Analytics | Dashboard avanzado |
+| `/calculator` | Calculadora | Simular ventas con proyección por tendencia |
+| `/stats` | Estadísticas | Datos por jugador y equipo |
+| `/finances` | Finanzas | Desglose económico |
+| `/free-agents` | Agentes Libres | Vista completa del watchlist |
 | `/settings` | Ajustes | Configuración de campeonatos |
+| `**` | 404 | Redirige a /budget |
 
 ### Vistas responsive
-- **Tabla** (desktop por defecto) y **Tarjetas** (móvil por defecto) en: Presupuesto, Mi Plantilla, Mercado, Favoritos
-- Toggle de vista guardado en localStorage por página
-- Selector de ordenación en vista tarjetas (mat-form-field + mat-select de Angular Material)
-- Grid responsive: 1→2→3→4 columnas según pantalla
-- F5 preserva la ruta actual (localStorage `futmondo_last_route`)
+- **Tabla** (desktop) y **Tarjetas** (móvil) en: Presupuesto, Mi Plantilla, Mercado, Favoritos, Clausulables, Calculator
+- Toggle via `ViewToggleComponent` shared
+- Grid responsive: 1→2→3→4 columnas
+- `injectIsMobile()` para lógica condicional
+- F5 preserva la ruta actual (auth guard + tryRecoverSession)
 
 ---
 
 ## Autenticación
 
 ### Flujo
-1. Usuario entra → splash screen → intenta refresh via cookie
-2. Si cookie válida → recupera sesión → navega a última ruta visitada
-3. Si no → navega a /login → login con credenciales Futmondo
-4. Backend valida contra API Futmondo → genera JWT + HttpOnly cookie
-5. Access token (1h) en memoria, refresh token (30d) en cookie
-6. Interceptor auto-refresh transparente al expirar
-7. Login resetea `_initialized` para que el effect re-dispare la carga de datos
+1. Usuario navega a cualquier ruta protegida → auth guard se activa
+2. Guard: si no `initialized()` → llama `tryRecoverSession()` (refresh via cookie)
+3. Si cookie válida → token en memoria → guard deja pasar
+4. Si no → redirige a `/login`
+5. Login: credenciales Futmondo → backend valida → JWT + HttpOnly cookie
+6. Interceptor: Bearer token automático, refresh queue con BehaviorSubject
 
 ### Seguridad
-- Refresh token: HttpOnly, Secure (en prod), SameSite=Lax, path=/auth
-- Access token: nunca en localStorage, solo en memoria JS
-- Sesión Futmondo: por usuario, 12h TTL, re-auth automática
-- Middleware protege todos los /api/v1/* endpoints
+- Refresh token: HttpOnly, Secure (prod), SameSite=Lax, path=/auth
+- Access token: 1h, solo en memoria JS (nunca localStorage)
+- CORS: whitelist estricta (no wildcard)
+- Rate limiting pendiente en /auth/login
 
 ---
 
@@ -96,87 +295,36 @@ Aplicación multi-usuario de gestión de ligas Futmondo (fantasy football). Fron
 |-------|-------------|
 | `app_users` | Usuarios de la app (id, email, futmondo_user_id, display_name) |
 | `refresh_tokens` | Tokens de refresh (hash, user_id, expires, revoked) |
-| `user_championships` | Campeonatos por usuario + config completa (premios, cláusulas) |
-| `players` | Jugadores (player_id, name, role, role2, real_team_id, slug, photo_url) |
+| `user_championships` | Campeonatos por usuario + config + is_pro + futmondo_team_id |
+| `players` | Jugadores (player_id, name, role, role2, real_team_id, slug, photo_url, value) |
 | `teams` | Equipos de los campeonatos |
-| `users` | Managers de Futmondo (no de la app) |
+| `users` | Managers de Futmondo |
 | `transactions` | Historial compras/ventas (+ market_value_at_purchase, bids_json) |
-| `championships` | Referencia mínima para FKs |
 | `team_standings` | Clasificación por jornada |
 | `player_performance` | Rendimiento por jornada |
+| `player_championship_stats` | Stats de cláusulas, medias, owner_team |
 | `dream_teams_mvps` | Dream team y MVPs |
 | `punishments_bonuses` | Castigos y bonificaciones |
 | `clauses` | Cláusulas ejecutadas |
-| `sync_metadata` | Metadatos de sincronización (compartido) |
-| `sofascore_cache` | Caché global de Sofascore (sin championship_id, una entrada por jugador) |
+| `team_prizes` | Premios por jornada (ranking + mvp + points) |
 | `team_rosters` | Plantillas de equipos |
-| `player_championship_stats` | Stats de cláusulas y medias |
 | `match_odds` | Cuotas de partidos |
 | `player_favorites` | Jugadores favoritos por usuario/campeonato |
-
----
-
-## Sofascore Cache
-
-### Estructura
-- **Global** — un registro por jugador, compartido entre todos los campeonatos
-- **Sin championship_id** (eliminado en migración v1.4)
-- Columnas clave: `player_name` (UNIQUE), `rating`, `matches_started`, `matches_started_prev`, `season`, `appearances`, `sofascore_url`
-
-### Cálculo de % Titularidad
-- Centralizado en `backend/app/api/v1/endpoints/_sofascore_helpers.py`
-- **Cap**: resultado siempre ≤ 100% (para ligas con >38 jornadas como 2ª División)
-- **Temporada anterior** (season contiene "25/26"): `matches_started / 38`
-- **Temporada actual** (season contiene "26/27"):
-  - Jornada 1-9: blend ponderado `(current/matchday)*peso + (prev/38)*(1-peso)` donde peso = matchday/10
-  - Jornada 10+: `matches_started / current_matchday`
-- `get_current_matchday()` lee MAX(matchday) de team_standings
-
-### Prioridad de datos Sofascore (get_player_stats)
-- **Prioridad 1**: LaLiga temporada actual (26/27)
-- **Prioridad 2**: Cualquier liga temporada actual (26/27) — ej. Bundesliga, Premier
-- **Prioridad 3**: LaLiga temporada anterior (25/26)
-- **Prioridad 4**: Cualquier liga temporada anterior (25/26)
-- Temporada siempre tiene prioridad sobre liga (un jugador con datos recientes de Bundesliga usa esos, no datos viejos de LaLiga)
-
-### Sync de Sofascore
-- Procesa TODOS los 507 jugadores del campeonato (no solo mercado/roster)
-- Escritura por lotes de 50 con UPSERT (evita timeout de Neon)
-- ON CONFLICT preserva `matches_started_prev` cuando cambia la temporada
-- Rate limit: 750ms entre requests, 5s pausa cada 20 perfiles
-- Duración: ~15-20 minutos para 507 jugadores
-
----
-
-## Transacciones
-
-### Enriquecimiento de valor de mercado
-- Cada transacción se enriquece con `market_value_at_purchase` via `/1/player/fullprofile`
-- **Compras**: usa valor del día anterior (resolución de subasta)
-- **Ventas**: usa valor del mismo día (venta inmediata)
-- Solo se procesan las que tienen `market_value_at_purchase IS NULL`
-- Rate limit: 500ms entre requests, 5s pausa cada 20 perfiles
-
-### Pujas competidoras
-- Campo `bids_json` almacena las pujas de otros equipos
-- Se guarda durante el sync de transacciones (`_store_bids`)
-- Frontend muestra las pujas con nombre, monto y % de sobrepago
-
-### Puja sugerida (mercado)
-- Basada en % real de sobrepago histórico (`price / market_value_at_purchase`)
-- Busca transacciones con `market_value_at_purchase` en rango ±25% del valor del jugador
-- Fallback: método anterior por rango de precios pagados
-- Confianza: high (≥10 txns), medium (≥3), low (<3)
+| `sofascore_cache` | Caché global Sofascore (una entrada por jugador) |
+| `sync_metadata` | Metadatos de sincronización |
+| `market_today` | Cache del mercado del día (usado por assistant + market page) |
+| `assistant_conversations` | Conversaciones del chat IA |
+| `assistant_usage` | Tracking de tokens/requests del asistente |
 
 ---
 
 ## Sincronización
 
 ### Flujo
-1. Frontend: modal sin toggle → POST /sync/trigger → task_id
-2. Backend: thread daemon con 10 pasos (sin Sofascore)
+1. Frontend: POST /sync/trigger → task_id
+2. Backend: thread daemon con 10 pasos
 3. Frontend: polling cada 2s
-4. Al completar: actualiza `sync_metadata` tipo "all" con fecha actual
+4. Al completar: actualiza sync_metadata
 
 ### Pasos del sync "all"
 1. Jugadores (batch ~520, incluye role2 y favoritos)
@@ -190,91 +338,16 @@ Aplicación multi-usuario de gestión de ligas Futmondo (fantasy football). Fron
 9. Cuotas de partidos
 10. Verificar fantasmas
 
-### Sync automático (Cron) — Datos
-- **GitHub Actions** workflow `daily-sync.yml` con schedule `cron: '30 4 * * *'` (6:30 CET)
-- Ejecuta `flyctl deploy --config cron/fly.toml --ha=false` + `flyctl machine start`
-- Usa la 3ª máquina gratis de Fly.io (`futmondo-cron`, región cdg, 256MB)
-- Reutiliza el Dockerfile del backend, overrides CMD via `[processes]` en fly.toml
-- Ejecuta `scripts/sync_data.py` — **multi-campeonato**:
-  - Obtiene championship IDs cruzando API Futmondo (`/2/user/activechampionships`) con BD (`user_championships`)
-  - Itera sobre cada campeonato y ejecuta sync_all()
-  - Si un campeonato falla, continúa con el siguiente
-  - Exit 0 si al menos uno tiene éxito
-- La máquina arranca, ejecuta el sync (~10-15s por campeonato) y se para sola al terminar
-- Requiere `flyctl machine start` explícito después del deploy (sin http_service no auto-arranca)
-- También se puede lanzar manualmente desde GitHub Actions (workflow_dispatch)
+### Sync automático (Cron)
+- GitHub Actions: `daily-sync.yml` cron `'30 4 * * *'` (6:30 CET)
+- Máquina `futmondo-cron` en Fly.io (256MB, se para sola al terminar)
+- Multi-campeonato: itera sobre todos los campeonatos del usuario
 
 ### Sync Sofascore — Local (IP residencial)
-- **Sofascore bloquea IPs de datacenter** (Fly.io) con 403 "challenge"
-- El sync de Sofascore se ejecuta desde la máquina local del usuario (IP residencial)
-- **Script**: `backend/scripts/sync_sofascore_local.py`
-  - Conecta directamente a Neon PostgreSQL (no necesita Futmondo login)
-  - Lee jugadores de la BD (tabla `players` JOIN `player_championship_stats` JOIN `user_championships`)
-  - ~544 jugadores activos (filtra huérfanos de temporadas anteriores)
-  - Muestra cada jugador en tiempo real con rating coloreado
-  - Rate limit conservador: 2s entre requests, 15s pausa cada 10 jugadores
-  - Retry en 403: hasta 3 reintentos con backoff 60/120/180s
-  - Escribe en batches de 50 con UPSERT
-  - Duración estimada: ~25-30 min
-- **Alias local**: `sofascore_sync` (en `~/.bash_aliases`)
-- **GitHub Actions** workflow `sofascore-sync.yml`:
-  - Corre en **self-hosted runner** (`futmondo-local`) instalado en WSL
-  - Schedule: `cron: '0 5 * * *'` (7:00 CET, después del sync de datos)
-  - También workflow_dispatch (lanzable desde móvil)
-  - Runner instalado como servicio systemd (auto-start con WSL)
-  - Ubicación: `/home/javi/actions-runner`
-  - WSL config: `%UserProfile%\.wslconfig` con `vmIdleTimeout=-1` para evitar apagado
-
-### Sofascore — Rate Limiting
-- Ban temporal por IP tras ~340 requests seguidas a 0.75s
-- Duración del ban: **~1 hora** (confirmado empíricamente)
-- Con los nuevos parámetros conservadores no debería activarse el ban
-
-### Anti-rate-limiting
-- Headers idénticos a la PWA de Futmondo (Origin, Referer, User-Agent Chrome)
-- 300-500ms entre requests a Futmondo API
-- 750ms entre requests a Sofascore
-- Pausas de 5s cada 20 perfiles
-
----
-
-## APIs externas
-
-### Futmondo
-- Login: POST `/5/login/with_mail`
-- Campeonatos activos: POST `/2/user/activechampionships`
-- Config campeonato: POST `/2/championship/teams`
-- Jugadores campeonato: POST `/5/league/championshipplayers`
-- Mercado: POST `/1/market/players`
-- Sala de prensa: POST `/1/locker/pressroom`
-- Roster usuario: POST `/1/userteam/roster`
-- Perfil jugador: POST `/1/player/fullprofile` (historial precios)
-- Quitar favorito: POST `/5/championship/unmarkfavorite`
-- Standings: POST `/1/classic/championship/matchday/standings`
-
-### Sofascore (no oficial)
-- Base: `https://api.sofascore.com/api/v1`
-- Requiere `curl_cffi` (impersonate Chrome)
-- Búsqueda: GET `/search/players?q={name}`
-- Stats temporada: GET `/player/{id}/unique-tournament/{ut}/season/{s}/statistics/overall`
-- Stats equipo: GET `/team/{id}/unique-tournament/8/season/{s}/statistics/overall` → campo `matches`
-- Temporadas: GET `/unique-tournament/8/seasons`
-- LaLiga uniqueTournament ID: 8
-- Season IDs: 26/27=97268, 25/26=77559, 24/25=61643
-
----
-
-## Componentes Compartidos (angular-app/src/app/shared/)
-
-### Pipes
-- `MoneyPipe` — formatea números como dinero (€)
-
-### Components
-- `ScrollTopComponent` — FAB fijo abajo-derecha, scroll to top (usa querySelector en mat-sidenav-content)
-- `SofascoreBadgeComponent` — píldora compacta para tablas (colores oficiales Sofascore)
-- `SofascoreCardBadgeComponent` — badge para tarjetas ("Sofa" + valor, fondo semi-transparente)
-- `StarterBadgeComponent` — píldora compacta para tablas (escala rojo→verde)
-- `StarterCardBadgeComponent` — badge para tarjetas ("Tit" + valor, escala rojo→verde)
+- Script: `backend/scripts/sync_sofascore_local.py`
+- Self-hosted runner en WSL (`futmondo-local`)
+- Schedule: `'0 5 * * *'` (7:00 CET)
+- ~306 jugadores, ~25-30 min, rate limit conservador
 
 ---
 
@@ -287,208 +360,75 @@ Aplicación multi-usuario de gestión de ligas Futmondo (fantasy football). Fron
 - **Ver logs**: `echo "javi" | sudo -S docker compose logs -f backend`
 - **Parar todo**: `echo "javi" | sudo -S docker compose down`
 
+### URLs locales
+- Frontend: `futmondo.localhost`
+- Backend: `futmondo-api.localhost`
+- Proxy nginx rutea por `server_name`
+
 ### Notas
-- Docker requiere `sudo` — la contraseña del usuario es `javi`.
-- Siempre usar `up -d --build` (no solo `build`) para que el contenedor se recree con la nueva imagen.
-- URLs locales: `futmondo.localhost` (frontend) / `futmondo-api.localhost` (backend).
-- El proxy nginx (compose service `proxy`) rutea por `server_name`.
-- La BD Neon es compartida entre local y producción (mismos datos).
-- Deploy producción manual: `cd backend && ~/.fly/bin/flyctl deploy && cd ../angular-app && ~/.fly/bin/flyctl deploy`
-- Deploy cron manual: `cd backend && ~/.fly/bin/flyctl deploy --config ../cron/fly.toml --ha=false`
+- Docker requiere `sudo` (password: `javi`)
+- La BD Neon es compartida entre local y producción
+- `proxy.conf.json` proxea `/api` y `/auth` a localhost:8000 (para dev sin Docker)
+- Nginx del proxy tiene `proxy_buffering off` para SSE
 
 ### Versionado
 - Versión en `angular-app/src/app/version.ts` + `package.json`
 - Tags git: `git tag -a vX.Y.Z -m "msg" && git push origin vX.Y.Z`
 - Releases GitHub: `gh release create vX.Y.Z --title "..." --notes "..."`
+- **Siempre**: tag + release juntos
 
 ---
 
-## Mapa de equipos LaLiga (IDs Futmondo)
+## PWA
 
-Usado como fallback estático cuando la API no devuelve nombre/logo del equipo real:
+### Configuración
+- `site.webmanifest`: name="Futmondo Analytics", short_name="Futmondo Analytics"
+- `apple-mobile-web-app-title`: "Futmondo Analytics"
+- `background_color`: #2e7d32 (verde)
+- Iconos: set completo Android (mipmap) + iOS (AppIcon.appiconset) en `public/icon/`
+- `apple-touch-icon.png`: 180x180 RGB (sin transparencia)
+- `android-chrome-*.png`: 192x192 + 512x512 RGB
+- Favicon: `.ico` + PNG 16/32
 
-```
-504e581e4d8bec9a670000c6 → Real Madrid
-504e581e4d8bec9a670000c7 → Barcelona
-504e581e4d8bec9a670000c8 → Atlético de Madrid
-504e581e4d8bec9a670000c9 → Athletic de Bilbao
-504e581e4d8bec9a670000ca → Rayo Vallecano
-504e581e4d8bec9a670000cb → Valencia
-504e581e4d8bec9a670000cc → Betis
-504e581e4d8bec9a670000cd → Getafe
-504e581e4d8bec9a670000ce → Real Sociedad
-504e581e4d8bec9a670000cf → Levante
-504e581e4d8bec9a670000d0 → Espanyol
-504e581e4d8bec9a670000d1 → Osasuna
-504e581e4d8bec9a670000d5 → Sevilla
-504e581e4d8bec9a670000d6 → Málaga
-504e581e4d8bec9a670000d8 → Deportivo de la Coruña
-504e581e4d8bec9a670000d9 → Celta de Vigo
-51b889b1e401a15f2c0000f0 → Elche
-51b890f5b986415a2c000012 → Villarreal
-52038563b8d07d930b00008a → Alavés
-520e4ee4a776cc826b00004b → Racing
-```
+### NGSW Cache
+- Google Fonts: strategy performance, 365d TTL
+- Futmondo static CDN (fotos/logos): strategy performance, 7d TTL, max 500
 
-### URLs de imágenes Futmondo
+---
+
+## APIs Externas
+
+### Futmondo
+- Login: POST `/5/login/with_mail`
+- Campeonatos activos: POST `/2/user/activechampionships`
+- Config campeonato: POST `/2/championship/teams`
+- Jugadores: POST `/5/league/championshipplayers`
+- Mercado: POST `/1/market/players`
+- Sala de prensa: POST `/1/locker/pressroom`
+- Roster: POST `/1/userteam/roster`
+- Perfil jugador: POST `/1/player/fullprofile`
+- Standings: POST `/1/classic/championship/matchday/standings`
+- Vender: POST `/1/market/putonmarket`
+- Cancelar venta: POST `/1/market/cancelsell`
+- Ranking ronda: POST `/1/ranking/round`
+- Dream team: POST `/1/userteam/dreamteam`
+
+### Sofascore (no oficial)
+- Base: `https://api.sofascore.com/api/v1`
+- Requiere `curl_cffi` (impersonate Chrome)
+- Búsqueda: GET `/search/players?q={name}`
+- Stats: GET `/player/{id}/unique-tournament/{ut}/season/{s}/statistics/overall`
+- LaLiga ID: 8, Season 26/27: 97268, 25/26: 77559
+
+### LLM Providers
+- **Groq** (primario): model `openai/gpt-oss-120b`, max_tokens 2048
+- **Gemini** (fallback): models `gemini-3.6-flash` → `gemini-3.5-flash`, max_output_tokens 2048
+- Free tier Gemini: 15 RPM, 1M tokens/día
+- API keys en Fly secrets + .env local
+
+---
+
+## URLs de Imágenes
 - Jugadores: `https://static01.mondocore.com/futmondo/img/faces/64/{slug}.png`
 - Equipos: `https://static02.mondocore.com/futmondo/img/teams/64/{logo}`
-
----
-
-## Changelog v1.6.0 → v1.7.0 (25 agosto 2026)
-
-### Nuevas funcionalidades
-
-#### Página Agentes Libres (/free-agents)
-- Nueva página independiente en el sidebar (antes estaba oculta en Analytics/Market)
-- Vista dual tabla/tarjetas con fotos, escudos, badges Sofascore y titularidad
-- Filtros: nombre, club, posición
-- Botón de marcar/desmarcar favorito (llama API Futmondo + BD local)
-- Tarjetas favoritas destacadas con borde y fondo dorado
-- Ordenación: media, ratio, forma, tendencia, sofascore, titularidad, precio, nombre, equipo
-- Paginación (20/50/100)
-- Columnas Forma (🔥 si avg_last_five ≥ 8) y Tendencia (avg_last_five - avg_overall)
-- Endpoint POST /api/v1/favorites/mark para marcar favoritos en Futmondo
-
-#### Página Clasificación (/classification)
-- Nueva página independiente que fusiona Overview + Clasificación Dinámica de Analytics
-- Endpoint optimizado /championship/classification-full (una sola query JOIN, ~150ms)
-- Filtro por jornadas: Todas, Últ. 5, Últ. 10, Personalizado
-- Columnas: posición, equipo, puntos, media, PJ, máx, mín, momentum, última jornada
-- MatSort en todas las columnas
-
-#### Clausulables renovada
-- Vista dual tabla/tarjetas con fotos, escudos, badges
-- Filtros: nombre, dueño, posición
-- Filtro cláusula: botones "Inferior a: Todas | 10M | 20M | 30M | 40M | 50M | 60M"
-- Score simplificado: 50% media + 50% eficiencia cláusula/media
-- Columna valor de mercado añadida
-- Filtra jugadores del usuario logado (no muestra tus propios jugadores)
-- Filtra jugadores con media ≤ 0
-- Campo clause_date para filtrar protección (pendiente sync)
-- Endpoint enriquecido con slug, posición, equipo real, sofascore
-
-#### Sistema de Premios — Mejoras
-- Fix posiciones incorrectas: ahora usa API /1/ranking/round directamente (no team_standings)
-- Premio por puntos (money_per_point × puntos_ronda): nueva columna points_prize
-- Modal premios: columna "Puntos" visible solo si el campeonato lo usa
-- Paso "Premios" añadido al modal de sincronización (11 pasos)
-- Re-sincroniza siempre (no skip jornadas ya procesadas)
-
-#### Componente PageHeader
-- Nuevo componente compartido app-page-header (icono Material + título + descripción)
-- Aplicado en TODAS las páginas para consistencia visual con el sidebar
-- Iconos del sidebar usados en títulos de página
-
-### Eliminaciones
-- Eliminada sección Analytics del sidebar y rutas
-- Eliminada página Analytics/Players (cubierta por Agentes Libres)
-- Eliminada página Analytics/Opportunities (cubierta por Agentes Libres)
-- Eliminada página Analytics/Projections
-- Eliminada página Analytics/Market (movida a /free-agents)
-
-### Fixes
-- Fix auth middleware: `path.endswith("/")` matcheaba incorrectamente con `"/"` en exclusiones → cambiado a exact match
-- Fix premios: posiciones de ronda venían de team_standings (pares de enfrentamiento) en vez del ranking real
-- Fix clausulables: championship_id no se pasaba al endpoint (usaba default incorrecto)
-- Fix clausulables: score 94% para jugadores con media negativa (ahora se excluyen si ≤ 0)
-- Fix _safe_team_info: N+1 queries a BD → batch load con caché (eliminado cuello de botella)
-
-### Optimizaciones
-- Endpoint classification-full: una sola query JOIN (~150ms vs 2s anterior)
-- _safe_team_info: carga todos los teams en un SELECT y cachea
-- Watchlist endpoint: eliminado limit, frontend pagina
-
----
-
-## TODO — Próxima sesión
-
-### Asistente IA (Gemini 2.0 Flash) — ver docs/ASSISTANT_AI_PLAN.md
-1. **Obtener API key** — https://aistudio.google.com/apikey (gratis)
-2. **Backend**: endpoint POST /api/v1/assistant/ask + context builder + system prompt
-3. **Frontend**: FAB flotante (🤖) + panel chat overlay + chips sugerencias
-4. **Estimado**: 3-4 horas
-
-### Clausulables — Pendientes
-1. **Guardar futmondo_team_id automáticamente** — al detectar campeonatos en login/sync
-2. **Filtro clause_date** — necesita sync para rellenar el campo (ya implementado el filtro)
-
-### General
-1. **Deploy a producción** — verificar todo funciona en Fly.io después de v1.7.1
-
-### Nuevas funcionalidades
-
-#### Calculadora (/calculator)
-- Nueva página para simular ventas de jugadores con proyección por tendencia y fecha
-- Selección de jugadores con circle-check (estilo WhatsApp), tarjeta verde oscuro al seleccionar
-- Cabecera reactiva: saldo actual, en venta, seleccionadas, saldo futuro
-- Date picker español (lunes-domingo, dd/mm/yyyy) para proyección por tendencia
-- Botón FAB flotante "Vender" con Material confirm dialog
-- Jugadores en venta: tarjetas naranjas horizontales con botón cancelar
-- Endpoints: POST /api/v1/roster/sell, GET /api/v1/roster/on-sale, POST /api/v1/roster/cancel-sale
-
-#### Sistema de Premios
-- Nueva tabla `team_prizes` (championship_id, team_id, matchday, ranking_prize, mvp_prize, position)
-- Sync de premios: solo jornadas con TODOS los partidos status "F" (sin aplazados)
-- Fórmula ranking mode "flop" (últimos cobran más)
-- MVP: busca en roundlineup de cada equipo quién tenía al jugador MVP
-- Columna "Premios" en Presupuesto (azul #0056e6, clickable → modal desglose)
-- Premios suman al saldo: balance = initial - spent + income + prizes
-- Endpoint: GET /api/v1/analytics/prizes/{team_id}
-
-#### PWA iPhone
-- Safe area: padding para notch en toolbar y sidebar
-- 100dvh para evitar bloque blanco inferior
-- Sidebar respeta notch (padding-top env(safe-area-inset-top))
-
-### Fixes y mejoras
-
-#### Sofascore Sync
-- Reducido de 546 a ~306 jugadores (solo rosters + favoritos)
-- Dividido en 2 chunks (schedule 7:00 y 8:30 CET)
-- Auto-reconnect en idle timeout de Neon PostgreSQL
-- Soporte duplicados (Gueye, Salinas): UNIQUE(player_name, team), lookup_sofascore()
-- Timeout 120min, dropdown selector en GitHub Actions
-
-#### Evolución
-- Acepta championship_id dinámico (multi-campeonato)
-- Fix: pasa ID desde effect a loadData (evita stale reads)
-- Fix: sync_round_rankings re-sincroniza TODAS las jornadas (no incremental)
-- Fix: puntos del ranking son por-ronda (no acumulados) — corregida interpretación
-
-#### Analytics
-- Overview: quitada columna posición, fix mapeo total_points
-- Classification: fix mapeo total_points/average_points
-- Market/Watchlist: campo `value` añadido a tabla players, ratio = avg/(precio/1M€)
-- Market: fix N+1 query (22s → 1.3s), equipo real desde mapa LaLiga
-- Players: fix bug `0 or None` en sync player_performance
-
-#### Otros
-- Eliminada página Finanzas del menú
-- Fix ranking_mode "flop" en cálculo de premios
-- Transacciones: starter card badge correcto
-- Fix: transactions resolved_team_name antes del lookup
-- Budget cards: quitado font-family JetBrains Mono
-- GitHub Actions: retry machine start (race condition), DATABASE_URL secret
-
-### Endpoints de Futmondo documentados
-- `/1/market/putonmarket` — poner jugador en venta
-- `/5/market/toggleplayer` — ocultar jugador
-- `/1/market/cancelsell` — cancelar venta
-- `/1/market/myplayers` — mis jugadores en venta
-- `/1/userteam/rounds` — jornadas del campeonato
-- `/1/ranking/round` — ranking de una jornada (puntos = solo esa ronda)
-- `/1/userteam/dreamteam` — equipo ideal + MVP
-- `/1/userteam/roundlineup` — alineación histórica por ronda (funciona con cualquier team)
-- `/1/userteam/moneymovements` — solo del propio equipo
-
----
-
-## TODO — Próxima sesión
-
-### Analytics/Market (Watchlist) — Mejoras
-1. **Vista dual tarjetas/tabla** — Toggle cards/table como Mi Plantilla: foto jugador, escudo equipo, badges posición
-2. **Paginación** — ~200 jugadores, paginar con controles (20/50 por página)
-3. **Ordenación** — Por: Media (desc), Precio (asc/desc), Ratio (desc), Nombre, Equipo
-4. **Datos completos** — Foto, nombre, equipo real + escudo, posición, media, precio, ratio, tendencia (change)
+- Default player avatar: SVG data URI inline (silueta close-up)
