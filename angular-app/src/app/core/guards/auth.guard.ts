@@ -6,14 +6,12 @@ export const authGuard: CanActivateFn = async () => {
   const auth = inject(AuthService);
   const router = inject(Router);
 
-  // Wait for session recovery to complete (max 3s)
-  let attempts = 0;
-  while (!auth.initialized() && attempts < 60) {
-    await new Promise(r => setTimeout(r, 50));
-    attempts++;
+  // If not yet initialized, trigger session recovery (handles F5 on protected routes)
+  if (!auth.initialized()) {
+    await auth.tryRecoverSession();
   }
 
   if (auth.getAccessToken()) return true;
-  router.navigate(['/login']);
+  router.navigate(['/login'], { replaceUrl: true });
   return false;
 };

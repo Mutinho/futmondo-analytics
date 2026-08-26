@@ -4,12 +4,20 @@
 const PHOTO_BASE = 'https://static01.mondocore.com/futmondo/img/faces/64/';
 const TEAM_LOGO_BASE = 'https://static02.mondocore.com/futmondo/img/teams/64/';
 
+/** Default player avatar as a data URI (grey silhouette — close-up face like real photos) */
+const DEFAULT_PLAYER_PHOTO = 'data:image/svg+xml;base64,' + btoa(`
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" fill="#e0e0e0" rx="32"/>
+  <circle cx="32" cy="28" r="18" fill="#bdbdbd"/>
+  <ellipse cx="32" cy="62" rx="20" ry="14" fill="#bdbdbd"/>
+</svg>`);
+
 /**
  * Returns the player photo URL from their slug.
- * If no slug provided, returns empty string (components hide broken images via (error) handler).
+ * If no slug provided, returns default avatar.
  */
 export function getPlayerPhoto(slug: string): string {
-  if (!slug) return '';
+  if (!slug) return DEFAULT_PLAYER_PHOTO;
   return `${PHOTO_BASE}${slug}.png`;
 }
 
@@ -50,9 +58,12 @@ export function getPositionLabel(position: string): string {
 }
 
 /**
- * Image error handler: hides the broken image element.
+ * Image error handler: replaces broken image with default avatar.
  * Used as (error)="onImgError($event)" in templates.
  */
 export function onImgError(event: Event): void {
-  (event.target as HTMLElement).style.display = 'none';
+  const img = event.target as HTMLImageElement;
+  if (img.src !== DEFAULT_PLAYER_PHOTO) {
+    img.src = DEFAULT_PLAYER_PHOTO;
+  }
 }
