@@ -36,7 +36,7 @@ interface ClassificationEntry {
     MatProgressSpinnerModule, MatTableModule, MatSortModule,
     MatButtonModule, MatButtonToggleModule, MatFormFieldModule,
     MatInputModule, MatIconModule, FormsModule, DecimalPipe,
-    MoneyPipe, PageHeaderComponent, ScrollTopComponent,
+    PageHeaderComponent, ScrollTopComponent,
   ],
   templateUrl: './classification.component.html',
   styleUrl: './classification.component.scss'

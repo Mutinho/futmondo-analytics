@@ -34,7 +34,7 @@ interface ChampionshipConfig {
   imports: [
     FormsModule, MatCardModule, MatFormFieldModule, MatInputModule,
     MatButtonModule, MatIconModule, MatSlideToggleModule,
-    MatProgressSpinnerModule, MatSnackBarModule, MoneyPipe, PageHeaderComponent
+    MatProgressSpinnerModule, MatSnackBarModule, PageHeaderComponent
   ],
   templateUrl: './championships-config.component.html',
   styleUrl: './championships-config.component.scss'

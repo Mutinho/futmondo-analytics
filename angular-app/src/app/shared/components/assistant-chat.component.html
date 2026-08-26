@@ -1,7 +1,8 @@
 <div class="chat-panel" [class.expanded]="expanded()" [class.show-sidebar]="sidebarOpen()">
 
-  <!-- Conversations sidebar -->
+  <!-- Conversations sidebar (overlay) -->
   @if (sidebarOpen()) {
+    <div class="sidebar-backdrop" (click)="sidebarOpen.set(false)"></div>
     <div class="conversations-sidebar">
       <div class="sidebar-header">
         <span class="sidebar-title">Conversaciones</span>
@@ -42,9 +43,11 @@
         <button mat-icon-button (click)="newConversation()" class="header-btn" matTooltip="Nueva conversación">
           <mat-icon>add_comment</mat-icon>
         </button>
-        <button mat-icon-button (click)="expanded.update(v => !v)" class="header-btn" [matTooltip]="expanded() ? 'Minimizar' : 'Maximizar'">
-          <mat-icon>{{ expanded() ? 'close_fullscreen' : 'open_in_full' }}</mat-icon>
-        </button>
+        @if (!isMobile()) {
+          <button mat-icon-button (click)="expanded.update(v => !v)" class="header-btn" [matTooltip]="expanded() ? 'Minimizar' : 'Maximizar'">
+            <mat-icon>{{ expanded() ? 'close_fullscreen' : 'open_in_full' }}</mat-icon>
+          </button>
+        }
         <button mat-icon-button (click)="closed.emit()" class="header-btn">
           <mat-icon>close</mat-icon>
         </button>

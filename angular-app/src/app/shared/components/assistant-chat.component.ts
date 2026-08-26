@@ -10,6 +10,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { marked } from 'marked';
 import { AssistantService, ChatMessage, ConversationSummary } from '../../core/services/assistant.service';
 import { ChampionshipService } from '../../core/services/championship.service';
+import { injectIsMobile } from '../../shared/utils/responsive';
 
 interface DisplayMessage {
   role: 'user' | 'assistant';
@@ -44,6 +45,7 @@ export class AssistantChatComponent implements AfterViewChecked, OnInit {
   messages = signal<DisplayMessage[]>([]);
   loading = signal(false);
   expanded = signal(true);
+  isMobile = injectIsMobile();
   sidebarOpen = signal(false);
   conversations = signal<ConversationSummary[]>([]);
   activeConversationId = signal<string>('');
@@ -82,6 +84,7 @@ export class AssistantChatComponent implements AfterViewChecked, OnInit {
         conv.messages.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content, timestamp: new Date() }))
       );
       this.shouldScroll = true;
+      this.sidebarOpen.set(false);
     } catch {}
   }
 
@@ -124,12 +127,15 @@ export class AssistantChatComponent implements AfterViewChecked, OnInit {
       this.activeConversationId.set(response.conversation_id);
 
       this.messages.update(msgs => [...msgs, { role: 'assistant', content: response.response, timestamp: new Date() }]);
+      this.shouldScroll = true;
+      this.scrollToBottom();
 
       // Refresh conversation list
       this.loadConversations();
     } catch (err: any) {
       const errorMsg = err?.error?.detail || 'Error al conectar con el asistente.';
       this.messages.update(msgs => [...msgs, { role: 'assistant', content: `❌ ${errorMsg}`, timestamp: new Date() }]);
+      this.shouldScroll = true;
     } finally {
       this.loading.set(false);
       this.shouldScroll = true;
@@ -146,9 +152,11 @@ export class AssistantChatComponent implements AfterViewChecked, OnInit {
   }
 
   private scrollToBottom() {
-    if (this.chatBody) {
-      const el = this.chatBody.nativeElement;
-      el.scrollTop = el.scrollHeight;
-    }
+    setTimeout(() => {
+      if (this.chatBody) {
+        const el = this.chatBody.nativeElement;
+        el.scrollTop = el.scrollHeight;
+      }
+    }, 50);
   }
 }

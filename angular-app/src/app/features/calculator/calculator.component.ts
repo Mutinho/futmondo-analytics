@@ -65,8 +65,8 @@ interface RosterPlayer {
     MatCheckboxModule, MatIconModule, MatTooltipModule, MatButtonModule,
     MatButtonToggleModule, MatFormFieldModule, MatSelectModule,
     MatDatepickerModule, MatNativeDateModule, MatInputModule, FormsModule,
-    MoneyPipe, StarterBadgeComponent, StarterCardBadgeComponent,
-    SofascoreBadgeComponent, SofascoreCardBadgeComponent, ScrollTopComponent, PageHeaderComponent
+    MoneyPipe, StarterCardBadgeComponent,
+    SofascoreCardBadgeComponent, ScrollTopComponent, PageHeaderComponent
   ],
   templateUrl: './calculator.component.html',
   styleUrl: './calculator.component.scss'

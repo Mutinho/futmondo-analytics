@@ -53,7 +53,7 @@ interface ClausulablePlayer {
     MatFormFieldModule, MatSelectModule, MatInputModule,
     MatPaginatorModule, DecimalPipe, MoneyPipe,
     SofascoreBadgeComponent, SofascoreCardBadgeComponent,
-    StarterBadgeComponent, StarterCardBadgeComponent,
+    StarterCardBadgeComponent,
     ScrollTopComponent, PageHeaderComponent,
   ],
   templateUrl: './clausulable.component.html',
