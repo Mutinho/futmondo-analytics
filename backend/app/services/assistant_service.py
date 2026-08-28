@@ -392,7 +392,7 @@ class AssistantService:
 
             # Prizes
             cursor.execute(db.adapt_params(
-                "SELECT COALESCE(SUM(ranking_prize + mvp_prize + COALESCE(points_prize, 0)), 0) FROM team_prizes WHERE championship_id = ? AND team_id = ?"
+                "SELECT COALESCE(SUM(ranking_prize + mvp_prize + COALESCE(points_prize, 0) + COALESCE(dream_team_prize, 0)), 0) FROM team_prizes WHERE championship_id = ? AND team_id = ?"
             ), (championship_id, team_id))
             prizes = cursor.fetchone()[0] or 0
 
@@ -796,7 +796,7 @@ class AssistantService:
 
         # Prizes
         cursor.execute(db.adapt_params(
-            "SELECT COALESCE(SUM(ranking_prize + mvp_prize + COALESCE(points_prize, 0)), 0) FROM team_prizes WHERE championship_id = ? AND team_id = ?"
+            "SELECT COALESCE(SUM(ranking_prize + mvp_prize + COALESCE(points_prize, 0) + COALESCE(dream_team_prize, 0)), 0) FROM team_prizes WHERE championship_id = ? AND team_id = ?"
         ), (championship_id, team_id))
         prizes = cursor.fetchone()[0] or 0
 

@@ -82,7 +82,7 @@ async def get_balances(
             
             # Prizes per team
             sql_prizes = """
-                SELECT team_id, SUM(ranking_prize + mvp_prize + COALESCE(points_prize, 0)) as total_prizes
+                SELECT team_id, SUM(ranking_prize + mvp_prize + COALESCE(points_prize, 0) + COALESCE(dream_team_prize, 0)) as total_prizes
                 FROM team_prizes
                 WHERE championship_id = ?
                 GROUP BY team_id
@@ -235,7 +235,7 @@ async def get_team_prizes(
             cursor = db.get_cursor(conn)
             
             sql = """
-                SELECT matchday, ranking_prize, mvp_prize, position, COALESCE(points_prize, 0)
+                SELECT matchday, ranking_prize, mvp_prize, position, COALESCE(points_prize, 0), COALESCE(dream_team_prize, 0)
                 FROM team_prizes
                 WHERE championship_id = ? AND team_id = ?
                 ORDER BY matchday
@@ -246,13 +246,14 @@ async def get_team_prizes(
             rounds = []
             total = 0
             for row in cursor.fetchall():
-                matchday_total = (row[1] or 0) + (row[2] or 0) + (row[4] or 0)
+                matchday_total = (row[1] or 0) + (row[2] or 0) + (row[4] or 0) + (row[5] or 0)
                 total += matchday_total
                 rounds.append({
                     "matchday": row[0],
                     "ranking_prize": row[1] or 0,
                     "mvp_prize": row[2] or 0,
                     "points_prize": row[4] or 0,
+                    "dream_team_prize": row[5] or 0,
                     "position": row[3],
                     "total": matchday_total,
                 })

@@ -3032,6 +3032,11 @@ class DataManagerV2:
                 ''')
                 cursor.execute(create_articles_sql)
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_matchday_articles_champ_matchday ON matchday_articles(championship_id, matchday)")
+                # Migration: add dream_team_prize to team_prizes
+                try:
+                    cursor.execute("ALTER TABLE team_prizes ADD COLUMN IF NOT EXISTS dream_team_prize INTEGER DEFAULT 0")
+                except Exception:
+                    pass  # Column may already exist or table may not exist yet
         except Exception as e:
             logger.warning(f"Could not ensure schema updates: {e}")
 

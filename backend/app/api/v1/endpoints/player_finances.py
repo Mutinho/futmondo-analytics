@@ -4,6 +4,7 @@ API endpoints for user finances calculation
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from typing import Dict, List
+from collections import defaultdict
 import logging
 from app.services.data_manager_v2 import DataManagerV2
 from app.services.db_connection import get_db
@@ -136,25 +137,36 @@ async def get_player_finances(
         user_bonuses = dm.get_dream_team_bonus_stats(championship_id)
 
         # Calculate ranking money from team_standings
+        # Futmondo excludes teams with 0 points from the ranking each matchday
         ranking_money_by_team: Dict[str, int] = {}
         if MONEY_PER_RANKING > 0:
             db_local = get_db()
             with db_local.get_connection() as conn:
                 cursor = db_local.get_cursor(conn)
-                sql = "SELECT team_id, matchday, position FROM team_standings WHERE championship_id = ? ORDER BY matchday"
+                sql = "SELECT team_id, matchday, position, points FROM team_standings WHERE championship_id = ? ORDER BY matchday, position"
                 sql = db_local.adapt_params(sql)
                 cursor.execute(sql, (championship_id,))
                 standings_rows = cursor.fetchall()
             
-            # Count total members for the formula
-            total_members = len(users_data)
-            
+            # Group standings by matchday
+            matchday_standings: Dict[int, list] = defaultdict(list)
             for row in standings_rows:
-                team_id = row[0]
-                position = row[2]
-                if position and position > 0:
-                    prize = _calculate_ranking_prize(position, total_members, MONEY_PER_RANKING, USERS_TO_RANK, RANKING_MODE)
-                    ranking_money_by_team[team_id] = ranking_money_by_team.get(team_id, 0) + prize
+                matchday_standings[row[1]].append({
+                    "team_id": row[0],
+                    "position": row[2],
+                    "points": row[3] or 0
+                })
+            
+            for matchday, standings in matchday_standings.items():
+                # Filter active teams (points > 0) - Futmondo excludes 0-point teams from ranking
+                active_teams = [s for s in standings if s["points"] > 0]
+                active_members = len(active_teams)
+                if active_members == 0:
+                    continue
+                # Recalculate positions among active teams only (already sorted by position)
+                for new_pos, team_data in enumerate(active_teams, 1):
+                    prize = _calculate_ranking_prize(new_pos, active_members, MONEY_PER_RANKING, USERS_TO_RANK, RANKING_MODE)
+                    ranking_money_by_team[team_data["team_id"]] = ranking_money_by_team.get(team_data["team_id"], 0) + prize
 
         team_lookup: Dict[str, Dict] = {}
         name_lookup: Dict[str, Dict] = {}

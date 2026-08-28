@@ -1604,7 +1604,7 @@ class DataSyncService:
             # Get config from any user's championship settings
             with db.get_connection() as conn:
                 cursor = db.get_cursor(conn)
-                sql = "SELECT money_per_ranking, mvp_bonus, ranking_mode, users_to_rank, money_per_point FROM user_championships WHERE championship_id = ? LIMIT 1"
+                sql = "SELECT money_per_ranking, mvp_bonus, ranking_mode, users_to_rank, money_per_point, dream_team_bonus FROM user_championships WHERE championship_id = ? LIMIT 1"
                 sql = db.adapt_params(sql)
                 cursor.execute(sql, (self.championship_id,))
                 row = cursor.fetchone()
@@ -1614,11 +1614,12 @@ class DataSyncService:
             
             money_per_ranking = row[0] or 0
             mvp_bonus = row[1] or 0
-            ranking_mode = row[2] or "top"
+            ranking_mode = row[2] or "flop"
             users_to_rank = row[3] if row[3] is not None else -1
             money_per_point = row[4] or 0
+            dream_team_bonus = row[5] or 0
 
-            if money_per_ranking <= 0 and mvp_bonus <= 0 and money_per_point <= 0:
+            if money_per_ranking <= 0 and mvp_bonus <= 0 and money_per_point <= 0 and dream_team_bonus <= 0:
                 return {"status": "no_prizes_configured", "records_synced": 0, "duration_seconds": time.time() - start_time}
 
             # Get teams from standings
@@ -1682,29 +1683,51 @@ class DataSyncService:
                     logger.info(f"No ranking data for round {matchday}, skipping")
                     continue
 
-                # Get dream team to find MVP (only for closed rounds)
+                # Get dream team to find MVP and count dream team players per team (only for closed rounds)
                 mvp_team_id = None
-                if mvp_bonus > 0 and is_closed:
+                dream_team_counts = {}
+                if (mvp_bonus > 0 or dream_team_bonus > 0) and is_closed:
                     dream_data = self.client.get_dream_team(self.championship_id, round_id=round_id)
                     mvp_player_id = None
+                    dream_team_player_ids = set()
                     if dream_data and isinstance(dream_data, dict):
                         mvp_player_id = dream_data.get("mvp")
+                        dream_team_players = dream_data.get("players", [])
+                        for p in dream_team_players:
+                            pid = p.get("id") if isinstance(p, dict) else p
+                            if pid:
+                                dream_team_player_ids.add(pid)
                     
-                    if mvp_player_id:
-                        # Check each team's lineup to find who had the MVP
+                    if mvp_player_id or (dream_team_bonus > 0 and dream_team_player_ids):
+                        # Check each team's lineup to find who had the MVP and count dream team players
                         for tid in all_team_ids:
                             lineup = self.client.get_round_lineup(self.championship_id, round_id, tid)
                             if lineup:
                                 lineup_ids = [p.get("id") for p in lineup]
-                                if mvp_player_id in lineup_ids:
+                                if mvp_player_id and mvp_player_id in lineup_ids and mvp_team_id is None:
                                     mvp_team_id = tid
                                     logger.info(f"Round {matchday} MVP ({mvp_player_id}) belongs to team {tid}")
-                                    break
+                                if dream_team_bonus > 0 and dream_team_player_ids:
+                                    count = sum(1 for pid in lineup_ids if pid in dream_team_player_ids)
+                                    if count > 0:
+                                        dream_team_counts[tid] = count
                             time.sleep(0.2)
 
-                # Calculate ranking prizes
+                # Calculate ranking prizes — exclude teams with 0 points
                 members = users_to_rank if users_to_rank > 0 else total_members
-                total_pct = members * (members + 1) // 2
+                
+                # Determine active members (those with round_points > 0)
+                active_entries = [e for e in ranking_list if (e.get("points", 0) or 0) > 0]
+                active_members = min(len(active_entries), members)
+                total_pct = active_members * (active_members + 1) // 2
+
+                # Assign positions only among active members (1, 2, 3...)
+                active_position_map = {}
+                for idx, entry in enumerate(active_entries):
+                    eid = entry.get("id") or entry.get("teamid")
+                    pos = idx + 1
+                    if pos <= members:
+                        active_position_map[eid] = pos
 
                 prizes_to_save = []
                 for entry in ranking_list:
@@ -1712,15 +1735,18 @@ class DataSyncService:
                     position = entry.get("position", 0)
                     round_points = entry.get("points", 0) or 0
                     
-                    if not team_id or not position or position > members:
+                    if not team_id:
                         continue
 
-                    # Calculate ranking prize (only for closed rounds)
-                    if ranking_mode == "flop":
-                        ratio = position / total_pct
-                    else:
-                        ratio = (members - position + 1) / total_pct
-                    ranking_prize = round(money_per_ranking * ratio) if (money_per_ranking > 0 and is_closed) else 0
+                    # Calculate ranking prize (only for closed rounds, only for active teams)
+                    ranking_prize = 0
+                    active_pos = active_position_map.get(team_id)
+                    if active_pos and money_per_ranking > 0 and is_closed and total_pct > 0:
+                        if ranking_mode == "flop":
+                            ratio = active_pos / total_pct
+                        else:
+                            ratio = (active_members - active_pos + 1) / total_pct
+                        ranking_prize = round(money_per_ranking * ratio)
 
                     # MVP prize (only for closed rounds)
                     team_mvp_prize = mvp_bonus if (team_id == mvp_team_id and is_closed) else 0
@@ -1728,20 +1754,30 @@ class DataSyncService:
                     # Points prize
                     points_prize = round(round_points * money_per_point) if money_per_point > 0 else 0
 
+                    # Dream team prize (only for closed rounds)
+                    dream_team_prize = 0
+                    if dream_team_bonus > 0 and is_closed:
+                        dt_count = dream_team_counts.get(team_id, 0)
+                        dream_team_prize = round(dt_count * dream_team_bonus)
+
+                    # Use original position from ranking for storage
+                    display_position = active_pos if active_pos else position
+
                     prizes_to_save.append((
                         self.championship_id, team_id, matchday,
-                        ranking_prize, team_mvp_prize, position, points_prize
+                        ranking_prize, team_mvp_prize, display_position, points_prize, dream_team_prize
                     ))
 
                 # Save to DB
                 if prizes_to_save:
                     with db.get_connection() as conn:
                         cursor = db.get_cursor(conn)
-                        sql = """INSERT INTO team_prizes (championship_id, team_id, matchday, ranking_prize, mvp_prize, position, points_prize, synced_at)
-                                 VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+                        sql = """INSERT INTO team_prizes (championship_id, team_id, matchday, ranking_prize, mvp_prize, position, points_prize, dream_team_prize, synced_at)
+                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
                                  ON CONFLICT (championship_id, team_id, matchday) DO UPDATE SET
                                  ranking_prize = EXCLUDED.ranking_prize, mvp_prize = EXCLUDED.mvp_prize,
-                                 position = EXCLUDED.position, points_prize = EXCLUDED.points_prize, synced_at = NOW()"""
+                                 position = EXCLUDED.position, points_prize = EXCLUDED.points_prize,
+                                 dream_team_prize = EXCLUDED.dream_team_prize, synced_at = NOW()"""
                         sql = db.adapt_params(sql)
                         for row in prizes_to_save:
                             cursor.execute(sql, row)

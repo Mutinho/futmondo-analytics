@@ -472,7 +472,7 @@ async def get_market_today(
             user_income = int(cursor2.fetchone()[0] or 0)
 
             # Prizes (same as budget page)
-            sql_prizes = db.adapt_params("SELECT COALESCE(SUM(ranking_prize + mvp_prize + COALESCE(points_prize, 0)), 0) FROM team_prizes WHERE championship_id = ? AND team_id = ?")
+            sql_prizes = db.adapt_params("SELECT COALESCE(SUM(ranking_prize + mvp_prize + COALESCE(points_prize, 0) + COALESCE(dream_team_prize, 0)), 0) FROM team_prizes WHERE championship_id = ? AND team_id = ?")
             cursor2.execute(sql_prizes, (championship_id, user_team_id))
             user_prizes = int(cursor2.fetchone()[0] or 0)
 

@@ -12,6 +12,7 @@ interface PrizeRound {
   ranking_prize: number;
   mvp_prize: number;
   points_prize: number;
+  dream_team_prize: number;
   position: number;
   total: number;
 }
@@ -49,6 +50,12 @@ interface PrizeRound {
             <th mat-header-cell *matHeaderCellDef>MVP</th>
             <td mat-cell *matCellDef="let r">
               @if (r.mvp_prize > 0) { {{ r.mvp_prize | money }} } @else { - }
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="dream_team_prize">
+            <th mat-header-cell *matHeaderCellDef>Eq. Ideal</th>
+            <td mat-cell *matCellDef="let r">
+              @if (r.dream_team_prize > 0) { {{ r.dream_team_prize | money }} } @else { - }
             </td>
           </ng-container>
           <ng-container matColumnDef="total">
@@ -89,13 +96,18 @@ export class PrizesDialogComponent implements OnInit {
   rounds = signal<PrizeRound[]>([]);
   totalPrizes = signal(0);
   hasPointsPrize = signal(false);
+  hasDreamTeamPrize = signal(false);
 
   columns = computed(() => {
     const cols = ['matchday', 'position', 'ranking_prize'];
     if (this.hasPointsPrize()) {
       cols.push('points_prize');
     }
-    cols.push('mvp_prize', 'total');
+    cols.push('mvp_prize');
+    if (this.hasDreamTeamPrize()) {
+      cols.push('dream_team_prize');
+    }
+    cols.push('total');
     return cols;
   });
 
@@ -110,6 +122,7 @@ export class PrizesDialogComponent implements OnInit {
       this.totalPrizes.set(resp.total_prizes || 0);
       // Show points column only if any round has points_prize > 0
       this.hasPointsPrize.set(rounds.some(r => (r.points_prize || 0) > 0));
+      this.hasDreamTeamPrize.set(rounds.some(r => (r.dream_team_prize || 0) > 0));
     } catch { }
     this.loading.set(false);
   }
