@@ -1,6 +1,6 @@
 # Contexto del Proyecto — Futmondo Analytics
 
-## Estado Actual (26 agosto 2026) — v2.1.0
+## Estado Actual (28 agosto 2026) — v2.1.0
 
 ### Resumen
 Aplicación multi-usuario de gestión de ligas Futmondo (fantasy football). Frontend Angular 22 (PWA) + backend FastAPI. Autenticación JWT con HttpOnly cookies. Base de datos Neon PostgreSQL. Deploy en Fly.io. Incluye asistente IA conversacional (Groq/Gemini).
@@ -204,6 +204,10 @@ backend/app/
 - **Provider fallback**: Groq (gpt-oss-120b, rápido) → Gemini (gemini-3.6-flash → gemini-3.5-flash)
 - **Market cache**: tabla `market_today` evita llamadas live a API Futmondo
 - **Usage tracking**: tabla `assistant_usage` con límites mensuales/diarios
+- **Premios (team_prizes)**: ranking + mvp + points + dream_team, calculados localmente con fórmula de Futmondo
+  - Ranking: fórmula inversa `pos / (N*(N+1)/2) * pool` (modo flop) — excluye equipos con 0 puntos (N dinámico)
+  - Dream team: 1M€ por jugador en equipo ideal de la jornada (cruce lineup vs dreamTeam API)
+  - Balances, assistant y market suman `ranking_prize + mvp_prize + points_prize + dream_team_prize`
 
 ---
 
@@ -247,7 +251,7 @@ Frontend (FAB → chat panel) → POST /api/v1/assistant/ask → Backend
 |------|--------|-------------|
 | `/` | Splash | Recovery de sesión → redirect |
 | `/login` | Login | Credenciales Futmondo |
-| `/budget` | Presupuesto | Vista general de equipos con balance, valor, premios |
+| `/budget` | Presupuesto | Vista general de equipos con balance, valor, premios (modal con desglose: ranking, puntos, MVP, equipo ideal) |
 | `/my-roster` | Mi Plantilla | Jugadores con valor, plusvalía, ventas recomendadas |
 | `/market` | Mercado | Jugadores del computer, puja sugerida, favoritos dorados |
 | `/favorites` | Favoritos | Jugadores libres marcados como favoritos |
@@ -306,7 +310,7 @@ Frontend (FAB → chat panel) → POST /api/v1/assistant/ask → Backend
 | `dream_teams_mvps` | Dream team y MVPs |
 | `punishments_bonuses` | Castigos y bonificaciones |
 | `clauses` | Cláusulas ejecutadas |
-| `team_prizes` | Premios por jornada (ranking + mvp + points) |
+| `team_prizes` | Premios por jornada (ranking + mvp + points + dream_team) |
 | `team_rosters` | Plantillas de equipos |
 | `match_odds` | Cuotas de partidos |
 | `player_favorites` | Jugadores favoritos por usuario/campeonato |
