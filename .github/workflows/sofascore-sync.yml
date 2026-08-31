@@ -3,26 +3,48 @@ name: Sofascore Sync (Local)
 on:
   workflow_dispatch:
     inputs:
-      chunk:
-        description: 'Parte a sincronizar'
+      parts:
+        description: 'Número de partes (1-10)'
         required: false
-        type: choice
-        default: 'all'
-        options:
-          - all
-          - '1'
-          - '2'
+        type: string
+        default: '5'
   schedule:
-    # Chunk 1: 5:00 UTC = 7:00 CET
+    # Diario a las 5:00 UTC = 7:00 CET (2 partes por defecto)
     - cron: '0 5 * * *'
-    # Chunk 2: 6:30 UTC = 8:30 CET (1.5h later, after ban expires)
-    - cron: '30 6 * * *'
 
 jobs:
-  sofascore:
-    name: Sync Sofascore Ratings
+  prepare:
+    name: Prepare chunks
     runs-on: self-hosted
-    timeout-minutes: 60
+    outputs:
+      matrix: ${{ steps.matrix.outputs.chunks }}
+      total: ${{ steps.matrix.outputs.total }}
+    steps:
+      - name: Generate chunk matrix
+        id: matrix
+        run: |
+          PARTS="${{ github.event.inputs.parts || '5' }}"
+          # Validate: must be 1-10
+          if ! echo "$PARTS" | grep -qE '^[1-9]$|^10$'; then
+            echo "❌ Invalid parts: $PARTS (must be 1-10)"
+            exit 1
+          fi
+          # Generate JSON array [1, 2, ..., N]
+          CHUNKS=$(seq 1 "$PARTS" | jq -s -c '.')
+          echo "chunks=$CHUNKS" >> $GITHUB_OUTPUT
+          echo "total=$PARTS" >> $GITHUB_OUTPUT
+          echo "📦 Will run $PARTS chunks: $CHUNKS"
+
+  sofascore:
+    name: "Chunk ${{ matrix.chunk }}/${{ needs.prepare.outputs.total }}"
+    runs-on: self-hosted
+    needs: prepare
+    timeout-minutes: 90
+    strategy:
+      matrix:
+        chunk: ${{ fromJson(needs.prepare.outputs.matrix) }}
+      max-parallel: 1
+      fail-fast: false
     steps:
       - uses: actions/checkout@v5
 
@@ -31,23 +53,7 @@ jobs:
           python3 -c "import curl_cffi, psycopg2, dotenv" 2>/dev/null || \
           python3 -m pip install curl_cffi psycopg2-binary python-dotenv --break-system-packages -q
 
-      - name: Determine chunk
-        id: chunk
-        run: |
-          INPUT="${{ github.event.inputs.chunk }}"
-          if [ "$INPUT" = "1" ]; then
-            echo "arg=--chunk 1/2" >> $GITHUB_OUTPUT
-          elif [ "$INPUT" = "2" ]; then
-            echo "arg=--chunk 2/2" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "0 5 * * *" ]; then
-            echo "arg=--chunk 1/2" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "30 6 * * *" ]; then
-            echo "arg=--chunk 2/2" >> $GITHUB_OUTPUT
-          else
-            echo "arg=" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Run Sofascore sync
+      - name: Run Sofascore sync (chunk ${{ matrix.chunk }}/${{ needs.prepare.outputs.total }})
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: python3 backend/scripts/sync_sofascore_local.py ${{ steps.chunk.outputs.arg }}
+        run: python3 backend/scripts/sync_sofascore_local.py --chunk ${{ matrix.chunk }}/${{ needs.prepare.outputs.total }}

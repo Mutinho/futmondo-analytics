@@ -61,28 +61,13 @@ def get_db_connection():
 
 
 def get_players_from_db(conn):
-    """Get relevant players: those owned by users + favorites.
-    Excludes computer-only players not in any user's favorites.
-    """
+    """Get all players from the players table."""
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT DISTINCT p.name, p.real_team_id FROM (
-            -- Players owned by human users (all rosters)
-            SELECT p.player_id, p.name, p.real_team_id
-            FROM players p
-            INNER JOIN player_championship_stats pcs ON pcs.player_id = p.player_id
-            INNER JOIN user_championships uc ON uc.championship_id = pcs.championship_id
-            WHERE pcs.owner_team_id IS NOT NULL AND pcs.owner_team_id != ''
-            
-            UNION
-            
-            -- Favorites
-            SELECT p.player_id, p.name, p.real_team_id
-            FROM players p
-            INNER JOIN player_favorites pf ON pf.player_id = p.player_id
-            INNER JOIN user_championships uc ON uc.championship_id = pf.championship_id
-        ) p
-        ORDER BY p.name
+        SELECT DISTINCT name, real_team_id
+        FROM players
+        WHERE name IS NOT NULL AND name != ''
+        ORDER BY name
     """)
     players = [{"name": row[0], "teamId": row[1] or ""} for row in cursor.fetchall()]
     cursor.close()
