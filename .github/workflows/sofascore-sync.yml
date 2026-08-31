@@ -30,7 +30,7 @@ jobs:
             exit 1
           fi
           # Generate JSON array [1, 2, ..., N]
-          CHUNKS=$(seq 1 "$PARTS" | jq -s -c '.')
+          CHUNKS=$(printf '['; for i in $(seq 1 "$PARTS"); do [ "$i" -gt 1 ] && printf ','; printf "$i"; done; printf ']')
           echo "chunks=$CHUNKS" >> $GITHUB_OUTPUT
           echo "total=$PARTS" >> $GITHUB_OUTPUT
           echo "📦 Will run $PARTS chunks: $CHUNKS"
