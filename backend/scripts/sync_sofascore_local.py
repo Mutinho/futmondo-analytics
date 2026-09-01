@@ -370,6 +370,21 @@ class SofascoreLocal:
         results = data.get("results", [])
         if not results:
             return None
+
+        # Keep only football players. Sofascore search returns all sports, so
+        # e.g. "Hugo González" can return an NBA (Boston Celtics) player first.
+        def is_football(r):
+            entity = r.get("entity", r)
+            sport = ((entity.get("team", {}) or {}).get("sport", {}) or {}).get("name") \
+                or entity.get("sport")
+            # Accept when sport is Football or unknown (some entities omit it),
+            # but reject explicit non-football sports.
+            return sport is None or str(sport).lower() == "football"
+
+        results = [r for r in results if is_football(r)]
+        if not results:
+            return None
+
         if team_hint:
             th = team_hint.lower()
             for r in results:
