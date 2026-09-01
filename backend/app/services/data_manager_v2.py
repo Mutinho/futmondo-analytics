@@ -546,6 +546,52 @@ class DataManagerV2:
             
             return len(values)
     
+    def delete_orphan_players(self, live_player_ids: List[str]) -> int:
+        """Delete players that are neither in the current API list nor referenced
+        by any historical table.
+
+        Players not returned by the API are only removed if they have NO rows in
+        transactions / player_performance / team_rosters / dream_teams_mvps /
+        player_championship_stats. Players with history are always kept.
+
+        Args:
+            live_player_ids: player_ids returned by the current API sync.
+
+        Returns:
+            Number of orphan players deleted.
+        """
+        if not live_player_ids:
+            # Safety: never wipe the table if the API returned nothing.
+            return 0
+
+        with self.db.get_connection() as conn:
+            cursor = self.db.get_cursor(conn)
+            if self.db.db_type in ["postgresql", "postgres"]:
+                sql = '''
+                    DELETE FROM players p
+                    WHERE p.player_id <> ALL(%s)
+                      AND NOT EXISTS (SELECT 1 FROM transactions t WHERE t.player_id = p.player_id)
+                      AND NOT EXISTS (SELECT 1 FROM player_performance pp WHERE pp.player_id = p.player_id)
+                      AND NOT EXISTS (SELECT 1 FROM team_rosters tr WHERE tr.player_id = p.player_id)
+                      AND NOT EXISTS (SELECT 1 FROM dream_teams_mvps dm WHERE dm.player_id = p.player_id)
+                      AND NOT EXISTS (SELECT 1 FROM player_championship_stats pc WHERE pc.player_id = p.player_id)
+                '''
+                cursor.execute(sql, (list(live_player_ids),))
+            else:
+                placeholders = ",".join("?" for _ in live_player_ids)
+                sql = f'''
+                    DELETE FROM players
+                    WHERE player_id NOT IN ({placeholders})
+                      AND player_id NOT IN (SELECT player_id FROM transactions)
+                      AND player_id NOT IN (SELECT player_id FROM player_performance)
+                      AND player_id NOT IN (SELECT player_id FROM team_rosters)
+                      AND player_id NOT IN (SELECT player_id FROM dream_teams_mvps)
+                      AND player_id NOT IN (SELECT player_id FROM player_championship_stats)
+                '''
+                cursor.execute(sql, tuple(live_player_ids))
+            deleted = cursor.rowcount if cursor.rowcount is not None else 0
+            return deleted
+    
     def save_team_standing(self, championship_id: str, team_id: str, matchday: int, 
                            position: int, points: int, points_this_matchday: int = 0,
                           team_value: int = None, conn=None, cursor=None, **kwargs) -> None:

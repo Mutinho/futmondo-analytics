@@ -1446,6 +1446,16 @@ class DataSyncService:
             # Batch insert all players in one transaction
             total_synced = self.dm.save_players_batch(player_records)
             
+            # Remove stale players: not in the current API list AND with no history.
+            # Keeps historical players (transactions/rosters/etc.); only drops junk.
+            try:
+                live_ids = [p["id"] for p in player_records if p.get("id")]
+                orphans = self.dm.delete_orphan_players(live_ids)
+                if orphans:
+                    logger.info(f"Removed {orphans} orphan players (no API entry, no history)")
+            except Exception as orphan_err:
+                logger.warning(f"Orphan player cleanup failed: {orphan_err}")
+            
             if stats_payload:
                 try:
                     self.dm.save_player_championship_stats(self.championship_id, stats_payload)
