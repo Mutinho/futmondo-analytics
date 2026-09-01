@@ -1,12 +1,14 @@
 name: Sofascore Sync (Fly one-shot)
 
 # Runs the Sofascore batch sync on a one-shot Fly.io machine (cost ~0: the
-# machine only exists for the ~3 min the sync takes, then self-destroys).
+# machine only lives for the ~3 min the sync takes, then is destroyed).
 #
 # It REUSES the already-deployed futmondo-cron image (no extra build/deploy),
 # overriding the entrypoint to run the Sofascore script instead of uvicorn.
-# The image is refreshed daily by daily-sync.yml, so it always contains the
-# latest script.
+# The cron image is refreshed by daily-sync.yml, so it always has the latest script.
+#
+# The job LAUNCHES the machine, WAITS for it to finish (polling until 'stopped'),
+# prints its logs, checks the process exit code, and ALWAYS destroys the machine.
 #
 # If this ever starts getting 403s (Sofascore blocked the datacenter IP), run
 # the script manually from a residential IP:
@@ -22,35 +24,102 @@ jobs:
   sofascore:
     name: Sofascore batch sync (Fly)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
-      - name: Run Sofascore sync on a one-shot Fly machine
+      - name: Run Sofascore sync on a one-shot Fly machine (wait + verify)
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           FLY_APP: futmondo-cron
+          FLY_REGION: cdg
+          POLL_TIMEOUT_SECONDS: "1200"   # 20 min hard cap for the sync
         run: |
           set -euo pipefail
 
-          # Resolve the current image of the cron app (already deployed, no build).
+          # --- Resolve the current cron image (already deployed, no build) ---
           IMAGE_REF=$(flyctl image show --app "$FLY_APP" --json \
             | jq -r '.[0] | "registry.fly.io/\(.Repository):\(.Tag)"')
           if [ -z "$IMAGE_REF" ] || [ "$IMAGE_REF" = "registry.fly.io/:" ]; then
-            echo "❌ Could not resolve cron image reference"
-            flyctl image show --app "$FLY_APP" --json
-            exit 1
+            echo "❌ Could not resolve cron image reference"; exit 1
           fi
           echo "Using image: $IMAGE_REF"
 
-          # Launch a one-shot machine in the same region as the cron app.
-          # --rm  : machine is destroyed after the process exits (cost 0 idle).
-          # --entrypoint "sh -c '...'" : run our script; the inherited uvicorn CMD
-          #   is passed as a positional arg to sh and ignored by 'sh -c'.
-          # DATABASE_URL is inherited from the app's Fly secrets.
-          flyctl machine run "$IMAGE_REF" \
+          # --- Launch one-shot machine (NOT --rm: we manage its lifecycle) ---
+          # 'sh -c' runs our script; the inherited uvicorn CMD is passed as a
+          # positional arg and ignored.
+          RUN_OUT=$(flyctl machine run "$IMAGE_REF" \
             --app "$FLY_APP" \
-            --region cdg \
+            --region "$FLY_REGION" \
             --vm-memory 256 \
-            --rm \
-            --entrypoint "sh -c 'python scripts/sync_sofascore_local.py'"
+            --restart no \
+            --entrypoint "sh -c 'python scripts/sync_sofascore_local.py'" 2>&1) || true
+          echo "$RUN_OUT"
+
+          MACHINE_ID=$(echo "$RUN_OUT" | grep -oE 'Machine ID: [a-z0-9]+' | awk '{print $3}' | head -1)
+          if [ -z "$MACHINE_ID" ]; then
+            echo "❌ Could not determine machine ID from run output"; exit 1
+          fi
+          echo "Launched machine: $MACHINE_ID"
+
+          # --- Always destroy the machine on exit (success or failure) ---
+          cleanup() {
+            echo "🧹 Destroying machine $MACHINE_ID..."
+            flyctl machine destroy "$MACHINE_ID" --app "$FLY_APP" --force 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          # --- Poll until the machine stops (one-shot process exits) ---
+          echo "⏳ Waiting for sync to finish..."
+          elapsed=0
+          state=""
+          while [ "$elapsed" -lt "$POLL_TIMEOUT_SECONDS" ]; do
+            state=$(flyctl machines list --app "$FLY_APP" --json \
+              | jq -r --arg id "$MACHINE_ID" '.[] | select(.id==$id) | .state')
+            if [ "$state" = "stopped" ]; then
+              echo "✅ Machine stopped after ${elapsed}s"
+              break
+            fi
+            sleep 10
+            elapsed=$((elapsed + 10))
+          done
+
+          # --- Dump the sync logs into the Action output ---
+          echo "===== Sofascore sync logs ====="
+          LOGS=$(flyctl logs --app "$FLY_APP" --machine "$MACHINE_ID" --no-tail 2>&1 \
+            | sed -E 's/\x1b\[[0-9;]*m//g')
+          echo "$LOGS" | grep -vE 'Preparing to run|api proxy|SSH listening|Firecracker|Starting init|Pulling container|Successfully prepared|Configuring firecracker' || true
+          echo "===== end logs ====="
+
+          # --- Check timeout ---
+          if [ "$state" != "stopped" ]; then
+            echo "❌ Sync did not finish within ${POLL_TIMEOUT_SECONDS}s (state=$state)"
+            exit 1
+          fi
+
+          # --- Read the process exit code (with retries; the exit_event can lag) ---
+          EXIT_CODE=""
+          for attempt in 1 2 3 4 5 6; do
+            EXIT_CODE=$(flyctl machines list --app "$FLY_APP" --json \
+              | jq -r --arg id "$MACHINE_ID" \
+                '[.[] | select(.id==$id) | .events[]? | select(.request.exit_event) | .request.exit_event.exit_code] | first // empty' \
+              2>/dev/null || true)
+            [ -n "$EXIT_CODE" ] && break
+            sleep 5
+          done
+          echo "Process exit code: ${EXIT_CODE:-<unavailable>}"
+
+          # --- Decide success/failure ---
+          # Prefer the exit code; if it's unavailable (event lag), fall back to
+          # the log summary line the script prints on success.
+          if [ "$EXIT_CODE" = "0" ]; then
+            echo "✅ Sofascore sync completed successfully"
+          elif [ "$EXIT_CODE" = "2" ]; then
+            echo "⚠️ Sofascore sync stopped early (IP banned). Partial data persisted."
+            exit 1
+          elif [ -z "$EXIT_CODE" ] && echo "$LOGS" | grep -q "Sofascore sync complete"; then
+            echo "✅ Sofascore sync completed (verified via log summary; exit code unavailable)"
+          else
+            echo "❌ Sofascore sync failed (exit code ${EXIT_CODE:-<unavailable>})"
+            exit 1
+          fi
