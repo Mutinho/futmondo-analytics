@@ -80,9 +80,29 @@ LEAGUE_MAX_AGE_DAYS = 30
 # Leagues always fetched in batch regardless of learning.
 FIXED_LEAGUES = [(LALIGA_UT_ID, "LaLiga"), (LALIGA2_UT_ID, "LaLiga 2")]
 
-# Season name keywords for classification / matching.
-CURRENT_SEASON_KEYWORDS = ["26/27", "2026-2027", "2026/2027"]
-PREVIOUS_SEASON_KEYWORDS = ["25/26", "2025-2026", "2025/2026"]
+# Season keywords are derived from the current date (see season_keywords below)
+# so they don't need manual editing every year.
+
+
+def _season_variants(start_year: int) -> list:
+    """Return the name variants Sofascore uses for a season starting in
+    `start_year` (e.g. 2026 -> ['26/27', '2026-2027', '2026/2027'])."""
+    a, b = start_year % 100, (start_year + 1) % 100
+    return [f"{a:02d}/{b:02d}", f"{start_year}-{start_year + 1}", f"{start_year}/{start_year + 1}"]
+
+
+def season_keywords(now: datetime | None = None):
+    """Derive (current, previous) season keyword lists from the date.
+
+    European football seasons start in July/August. From month >= 7 the current
+    season is YYYY/YYYY+1; before that it's the one that started the prior year.
+    """
+    now = now or datetime.now()
+    current_start = now.year if now.month >= 7 else now.year - 1
+    return _season_variants(current_start), _season_variants(current_start - 1)
+
+
+CURRENT_SEASON_KEYWORDS, PREVIOUS_SEASON_KEYWORDS = season_keywords()
 
 # Colors for terminal output
 GREEN = "\033[92m"
@@ -675,8 +695,7 @@ def main():
         key = f"{name.lower()}|{team_id}"
         if key not in seen:
             team_hint = SofascoreLocal.LALIGA_TEAMS.get(team_id, "")
-            local_players.append({"name": name, "team": team_hint,
-                                  "norm": normalize_name(name)})
+            local_players.append({"name": name, "team": team_hint})
             seen.add(key)
 
     total = len(local_players)
