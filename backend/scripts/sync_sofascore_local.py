@@ -242,6 +242,38 @@ def purge_stale_leagues(conn):
     cursor.close()
 
 
+def purge_transfer_shadows(conn, run_ts):
+    """Remove stale rows left behind when a player changes club.
+
+    The cache UNIQUE is (player_name, team), so when a player transfers (e.g.
+    Betis -> Real Madrid) this run inserts a fresh row for the new team while the
+    old-team row lingers as a shadow. We delete any row NOT written in this run
+    (synced_at < run_ts) whose sofascore_id matches a row that WAS written this
+    run. Using sofascore_id (not name) preserves legitimate namesakes on
+    different teams (e.g. two different 'Gueye' players have distinct ids).
+
+    Returns number of shadow rows deleted.
+    """
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        DELETE FROM sofascore_cache old
+        WHERE old.synced_at < %s
+          AND old.sofascore_id IS NOT NULL
+          AND EXISTS (
+            SELECT 1 FROM sofascore_cache fresh
+            WHERE fresh.sofascore_id = old.sofascore_id
+              AND fresh.synced_at >= %s
+              AND fresh.team IS DISTINCT FROM old.team
+          )
+        """,
+        (run_ts, run_ts),
+    )
+    deleted = cursor.rowcount if cursor.rowcount is not None else 0
+    cursor.close()
+    return deleted
+
+
 # ----------------------------------------------------------------------------
 # Sofascore client
 # ----------------------------------------------------------------------------
@@ -791,6 +823,14 @@ def main():
             names = ", ".join(league_names.get(ut, str(ut)) for ut in newly_batchable)
             print(f"{CYAN}🧠 Leagues learned for next run (>= "
                   f"{LEAGUE_BATCH_MIN_PLAYERS} players): {names}{RESET}", flush=True)
+
+    # Remove shadow rows left by players who changed club (mismo id, distinto team).
+    try:
+        shadows = purge_transfer_shadows(conn, now)
+        if shadows:
+            print(f"{CYAN}🧹 Removed {shadows} stale transfer-shadow rows{RESET}", flush=True)
+    except Exception as shadow_err:
+        print(f"{YELLOW}⚠ Shadow cleanup failed: {shadow_err}{RESET}", flush=True)
 
     conn.close()
     _summary(start_time, synced, total, errors)
