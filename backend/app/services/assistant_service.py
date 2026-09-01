@@ -889,6 +889,12 @@ class AssistantService:
                     away_avg = avg_data.get('awayAverage') if isinstance(avg_data, dict) else None
                     matches = avg_data.get('matches', 0) if isinstance(avg_data, dict) else 0
 
+                    # SECURITY: 'bid' is the requesting user's private bid. This cache
+                    # is shared per (championship, date), so strip it before storing to
+                    # avoid leaking one user's bids to another. Per-user bids are fetched
+                    # live in the market endpoint.
+                    p_cached = {k: v for k, v in p.items() if k != 'bid'}
+
                     cursor.execute(db.adapt_params("""
                         INSERT INTO market_today (championship_id, market_date, player_id, player_name, slug,
                             position, position2, team, team_logo, value, market_price, change,
@@ -907,7 +913,7 @@ class AssistantService:
                         matches, p.get('points', 0),
                         p.get('photo', ''), p.get('expirationDate', ''),
                         p.get('computer', False),
-                        json_mod.dumps(p, ensure_ascii=False),
+                        json_mod.dumps(p_cached, ensure_ascii=False),
                     ))
 
                 conn.commit()

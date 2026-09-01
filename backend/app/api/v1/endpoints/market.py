@@ -235,25 +235,26 @@ async def get_market_today(
         today = date.today().isoformat()
         client = get_user_futmondo_client(request)
 
-        # Get user's team_id from DB (not API)
-        user = getattr(request.state, "user", None)
-        user_id = user.get("user_id", "") if user else ""
+        # Single DB connection reused for the whole request (avoids repeated
+        # pool checkouts + health-check round-trips to Neon).
         with db.get_connection() as conn:
             cursor = db.get_cursor(conn)
+
+            # Get user's team_id from DB (not API)
+            user = getattr(request.state, "user", None)
+            user_id = user.get("user_id", "") if user else ""
             cursor.execute(db.adapt_params(
                 "SELECT futmondo_team_id FROM user_championships WHERE user_id = ? AND championship_id = ?"
             ), (user_id, championship_id))
             row = cursor.fetchone()
             user_team_id = row[0] if row else ""
 
-        if not user_team_id:
-            # Fallback to API only if not in DB
-            user_team_id = _get_user_team_id(client, championship_id)
+            if not user_team_id:
+                # Fallback to API only if not in DB
+                user_team_id = _get_user_team_id(client, championship_id)
 
-        # Try reading from DB cache first
-        all_players = []
-        with db.get_connection() as conn:
-            cursor = db.get_cursor(conn)
+            # Try reading from DB cache first
+            all_players = []
             try:
                 cursor.execute(db.adapt_params(
                     "SELECT raw_json FROM market_today WHERE championship_id = ? AND market_date = ?"
@@ -263,6 +264,25 @@ async def get_market_today(
                     all_players = [json_mod.loads(r[0]) for r in rows if r[0]]
             except Exception:
                 pass  # Table might not exist or have the column
+
+            return _build_market_response(
+                request, db, conn, cursor, client, championship_id, today,
+                user_id, user_team_id, all_players,
+            )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+def _build_market_response(request, db, conn, cursor, client, championship_id,
+                           today, user_id, user_team_id, all_players):
+    """Build the market response reusing a single DB connection/cursor."""
+    from app.api.v1.endpoints._helpers import get_championship_config
+    from app.api.v1.endpoints._sofascore_helpers import calculate_starter_pct, get_current_matchday
+    import json as json_mod
+    logger = logging.getLogger(__name__)
+    try:
 
         # Fallback: fetch from API if no cached data
         if not all_players:
@@ -299,23 +319,55 @@ async def get_market_today(
                 except Exception as e:
                     logger.debug(f"Failed to save market_today cache: {e}")
 
+            # all_players came live with THIS user's bids — use them directly.
+            live_user_players = all_players
+        else:
+            # Cache has NO bids (stripped for privacy). Fetch this user's bids live.
+            live_user_players = None
+            if user_team_id:
+                try:
+                    bid_data = {
+                        'header': {'token': client.token, 'userid': client.user_id},
+                        'query': {'championshipId': championship_id, 'userteamId': user_team_id},
+                        'answer': {}
+                    }
+                    bid_resp = client.session.post(
+                        f'{client.base_url}/1/market/players', json=bid_data, timeout=15
+                    )
+                    if bid_resp.status_code == 200:
+                        bans = bid_resp.json().get('answer', {})
+                        if isinstance(bans, list):
+                            live_user_players = bans
+                        elif isinstance(bans, dict):
+                            live_user_players = bans.get('players', bans.get('market', []))
+                except Exception as e:
+                    logger.debug(f"Failed to fetch live user bids: {e}")
+
+        # Build {player_id: bid} from the CURRENT user's live data (never from cache).
+        user_bids_map = {}
+        for p in (live_user_players or []):
+            bid = p.get('bid')
+            if isinstance(bid, dict) and bid.get('price'):
+                user_bids_map[p.get('id', '')] = {
+                    "price": bid.get('price', 0),
+                    "id": bid.get('id', ''),
+                }
+
         # Filter computer players only
         computer_players = [p for p in all_players if p.get('computer') is True]
 
         # Calcular puja sugerida para cada jugador (batch: una sola query para todos)
         # Load ALL market transactions at once instead of 24 individual queries
         all_market_txns = []
-        with db.get_connection() as conn_bids:
-            cursor_bids = db.get_cursor(conn_bids)
-            cursor_bids.execute(db.adapt_params("""
-                SELECT price, market_value_at_purchase
-                FROM transactions
-                WHERE championship_id = ? AND seller_team_id = 'market_team'
-                AND market_value_at_purchase IS NOT NULL AND market_value_at_purchase > 0
-                ORDER BY transaction_date DESC
-                LIMIT 200
-            """), (championship_id,))
-            all_market_txns = cursor_bids.fetchall()
+        cursor.execute(db.adapt_params("""
+            SELECT price, market_value_at_purchase
+            FROM transactions
+            WHERE championship_id = ? AND seller_team_id = 'market_team'
+            AND market_value_at_purchase IS NOT NULL AND market_value_at_purchase > 0
+            ORDER BY transaction_date DESC
+            LIMIT 200
+        """), (championship_id,))
+        all_market_txns = cursor.fetchall()
 
         def _calc_bid_batch(player_value):
             """Calculate suggested bid using pre-loaded transactions."""
@@ -350,6 +402,9 @@ async def get_market_today(
             market_price = p.get('price', player_value)
             bid_info = _calc_bid_batch(player_value)
 
+            # Current bid: ONLY from this user's live bids (never from shared cache).
+            user_bid = user_bids_map.get(p.get('id', ''), {})
+
             if bid_info["suggested_bid"] <= market_price:
                 suggested = int(market_price * 1.05)
                 overpay_pct = 5.0
@@ -368,8 +423,8 @@ async def get_market_today(
                 "value": player_value,
                 "market_price": market_price,
                 "change": p.get('change', 0),
-                "current_bid": p.get('bid', {}).get('price', 0) if isinstance(p.get('bid'), dict) else 0,
-                "current_bid_id": p.get('bid', {}).get('id', '') if isinstance(p.get('bid'), dict) else '',
+                "current_bid": user_bid.get('price', 0),
+                "current_bid_id": user_bid.get('id', ''),
                 "average": p.get('average', {}).get('average', 0) if isinstance(p.get('average'), dict) else 0,
                 "points": p.get('points', 0),
                 "home_average": _clean_avg(p.get('average', {}).get('homeAverage') if isinstance(p.get('average'), dict) else None),
@@ -389,18 +444,14 @@ async def get_market_today(
         # Get user's favorites
         favorite_player_ids = set()
         try:
-            with db.get_connection() as conn_fav:
-                cursor_fav = db.get_cursor(conn_fav)
-                sql_fav = db.adapt_params("SELECT player_id FROM player_favorites WHERE championship_id = ? AND user_id = ?")
-                cursor_fav.execute(sql_fav, (championship_id, client.user_id))
-                favorite_player_ids = {row[0] for row in cursor_fav.fetchall()}
+            sql_fav = db.adapt_params("SELECT player_id FROM player_favorites WHERE championship_id = ? AND user_id = ?")
+            cursor.execute(sql_fav, (championship_id, client.user_id))
+            favorite_player_ids = {row[0] for row in cursor.fetchall()}
         except Exception as e:
             logger.debug(f"Failed to fetch user favorites: {e}")
 
-        with db.get_connection() as conn_sf:
-            cursor_sf = db.get_cursor(conn_sf)
-            cursor_sf.execute("SELECT player_name, sofascore_id, rating, goals, assists, appearances, sofascore_url, matches_started, season, matches_started_prev FROM sofascore_cache")
-            sf_rows = cursor_sf.fetchall()
+        cursor.execute("SELECT player_name, sofascore_id, rating, goals, assists, appearances, sofascore_url, matches_started, season, matches_started_prev FROM sofascore_cache")
+        sf_rows = cursor.fetchall()
 
         sf_map = {}
         for row in sf_rows:
@@ -434,47 +485,40 @@ async def get_market_today(
         # Sort by value desc
         players_with_bid.sort(key=lambda x: x['value'], reverse=True)
 
-        # Active bids total (from all players, not just computer)
-        active_bids_total = 0
-        for p in all_players:
-            bid = p.get('bid')
-            if isinstance(bid, dict) and bid.get('price'):
-                active_bids_total += bid['price']
+        # Active bids total — ONLY this user's bids (from live data, not cache).
+        active_bids_total = sum(b.get('price', 0) for b in user_bids_map.values())
 
         # User balance and team value (from DB, not API)
         user_team_value = 0
-        with db.get_connection() as conn2:
-            cursor2 = db.get_cursor(conn2)
-
-            # Team value from latest standings
-            cursor2.execute(db.adapt_params(
-                "SELECT team_value FROM team_standings WHERE championship_id = ? AND team_id = ? ORDER BY matchday DESC LIMIT 1"
+        # Team value from latest standings
+        cursor.execute(db.adapt_params(
+            "SELECT team_value FROM team_standings WHERE championship_id = ? AND team_id = ? ORDER BY matchday DESC LIMIT 1"
+        ), (championship_id, user_team_id))
+        tv_row = cursor.fetchone()
+        if tv_row and tv_row[0]:
+            user_team_value = int(tv_row[0])
+        else:
+            # Fallback: sum player values
+            cursor.execute(db.adapt_params(
+                "SELECT COALESCE(SUM(p.value), 0) FROM player_championship_stats pcs JOIN players p ON pcs.player_id = p.player_id WHERE pcs.championship_id = ? AND pcs.owner_team_id = ?"
             ), (championship_id, user_team_id))
-            tv_row = cursor2.fetchone()
-            if tv_row and tv_row[0]:
-                user_team_value = int(tv_row[0])
-            else:
-                # Fallback: sum player values
-                cursor2.execute(db.adapt_params(
-                    "SELECT COALESCE(SUM(p.value), 0) FROM player_championship_stats pcs JOIN players p ON pcs.player_id = p.player_id WHERE pcs.championship_id = ? AND pcs.owner_team_id = ?"
-                ), (championship_id, user_team_id))
-                user_team_value = int(cursor2.fetchone()[0] or 0)
+            user_team_value = int(cursor.fetchone()[0] or 0)
 
-            config = get_championship_config(championship_id, request)
-            initial_budget = config["initial_budget"]
+        config = get_championship_config(championship_id, request)
+        initial_budget = config["initial_budget"]
 
-            sql_spent = db.adapt_params("SELECT COALESCE(SUM(price), 0) FROM transactions WHERE championship_id = ? AND buyer_team_id = ?")
-            cursor2.execute(sql_spent, (championship_id, user_team_id))
-            user_spent = int(cursor2.fetchone()[0] or 0)
+        sql_spent = db.adapt_params("SELECT COALESCE(SUM(price), 0) FROM transactions WHERE championship_id = ? AND buyer_team_id = ?")
+        cursor.execute(sql_spent, (championship_id, user_team_id))
+        user_spent = int(cursor.fetchone()[0] or 0)
 
-            sql_income = db.adapt_params("SELECT COALESCE(SUM(price), 0) FROM transactions WHERE championship_id = ? AND seller_team_id = ?")
-            cursor2.execute(sql_income, (championship_id, user_team_id))
-            user_income = int(cursor2.fetchone()[0] or 0)
+        sql_income = db.adapt_params("SELECT COALESCE(SUM(price), 0) FROM transactions WHERE championship_id = ? AND seller_team_id = ?")
+        cursor.execute(sql_income, (championship_id, user_team_id))
+        user_income = int(cursor.fetchone()[0] or 0)
 
-            # Prizes (same as budget page)
-            sql_prizes = db.adapt_params("SELECT COALESCE(SUM(ranking_prize + mvp_prize + COALESCE(points_prize, 0) + COALESCE(dream_team_prize, 0)), 0) FROM team_prizes WHERE championship_id = ? AND team_id = ?")
-            cursor2.execute(sql_prizes, (championship_id, user_team_id))
-            user_prizes = int(cursor2.fetchone()[0] or 0)
+        # Prizes (same as budget page)
+        sql_prizes = db.adapt_params("SELECT COALESCE(SUM(ranking_prize + mvp_prize + COALESCE(points_prize, 0) + COALESCE(dream_team_prize, 0)), 0) FROM team_prizes WHERE championship_id = ? AND team_id = ?")
+        cursor.execute(sql_prizes, (championship_id, user_team_id))
+        user_prizes = int(cursor.fetchone()[0] or 0)
 
         user_balance = initial_budget - user_spent + user_income + user_prizes
         user_max_bid = user_balance + int(user_team_value * 0.5)
