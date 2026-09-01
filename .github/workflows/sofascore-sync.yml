@@ -1,59 +1,56 @@
-name: Sofascore Sync (Local)
+name: Sofascore Sync (Fly one-shot)
+
+# Runs the Sofascore batch sync on a one-shot Fly.io machine (cost ~0: the
+# machine only exists for the ~3 min the sync takes, then self-destroys).
+#
+# It REUSES the already-deployed futmondo-cron image (no extra build/deploy),
+# overriding the entrypoint to run the Sofascore script instead of uvicorn.
+# The image is refreshed daily by daily-sync.yml, so it always contains the
+# latest script.
+#
+# If this ever starts getting 403s (Sofascore blocked the datacenter IP), run
+# the script manually from a residential IP:
+#   python3 backend/scripts/sync_sofascore_local.py
 
 on:
   workflow_dispatch:
-    inputs:
-      parts:
-        description: 'Número de partes (1-10)'
-        required: false
-        type: string
-        default: '5'
   schedule:
-    # Diario a las 5:00 UTC = 7:00 CET (2 partes por defecto)
+    # Diario a las 5:00 UTC = 7:00 CET (tras el daily-sync de las 4:30 UTC)
     - cron: '0 5 * * *'
 
 jobs:
-  prepare:
-    name: Prepare chunks
-    runs-on: self-hosted
-    outputs:
-      matrix: ${{ steps.matrix.outputs.chunks }}
-      total: ${{ steps.matrix.outputs.total }}
+  sofascore:
+    name: Sofascore batch sync (Fly)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - name: Generate chunk matrix
-        id: matrix
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Run Sofascore sync on a one-shot Fly machine
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          FLY_APP: futmondo-cron
         run: |
-          PARTS="${{ github.event.inputs.parts || '5' }}"
-          # Validate: must be 1-10
-          if ! echo "$PARTS" | grep -qE '^[1-9]$|^10$'; then
-            echo "❌ Invalid parts: $PARTS (must be 1-10)"
+          set -euo pipefail
+
+          # Resolve the current image of the cron app (already deployed, no build).
+          IMAGE_REF=$(flyctl image show --app "$FLY_APP" --json \
+            | jq -r '.[0] | "registry.fly.io/\(.Repository):\(.Tag)"')
+          if [ -z "$IMAGE_REF" ] || [ "$IMAGE_REF" = "registry.fly.io/:" ]; then
+            echo "❌ Could not resolve cron image reference"
+            flyctl image show --app "$FLY_APP" --json
             exit 1
           fi
-          # Generate JSON array [1, 2, ..., N]
-          CHUNKS=$(printf '['; for i in $(seq 1 "$PARTS"); do [ "$i" -gt 1 ] && printf ','; printf "$i"; done; printf ']')
-          echo "chunks=$CHUNKS" >> $GITHUB_OUTPUT
-          echo "total=$PARTS" >> $GITHUB_OUTPUT
-          echo "📦 Will run $PARTS chunks: $CHUNKS"
+          echo "Using image: $IMAGE_REF"
 
-  sofascore:
-    name: "Chunk ${{ matrix.chunk }}/${{ needs.prepare.outputs.total }}"
-    runs-on: self-hosted
-    needs: prepare
-    timeout-minutes: 90
-    strategy:
-      matrix:
-        chunk: ${{ fromJson(needs.prepare.outputs.matrix) }}
-      max-parallel: 1
-      fail-fast: false
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Install Python dependencies (if needed)
-        run: |
-          python3 -c "import curl_cffi, psycopg2, dotenv" 2>/dev/null || \
-          python3 -m pip install curl_cffi psycopg2-binary python-dotenv --break-system-packages -q
-
-      - name: Run Sofascore sync (chunk ${{ matrix.chunk }}/${{ needs.prepare.outputs.total }})
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: python3 backend/scripts/sync_sofascore_local.py --chunk ${{ matrix.chunk }}/${{ needs.prepare.outputs.total }}
+          # Launch a one-shot machine in the same region as the cron app.
+          # --rm  : machine is destroyed after the process exits (cost 0 idle).
+          # --entrypoint "sh -c '...'" : run our script; the inherited uvicorn CMD
+          #   is passed as a positional arg to sh and ignored by 'sh -c'.
+          # DATABASE_URL is inherited from the app's Fly secrets.
+          flyctl machine run "$IMAGE_REF" \
+            --app "$FLY_APP" \
+            --region cdg \
+            --vm-memory 256 \
+            --rm \
+            --entrypoint "sh -c 'python scripts/sync_sofascore_local.py'"

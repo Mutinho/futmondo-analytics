@@ -234,12 +234,7 @@ class SofascoreClient:
             "name": player_data.get("name", ""),
             "slug": player_data.get("slug", ""),
             "sofascore_url": f"https://www.sofascore.com/football/player/{player_data.get('slug', '')}/{player_id}",
-            "position": player_data.get("position", ""),
             "team": player_data.get("team", {}).get("name") if player_data.get("team") else None,
-            "nationality": player_data.get("country", {}).get("name") if player_data.get("country") else None,
-            "age": player_data.get("age"),
-            "height": player_data.get("height"),
-            "preferred_foot": player_data.get("preferredFoot"),
         }
 
         if stats_data:

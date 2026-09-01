@@ -101,8 +101,7 @@ async def sync_sofascore(
                     full_info.get('appearances'), full_info.get('minutes_played'),
                     full_info.get('yellow_cards'), full_info.get('red_cards'),
                     full_info.get('tournament'), full_info.get('season'),
-                    full_info.get('position'), full_info.get('nationality'),
-                    full_info.get('age'), full_info.get('successful_dribbles'),
+                    full_info.get('successful_dribbles'),
                     full_info.get('accurate_passes_pct'), full_info.get('shots_on_target'),
                     full_info.get('tackles'), full_info.get('interceptions'),
                     full_info.get('clean_sheets'), full_info.get('saves'),
@@ -128,8 +127,8 @@ async def sync_sofascore(
                         INSERT INTO sofascore_cache 
                         (player_name, championship_id, sofascore_id, sofascore_name, team,
                          rating, goals, assists, appearances, minutes_played,
-                         yellow_cards, red_cards, tournament, season, position,
-                         nationality, age, successful_dribbles, accurate_passes_pct,
+                         yellow_cards, red_cards, tournament, season,
+                         successful_dribbles, accurate_passes_pct,
                          shots_on_target, tackles, interceptions, clean_sheets, saves,
                          sofascore_url, synced_at)
                         VALUES %s
@@ -146,9 +145,6 @@ async def sync_sofascore(
                             red_cards = EXCLUDED.red_cards,
                             tournament = EXCLUDED.tournament,
                             season = EXCLUDED.season,
-                            position = EXCLUDED.position,
-                            nationality = EXCLUDED.nationality,
-                            age = EXCLUDED.age,
                             successful_dribbles = EXCLUDED.successful_dribbles,
                             accurate_passes_pct = EXCLUDED.accurate_passes_pct,
                             shots_on_target = EXCLUDED.shots_on_target,
@@ -164,11 +160,11 @@ async def sync_sofascore(
                         INSERT OR REPLACE INTO sofascore_cache 
                         (player_name, championship_id, sofascore_id, sofascore_name, team,
                          rating, goals, assists, appearances, minutes_played,
-                         yellow_cards, red_cards, tournament, season, position,
-                         nationality, age, successful_dribbles, accurate_passes_pct,
+                         yellow_cards, red_cards, tournament, season,
+                         successful_dribbles, accurate_passes_pct,
                          shots_on_target, tackles, interceptions, clean_sheets, saves,
                          sofascore_url, synced_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, cache_rows)
                 logger.info(f"Batch inserted {len(cache_rows)} sofascore records")
 

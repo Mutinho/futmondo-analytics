@@ -22,9 +22,6 @@ interface SofascoreStats {
   red_cards: number | null;
   tournament: string | null;
   season: string | null;
-  position: string | null;
-  nationality: string | null;
-  age: number | null;
   successful_dribbles: number | null;
   accurate_passes_pct: number | null;
   shots_on_target: number | null;
@@ -94,15 +91,5 @@ export class SofascoreDetailDialogComponent {
     if (pct >= 40) return 'starter-40';
     if (pct >= 20) return 'starter-20';
     return 'starter-0';
-  }
-
-  formatPosition(pos: string): string {
-    const map: Record<string, string> = {
-      'F': 'Delantero',
-      'M': 'Centrocampista',
-      'D': 'Defensa',
-      'G': 'Portero',
-    };
-    return map[pos] || pos;
   }
 }

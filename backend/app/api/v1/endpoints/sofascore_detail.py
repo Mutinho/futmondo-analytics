@@ -21,8 +21,8 @@ async def get_sofascore_player_detail(
         sql = """
             SELECT player_name, sofascore_id, sofascore_name,
                    team, rating, goals, assists, appearances, minutes_played,
-                   yellow_cards, red_cards, tournament, season, position,
-                   nationality, age, successful_dribbles, accurate_passes_pct,
+                   yellow_cards, red_cards, tournament, season,
+                   successful_dribbles, accurate_passes_pct,
                    shots_on_target, tackles, interceptions, clean_sheets, saves,
                    synced_at, matches_started
             FROM sofascore_cache
@@ -36,7 +36,7 @@ async def get_sofascore_player_detail(
         raise HTTPException(status_code=404, detail=f"No se encontraron stats de Sofascore para '{player_name}'")
 
     appearances = row[7] or 0
-    matches_started = row[24] or 0
+    matches_started = row[21] or 0
     starter_pct = round((matches_started / 38) * 100) if matches_started else None
 
     return {
@@ -57,16 +57,13 @@ async def get_sofascore_player_detail(
             "red_cards": row[10],
             "tournament": row[11],
             "season": row[12],
-            "position": row[13],
-            "nationality": row[14],
-            "age": row[15],
-            "successful_dribbles": row[16],
-            "accurate_passes_pct": row[17],
-            "shots_on_target": row[18],
-            "tackles": row[19],
-            "interceptions": row[20],
-            "clean_sheets": row[21],
-            "saves": row[22],
-            "synced_at": row[23],
+            "successful_dribbles": row[13],
+            "accurate_passes_pct": row[14],
+            "shots_on_target": row[15],
+            "tackles": row[16],
+            "interceptions": row[17],
+            "clean_sheets": row[18],
+            "saves": row[19],
+            "synced_at": row[20],
         },
     }

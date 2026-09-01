@@ -2,7 +2,8 @@
 """
 Data Synchronization Script (Multi-Championship)
 Runs incremental and full data synchronization from Futmondo API to database.
-Iterates over all active championships, then runs Sofascore once at the end.
+Iterates over all active championships. Sofascore ratings are synced separately
+by backend/scripts/sync_sofascore_local.py (residential IP).
 """
 # Early flush to confirm process starts (visible in Fly.io logs immediately)
 print("sync_data.py starting...", flush=True)
@@ -102,22 +103,6 @@ def get_active_championship_ids(client):
     return active_ids
 
 
-def sync_sofascore(championship_id, client):
-    """Run Sofascore ratings sync using the same logic as the HTTP endpoint."""
-    from app.api.v1.endpoints.sync import _sync_sofascore
-    logger.info("Starting Sofascore sync...")
-    logger.info(f"  Using championship {championship_id} for player list")
-    try:
-        result = _sync_sofascore(championship_id, client)
-        synced = result.get("synced", 0)
-        errors = result.get("errors", 0)
-        logger.info(f"  Sofascore: done - {synced} synced, {errors} errors")
-        return {"status": "done", "synced": synced, "errors": errors}
-    except Exception as e:
-        logger.warning(f"  Sofascore: ERROR - {e}")
-        return {"status": "error", "error": str(e), "synced": 0}
-
-
 def sync_championship(championship_id, client):
     """Run full sync for a single championship.
     
@@ -187,8 +172,6 @@ def main():
         successes = 0
         failures = 0
         all_results = {}
-        best_championship_id = championship_ids[0]
-        best_players_count = 0
         
         for i, champ_id in enumerate(championship_ids, 1):
             logger.info("")
@@ -199,11 +182,6 @@ def main():
             try:
                 results, players_synced = sync_championship(champ_id, client)
                 all_results[champ_id] = results
-                
-                # Track the championship with most players (for Sofascore later)
-                if players_synced > best_players_count:
-                    best_players_count = players_synced
-                    best_championship_id = champ_id
                 
                 # Check if any critical step failed
                 has_critical_error = False
@@ -228,17 +206,10 @@ def main():
                 failures += 1
                 all_results[champ_id] = {"error": str(e)}
         
-        # --- Sofascore sync (once, using best championship) ---
-        sofascore_result = None
-        if "--skip-sofascore" not in sys.argv:
-            logger.info("")
-            logger.info("=" * 60)
-            logger.info("Running Sofascore sync (once for all championships)")
-            logger.info("=" * 60)
-            sofascore_result = sync_sofascore(best_championship_id, client)
-        else:
-            logger.info("Skipping Sofascore sync (--skip-sofascore flag)")
-        
+        # Sofascore ratings are synced by a separate local workflow
+        # (backend/scripts/sync_sofascore_local.py) that runs from a residential
+        # IP, because Sofascore blocks datacenter IPs. Not run here.
+
         # --- Final summary ---
         logger.info("")
         logger.info("=" * 60)
@@ -261,10 +232,6 @@ def main():
             else:
                 error = results.get("error", "Unknown") if isinstance(results, dict) else str(results)
                 logger.error(f"  Championship {champ_id}: FAILED - {error}")
-        
-        if sofascore_result:
-            logger.info(f"")
-            logger.info(f"  Sofascore: {sofascore_result.get('status', 'unknown')} - {sofascore_result.get('synced', 0)} synced")
         
         logger.info("")
         total = successes + failures

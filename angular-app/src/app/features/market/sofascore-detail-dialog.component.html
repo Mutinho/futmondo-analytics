@@ -17,9 +17,6 @@
         {{ stats()!.rating ? (stats()!.rating! | number:'1.1-1') : '-' }}
       </div>
       <div class="rating-meta">
-        @if (stats()!.position) { <span class="meta-item">📋 {{ formatPosition(stats()!.position!) }}</span> }
-        @if (stats()!.nationality) { <span class="meta-item">🌍 {{ stats()!.nationality }}</span> }
-        @if (stats()!.age) { <span class="meta-item">🎂 {{ stats()!.age }} años</span> }
         @if (stats()!.tournament) { <span class="meta-item">🏆 {{ stats()!.tournament }}</span> }
         @if (stats()!.season) { <span class="meta-item">📅 {{ stats()!.season }}</span> }
       </div>
