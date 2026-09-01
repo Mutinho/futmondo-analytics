@@ -111,9 +111,14 @@ def normalize_name(name: str) -> str:
 def match_keys(name: str) -> list:
     """Generate matching keys for a name, from most to least specific.
 
-    Futmondo often stores short names (single surname) while Sofascore uses full
-    names. Indexing/looking-up by full name, last-two tokens and last token lets
-    'Oyarzabal' match 'Mikel Oyarzabal', etc.
+    Futmondo often stores short names while Sofascore uses full names. The short
+    name may be either the surname OR the first name:
+      - 'Oyarzabal'  -> 'Mikel Oyarzabal'   (surname)
+      - 'Alfon'      -> 'Alfon González'     (first name)
+      - 'Jonny'      -> 'Jonny Otto'         (first name)
+    So we key by: full name, last-two tokens, last token (surname) and first
+    token (first name). Ordered from most to least specific to prefer precise
+    matches and only fall back to single-token (more ambiguous) keys last.
     """
     nm = normalize_name(name)
     if not nm:
@@ -123,7 +128,9 @@ def match_keys(name: str) -> list:
     if len(toks) >= 2:
         keys.append(" ".join(toks[-2:]))
     if toks:
-        keys.append(toks[-1])
+        keys.append(toks[-1])          # surname (last token)
+    if len(toks) >= 2:
+        keys.append(toks[0])           # first name (first token)
     # Dedup preserving order
     seen = set()
     out = []
