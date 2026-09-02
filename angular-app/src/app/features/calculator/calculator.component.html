@@ -15,6 +15,12 @@
           <span class="calc-header-label">En venta</span>
           <span class="calc-header-value on-sale">{{ onSaleTotal() | money }}</span>
         </div>
+        @if (activeBidsCount() > 0) {
+          <div class="calc-header-item">
+            <span class="calc-header-label">Pujas activas ({{ activeBidsCount() }})</span>
+            <span class="calc-header-value negative">-{{ activeBidsTotal() | money }}</span>
+          </div>
+        }
         <div class="calc-header-item">
           <span class="calc-header-label">Seleccionadas</span>
           <span class="calc-header-value sales">{{ selectedTotal() | money }}</span>

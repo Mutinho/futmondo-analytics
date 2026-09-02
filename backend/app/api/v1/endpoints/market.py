@@ -487,6 +487,7 @@ def _build_market_response(request, db, conn, cursor, client, championship_id,
 
         # Active bids total — ONLY this user's bids (from live data, not cache).
         active_bids_total = sum(b.get('price', 0) for b in user_bids_map.values())
+        active_bids_count = len(user_bids_map)
 
         # User balance and team value (from DB, not API)
         user_team_value = 0
@@ -534,6 +535,7 @@ def _build_market_response(request, db, conn, cursor, client, championship_id,
                 "team_value": user_team_value,
                 "max_bid": user_max_bid,
                 "active_bids_total": active_bids_total,
+                "active_bids_count": active_bids_count,
                 "available_for_bids": user_max_bid - active_bids_total,
             },
         }

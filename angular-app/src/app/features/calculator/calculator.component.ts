@@ -111,6 +111,10 @@ export class CalculatorComponent {
   // Players currently on sale
   onSalePlayers = signal<any[]>([]);
 
+  // Active bids in the market (money committed if bids are won)
+  activeBidsTotal = signal(0);
+  activeBidsCount = signal(0);
+
   // Computed values
   selectedCount = computed(() => Object.keys(this.selectedIds()).length);
 
@@ -124,7 +128,11 @@ export class CalculatorComponent {
       .reduce((sum, p) => sum + p.value + (p.change * days), 0);
   });
 
-  futureBalance = computed(() => this.balance() + this.selectedTotal() + this.onSaleTotal());
+  // Future balance = current balance + income from selected sales + income from
+  // players already on sale − money committed in active market bids.
+  futureBalance = computed(() =>
+    this.balance() + this.selectedTotal() + this.onSaleTotal() - this.activeBidsTotal()
+  );
 
   allSelected = computed(() => {
     const players = this.players();
@@ -162,6 +170,8 @@ export class CalculatorComponent {
       this.dataSource.data = rosterData.players || [];
       this.players.set(rosterData.players || []);
       this.balance.set(marketData.user_info?.balance || 0);
+      this.activeBidsTotal.set(marketData.user_info?.active_bids_total || 0);
+      this.activeBidsCount.set(marketData.user_info?.active_bids_count || 0);
       this.onSalePlayers.set(onSaleData.players || []);
 
       // Filter out on-sale players from selectable list
