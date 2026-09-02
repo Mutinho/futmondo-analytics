@@ -316,6 +316,7 @@ def _auto_detect_championships(user_id: str, client):
             money_per_ranking = 0
             dream_team_bonus = 0
             mvp_bonus = 0
+            user_team_id = None  # this user's own team in the championship
             try:
                 config_data = {
                     "header": {"token": client.token, "userid": client.user_id},
@@ -335,6 +336,11 @@ def _auto_detect_championships(user_id: str, client):
                     mvp_bonus = configuration.get("mvpPlayer", 0)
                     ranking_mode = configuration.get("rankingMode", "flop")
                     users_to_rank = configuration.get("usersToRank", -1)
+                    # This user's own team in the championship (per-user, not shared).
+                    for t in config_answer.get("teams", config_answer.get("ranking", [])):
+                        if (t.get("userid") or t.get("userId")) == client.user_id:
+                            user_team_id = t.get("teamid") or t.get("id")
+                            break
                     # Also get budget and clauses from real config
                     if configuration.get("budget"):
                         initial_budget = configuration["budget"]
@@ -344,14 +350,16 @@ def _auto_detect_championships(user_id: str, client):
             
             if db.db_type in ["postgresql", "postgres"]:
                 cursor.execute("""
-                    INSERT INTO user_championships (user_id, championship_id, name, initial_budget, has_clauses, excluded_teams, money_per_point, money_per_ranking, dream_team_bonus, mvp_bonus, ranking_mode, users_to_rank, is_pro)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (user_id, championship_id) DO UPDATE SET is_pro = EXCLUDED.is_pro
-                """, (user_id, champ_id, champ_name, initial_budget, has_clauses, excluded_teams, money_per_point, money_per_ranking, dream_team_bonus, mvp_bonus, ranking_mode, users_to_rank, is_pro))
+                    INSERT INTO user_championships (user_id, championship_id, name, initial_budget, has_clauses, excluded_teams, money_per_point, money_per_ranking, dream_team_bonus, mvp_bonus, ranking_mode, users_to_rank, is_pro, futmondo_team_id)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (user_id, championship_id) DO UPDATE SET
+                        is_pro = EXCLUDED.is_pro,
+                        futmondo_team_id = COALESCE(EXCLUDED.futmondo_team_id, user_championships.futmondo_team_id)
+                """, (user_id, champ_id, champ_name, initial_budget, has_clauses, excluded_teams, money_per_point, money_per_ranking, dream_team_bonus, mvp_bonus, ranking_mode, users_to_rank, is_pro, user_team_id))
             else:
                 cursor.execute("""
-                    INSERT OR REPLACE INTO user_championships (user_id, championship_id, name, initial_budget, has_clauses, excluded_teams, money_per_point, money_per_ranking, dream_team_bonus, mvp_bonus, ranking_mode, users_to_rank, is_pro)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (user_id, champ_id, champ_name, initial_budget, has_clauses, excluded_teams, money_per_point, money_per_ranking, dream_team_bonus, mvp_bonus, ranking_mode, users_to_rank, is_pro))
+                    INSERT OR REPLACE INTO user_championships (user_id, championship_id, name, initial_budget, has_clauses, excluded_teams, money_per_point, money_per_ranking, dream_team_bonus, mvp_bonus, ranking_mode, users_to_rank, is_pro, futmondo_team_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (user_id, champ_id, champ_name, initial_budget, has_clauses, excluded_teams, money_per_point, money_per_ranking, dream_team_bonus, mvp_bonus, ranking_mode, users_to_rank, is_pro, user_team_id))
     
     logger.info(f"Auto-detected {len(championships)} championships for user {user_id}")

@@ -1488,28 +1488,9 @@ class DataSyncService:
             
             logger.info(f"Player sync complete: {total_synced} players in {duration:.2f}s")
             
-            # Save user's team_id for this championship (used to filter own players in clausulables)
-            try:
-                standings = self.client.get_matchday_standings(self.championship_id)
-                if standings:
-                    team_list = standings.get("teams", standings.get("ranking", []))
-                    for t in team_list:
-                        uid = t.get("userid") or t.get("userId")
-                        if uid == self.client.user_id:
-                            user_team_id = t.get("teamid") or t.get("id")
-                            if user_team_id:
-                                from app.services.db_connection import get_db
-                                db = get_db()
-                                with db.get_connection() as conn:
-                                    cursor = db.get_cursor(conn)
-                                    cursor.execute(
-                                        "UPDATE user_championships SET futmondo_team_id = %s WHERE championship_id = %s AND futmondo_team_id IS NULL",
-                                        (user_team_id, self.championship_id)
-                                    )
-                                logger.info(f"Saved futmondo_team_id={user_team_id} for championship {self.championship_id}")
-                            break
-            except Exception as team_err:
-                logger.warning(f"Could not save futmondo_team_id: {team_err}")
+            # NOTE: futmondo_team_id is saved per-user at login (_auto_detect_championships),
+            # never here — the sync runs with one user's credentials and must not write
+            # another user's team into their row (that leaked one user's balance to others).
             
             return {
                 "status": status,

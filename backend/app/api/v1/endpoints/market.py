@@ -23,8 +23,9 @@ def _get_user_team_id(client, championship_id: str) -> str:
     for t in teams:
         if t.get('userid') == client.user_id:
             return t.get('teamid') or t.get('id', '')
-    # Fallback: usar el primer equipo
-    return teams[0].get('teamid') or teams[0].get('id', '') if teams else ""
+    # User not found in standings — do NOT guess (returning another team would
+    # leak that team's data). Caller handles empty team_id.
+    return ""
 
 
 def _calculate_suggested_bid(player_value: int, championship_id: str, db) -> Dict:
@@ -250,8 +251,16 @@ async def get_market_today(
             user_team_id = row[0] if row else ""
 
             if not user_team_id:
-                # Fallback to API only if not in DB
+                # Fallback to API (resolves the CURRENT user's team from their session)
                 user_team_id = _get_user_team_id(client, championship_id)
+                # Persist it for this user so next loads skip the API call.
+                if user_team_id and user_id:
+                    try:
+                        cursor.execute(db.adapt_params(
+                            "UPDATE user_championships SET futmondo_team_id = ? WHERE user_id = ? AND championship_id = ?"
+                        ), (user_team_id, user_id, championship_id))
+                    except Exception:
+                        pass
 
             # Try reading from DB cache first
             all_players = []
