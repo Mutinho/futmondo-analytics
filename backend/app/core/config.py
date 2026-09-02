@@ -69,10 +69,15 @@ API_PORT = int(os.getenv("API_PORT", "8000"))
 
 
 # JWT Authentication
+# Only the web API service issues/validates JWTs. The cron worker
+# (futmondo-cron) imports this module too but never touches JWT, so we don't
+# require the secret there — otherwise the whole sync would fail to start.
 JWT_SECRET = os.getenv("JWT_SECRET", "")
 if not JWT_SECRET:
-    if os.getenv("FLY_APP_NAME"):  # Running on Fly.io = production
-        raise RuntimeError("FATAL: JWT_SECRET must be set in production!")
+    _fly_app = os.getenv("FLY_APP_NAME", "")
+    _is_web_service = _fly_app and "cron" not in _fly_app  # api = web; cron = worker
+    if _is_web_service:
+        raise RuntimeError("FATAL: JWT_SECRET must be set in the web API service!")
     JWT_SECRET = "futmondo-dev-secret-change-in-prod"
 
 # Gemini AI Assistant
