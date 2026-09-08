@@ -29,14 +29,29 @@ export interface UserStatsResponse {
 }
 
 export interface PlayerFinance {
+  userteam_id: string;
+  user_id: string;
   team_name: string;
   username: string;
-  points: number;
-  money_per_point: number;
+  total_points: number;
+  initial_budget: number;
+  points_money: number;
   transaction_profit: number;
-  dream_team_count: number;
+  total_spent: number;
+  total_received: number;
+  ideal_team_count: number;
   mvp_count: number;
-  total: number;
+  ideal_team_bonus: number;
+  mvp_bonus: number;
+  total_bonus: number;
+  ranking_money: number;
+  total_punishments: number;
+  total_bonuses: number;
+  net_adjustment: number;
+  punishment_count: number;
+  bonus_count: number;
+  total_money: number;
+  transaction_count: number;
 }
 
 export interface PlayerFinancesResponse {

@@ -32,21 +32,33 @@ import { PageHeaderComponent } from '../../shared/components/page-header.compone
             <th mat-header-cell *matHeaderCellDef>Equipo</th>
             <td mat-cell *matCellDef="let u"><strong>{{ u.team_name }}</strong></td>
           </ng-container>
-          <ng-container matColumnDef="points">
+          <ng-container matColumnDef="total_points">
             <th mat-header-cell *matHeaderCellDef>Puntos</th>
-            <td mat-cell *matCellDef="let u">{{ u.points }}</td>
+            <td mat-cell *matCellDef="let u">{{ u.total_points }}</td>
           </ng-container>
-          <ng-container matColumnDef="money_per_point">
-            <th mat-header-cell *matHeaderCellDef>€/Punto</th>
-            <td mat-cell *matCellDef="let u">{{ u.money_per_point | money }}</td>
+          <ng-container matColumnDef="points_money">
+            <th mat-header-cell *matHeaderCellDef>€ Puntos</th>
+            <td mat-cell *matCellDef="let u">{{ u.points_money | money }}</td>
+          </ng-container>
+          <ng-container matColumnDef="ranking_money">
+            <th mat-header-cell *matHeaderCellDef>Ranking</th>
+            <td mat-cell *matCellDef="let u">{{ u.ranking_money | money }}</td>
+          </ng-container>
+          <ng-container matColumnDef="mvp_bonus">
+            <th mat-header-cell *matHeaderCellDef>MVP / Once</th>
+            <td mat-cell *matCellDef="let u">{{ (u.mvp_bonus + u.ideal_team_bonus) | money }}</td>
           </ng-container>
           <ng-container matColumnDef="transaction_profit">
             <th mat-header-cell *matHeaderCellDef>Profit Trans.</th>
             <td mat-cell *matCellDef="let u" [class]="u.transaction_profit >= 0 ? 'pos' : 'neg'">{{ u.transaction_profit | money:true }}</td>
           </ng-container>
-          <ng-container matColumnDef="total">
+          <ng-container matColumnDef="net_adjustment">
+            <th mat-header-cell *matHeaderCellDef>Ajustes</th>
+            <td mat-cell *matCellDef="let u" [class]="u.net_adjustment >= 0 ? 'pos' : 'neg'">{{ u.net_adjustment | money:true }}</td>
+          </ng-container>
+          <ng-container matColumnDef="total_money">
             <th mat-header-cell *matHeaderCellDef>Total</th>
-            <td mat-cell *matCellDef="let u"><strong>{{ u.total | money }}</strong></td>
+            <td mat-cell *matCellDef="let u"><strong>{{ u.total_money | money }}</strong></td>
           </ng-container>
           <tr mat-header-row *matHeaderRowDef="columns"></tr>
           <tr mat-row *matRowDef="let row; columns: columns"></tr>
@@ -70,7 +82,7 @@ export class FinancesComponent {
   loading = signal(true);
   error = signal('');
   users = signal<PlayerFinance[]>([]);
-  columns = ['team_name', 'points', 'money_per_point', 'transaction_profit', 'total'];
+  columns = ['team_name', 'total_points', 'points_money', 'ranking_money', 'mvp_bonus', 'transaction_profit', 'net_adjustment', 'total_money'];
 
   constructor() {
     this.loadData();

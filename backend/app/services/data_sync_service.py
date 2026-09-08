@@ -1647,6 +1647,7 @@ class DataSyncService:
 
             records_synced = 0
             rounds_processed = 0
+            valid_matchdays = set()
 
             for round_info in all_rounds:
                 matchday = round_info.get("number")
@@ -1655,6 +1656,32 @@ class DataSyncService:
 
                 if not matchday or not round_id:
                     continue
+
+                # A round can be reported as "closed" by Futmondo even when it
+                # still has postponed/unplayed matches (e.g. a matchday with only
+                # an advanced game). Ranking/MVP/dream-team prizes must only be
+                # awarded once EVERY match of the round is finished (status "F").
+                # points_prize is still paid immediately for whatever points exist.
+                round_fully_played = is_closed
+                if is_closed:
+                    matches_data = self.client.get_round_matches(self.championship_id, round_id, sample_userteam_id)
+                    matches = []
+                    if isinstance(matches_data, dict):
+                        matches = matches_data.get("matches", [])
+                    elif isinstance(matches_data, list):
+                        matches = matches_data
+                    if matches:
+                        round_fully_played = all(m.get("status") == "F" for m in matches)
+                        if not round_fully_played:
+                            logger.info(
+                                "Round %s is 'closed' but has unfinished/postponed matches; "
+                                "paying points_prize only (no ranking/MVP/dream-team prizes yet)",
+                                matchday,
+                            )
+                    time.sleep(0.2)
+
+                # Effective flag used for ranking/MVP/dream-team prizes
+                award_round_prizes = is_closed and round_fully_played
 
                 # Get ranking directly from API
                 ranking_data = self.client.get_round_ranking(
@@ -1677,7 +1704,7 @@ class DataSyncService:
                 # Get dream team to find MVP and count dream team players per team (only for closed rounds)
                 mvp_team_id = None
                 dream_team_counts = {}
-                if (mvp_bonus > 0 or dream_team_bonus > 0) and is_closed:
+                if (mvp_bonus > 0 or dream_team_bonus > 0) and award_round_prizes:
                     dream_data = self.client.get_dream_team(self.championship_id, round_id=round_id)
                     mvp_player_id = None
                     dream_team_player_ids = set()
@@ -1732,22 +1759,22 @@ class DataSyncService:
                     # Calculate ranking prize (only for closed rounds, only for active teams)
                     ranking_prize = 0
                     active_pos = active_position_map.get(team_id)
-                    if active_pos and money_per_ranking > 0 and is_closed and total_pct > 0:
+                    if active_pos and money_per_ranking > 0 and award_round_prizes and total_pct > 0:
                         if ranking_mode == "flop":
                             ratio = active_pos / total_pct
                         else:
                             ratio = (active_members - active_pos + 1) / total_pct
                         ranking_prize = round(money_per_ranking * ratio)
 
-                    # MVP prize (only for closed rounds)
-                    team_mvp_prize = mvp_bonus if (team_id == mvp_team_id and is_closed) else 0
+                    # MVP prize (only when the round is fully played)
+                    team_mvp_prize = mvp_bonus if (team_id == mvp_team_id and award_round_prizes) else 0
 
                     # Points prize
                     points_prize = round(round_points * money_per_point) if money_per_point > 0 else 0
 
-                    # Dream team prize (only for closed rounds)
+                    # Dream team prize (only when the round is fully played)
                     dream_team_prize = 0
-                    if dream_team_bonus > 0 and is_closed:
+                    if dream_team_bonus > 0 and award_round_prizes:
                         dt_count = dream_team_counts.get(team_id, 0)
                         dream_team_prize = round(dt_count * dream_team_bonus)
 
@@ -1776,9 +1803,38 @@ class DataSyncService:
                     
                     records_synced += len(prizes_to_save)
                     rounds_processed += 1
+                    valid_matchdays.add(matchday)
                     logger.info(f"Round {matchday}: saved {len(prizes_to_save)} prize records")
 
                 time.sleep(0.3)
+
+            # Defensive cleanup: remove prize rows for matchdays that are no
+            # longer valid (e.g. a round that was previously processed while it
+            # still had postponed matches, or that Futmondo no longer reports).
+            # This clears stale ranking prizes such as a matchday counted before
+            # all its games were played.
+            stale_deleted = 0
+            if valid_matchdays:
+                try:
+                    with db.get_connection() as conn:
+                        cursor = db.get_cursor(conn)
+                        placeholders = ",".join(["?"] * len(valid_matchdays))
+                        sql = (
+                            f"DELETE FROM team_prizes WHERE championship_id = ? "
+                            f"AND matchday NOT IN ({placeholders})"
+                        )
+                        sql = db.adapt_params(sql)
+                        cursor.execute(sql, (self.championship_id, *valid_matchdays))
+                        stale_deleted = cursor.rowcount if cursor.rowcount is not None else 0
+                        conn.commit()
+                    if stale_deleted:
+                        logger.info(
+                            "Removed %s stale prize rows for matchdays not in %s",
+                            stale_deleted,
+                            sorted(valid_matchdays),
+                        )
+                except Exception as cleanup_err:
+                    logger.warning(f"Failed to clean up stale prizes: {cleanup_err}")
 
             duration = time.time() - start_time
             status = "success" if rounds_processed > 0 else "no_new_data"
@@ -1789,6 +1845,7 @@ class DataSyncService:
                 "status": status,
                 "rounds_processed": rounds_processed,
                 "records_synced": records_synced,
+                "stale_prizes_removed": stale_deleted,
                 "duration_seconds": duration
             }
 

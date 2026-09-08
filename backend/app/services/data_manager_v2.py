@@ -3417,6 +3417,47 @@ class DataManagerV2:
             })
         return history
 
+    def get_prizes_by_team(self, championship_id: str) -> Dict[str, Dict[str, int]]:
+        """Return accumulated prizes per team_id from the team_prizes table.
+
+        team_prizes is the single source of truth for all prize money. It is
+        populated by DataSyncService.sync_prizes(), which already enforces the
+        business rules (a round only awards ranking/MVP/dream-team prizes once
+        every match of the round has been played).
+
+        Returns a mapping team_id -> {ranking, mvp, points, dream_team, total}.
+        Teams with no prize rows are simply absent from the mapping.
+        """
+        prizes: Dict[str, Dict[str, int]] = {}
+        with self.db.get_connection() as conn:
+            cursor = self.db.get_cursor(conn)
+            sql = self.db.adapt_params('''
+                SELECT
+                    team_id,
+                    COALESCE(SUM(ranking_prize), 0)    AS ranking,
+                    COALESCE(SUM(mvp_prize), 0)        AS mvp,
+                    COALESCE(SUM(points_prize), 0)     AS points,
+                    COALESCE(SUM(dream_team_prize), 0) AS dream_team
+                FROM team_prizes
+                WHERE championship_id = ?
+                GROUP BY team_id
+            ''')
+            cursor.execute(sql, (championship_id,))
+            for row in cursor.fetchall():
+                team_id = row[0]
+                ranking = int(row[1] or 0)
+                mvp = int(row[2] or 0)
+                points = int(row[3] or 0)
+                dream_team = int(row[4] or 0)
+                prizes[team_id] = {
+                    "ranking": ranking,
+                    "mvp": mvp,
+                    "points": points,
+                    "dream_team": dream_team,
+                    "total": ranking + mvp + points + dream_team,
+                }
+        return prizes
+
     def get_player_performance_history(self, championship_id: str, player_ids: Optional[List[str]] = None,
                                         window: Optional[int] = None) -> List[Dict]:
         """Return player performance records filtered by players and limited matchdays"""
