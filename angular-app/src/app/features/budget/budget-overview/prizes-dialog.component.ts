@@ -9,6 +9,8 @@ import { MoneyPipe } from '../../../shared/pipes/money.pipe';
 
 interface PrizeRound {
   matchday: number;
+  is_advanced?: boolean;
+  label?: string;
   ranking_prize: number;
   mvp_prize: number;
   points_prize: number;
@@ -32,11 +34,13 @@ interface PrizeRound {
         <table mat-table [dataSource]="rounds()">
           <ng-container matColumnDef="matchday">
             <th mat-header-cell *matHeaderCellDef>Jornada</th>
-            <td mat-cell *matCellDef="let r">J{{ r.matchday }}</td>
+            <td mat-cell *matCellDef="let r">{{ r.label || ('J' + r.matchday) }}</td>
           </ng-container>
           <ng-container matColumnDef="position">
             <th mat-header-cell *matHeaderCellDef>Posición</th>
-            <td mat-cell *matCellDef="let r">{{ r.position }}º</td>
+            <td mat-cell *matCellDef="let r">
+              @if (r.is_advanced) { - } @else { {{ r.position }}º }
+            </td>
           </ng-container>
           <ng-container matColumnDef="ranking_prize">
             <th mat-header-cell *matHeaderCellDef>Ranking</th>

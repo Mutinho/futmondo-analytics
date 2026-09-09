@@ -238,18 +238,35 @@ async def get_team_prizes(
                 SELECT matchday, ranking_prize, mvp_prize, position, COALESCE(points_prize, 0), COALESCE(dream_team_prize, 0)
                 FROM team_prizes
                 WHERE championship_id = ? AND team_id = ?
-                ORDER BY matchday
             """
             sql = db.adapt_params(sql)
             cursor.execute(sql, (championship_id, team_id))
-            
+
+            raw_rows = cursor.fetchall()
+
+            def _sort_key(row):
+                # Advanced pseudo-rounds are stored as a negative synthetic
+                # matchday (e.g. Futmondo's transient "0.5" -> -5). Sort them
+                # last so real matchdays keep their natural order.
+                md = row[0]
+                return (float("inf"), md) if md is not None and md < 0 else (float(md), 0)
+
             rounds = []
             total = 0
-            for row in cursor.fetchall():
+            for row in sorted(raw_rows, key=_sort_key):
                 matchday_total = (row[1] or 0) + (row[2] or 0) + (row[4] or 0) + (row[5] or 0)
                 total += matchday_total
+                md = row[0]
+                # A negative matchday is a transient "advanced" pseudo-round that
+                # Futmondo reports (e.g. "0.5") for a game brought forward. It only
+                # carries points_prize; ranking/MVP/dream-team are never awarded
+                # until the real matchday is fully played. Show a friendly label
+                # instead of the internal synthetic number.
+                is_advanced = md is not None and md < 0
                 rounds.append({
-                    "matchday": row[0],
+                    "matchday": md,
+                    "is_advanced": is_advanced,
+                    "label": "Adelantada" if is_advanced else f"J{md}",
                     "ranking_prize": row[1] or 0,
                     "mvp_prize": row[2] or 0,
                     "points_prize": row[4] or 0,

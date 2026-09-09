@@ -1650,12 +1650,44 @@ class DataSyncService:
             valid_matchdays = set()
 
             for round_info in all_rounds:
-                matchday = round_info.get("number")
+                raw_number = round_info.get("number")
                 round_id = round_info.get("id") or round_info.get("_id")
                 is_closed = round_info.get("status") in closed_statuses
 
-                if not matchday or not round_id:
+                if not raw_number or not round_id:
                     continue
+
+                # Futmondo can report "advanced" pseudo-rounds with a non-integer
+                # number (e.g. 0.5) for a game brought forward. These are NOT a
+                # real matchday: they only have the advanced match(es) played, so
+                # they must NEVER award ranking/MVP/dream-team prizes. However,
+                # Futmondo DOES pay points_prize immediately for the points scored
+                # in the already-finished matches, so we still process them for
+                # points only.
+                #
+                # The `matchday` column is an integer and Postgres rounds a float
+                # on insert (0.5 -> 1), which would collide with and corrupt the
+                # real matchday 1. To avoid any collision with real matchdays
+                # (1..38) we store advanced pseudo-rounds under a dedicated
+                # negative synthetic matchday derived from the number
+                # (e.g. 0.5 -> -5), which is unique per pseudo-round and never
+                # clashes with a real one. Aggregations SUM across all matchdays,
+                # so the points_prize is still counted in balances/finances.
+                try:
+                    matchday_f = float(raw_number)
+                except (TypeError, ValueError):
+                    logger.info(f"Skipping round with non-numeric number {raw_number!r}")
+                    continue
+
+                is_advanced_pseudo_round = matchday_f != int(matchday_f)
+                if is_advanced_pseudo_round:
+                    matchday = -int(round(matchday_f * 10))  # 0.5 -> -5
+                    logger.info(
+                        f"Advanced pseudo-round number={raw_number!r} stored as "
+                        f"synthetic matchday {matchday} (points_prize only)"
+                    )
+                else:
+                    matchday = int(matchday_f)
 
                 # A round can be reported as "closed" by Futmondo even when it
                 # still has postponed/unplayed matches (e.g. a matchday with only
@@ -1663,7 +1695,7 @@ class DataSyncService:
                 # awarded once EVERY match of the round is finished (status "F").
                 # points_prize is still paid immediately for whatever points exist.
                 round_fully_played = is_closed
-                if is_closed:
+                if is_closed and not is_advanced_pseudo_round:
                     matches_data = self.client.get_round_matches(self.championship_id, round_id, sample_userteam_id)
                     matches = []
                     if isinstance(matches_data, dict):
@@ -1680,8 +1712,9 @@ class DataSyncService:
                             )
                     time.sleep(0.2)
 
-                # Effective flag used for ranking/MVP/dream-team prizes
-                award_round_prizes = is_closed and round_fully_played
+                # Effective flag used for ranking/MVP/dream-team prizes.
+                # Advanced pseudo-rounds never award them (points_prize only).
+                award_round_prizes = is_closed and round_fully_played and not is_advanced_pseudo_round
 
                 # Get ranking directly from API
                 ranking_data = self.client.get_round_ranking(
