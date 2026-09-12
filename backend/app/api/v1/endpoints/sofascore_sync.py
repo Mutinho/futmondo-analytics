@@ -2,15 +2,46 @@
 
 import logging
 from datetime import datetime
-from typing import Dict
+from typing import Dict, Tuple
 from fastapi import APIRouter, Query, HTTPException, Request
 from app.core.config import CHAMPIONSHIP_ID
+from app.core.constants import SOFASCORE_MIN_COVERAGE_RATIO
 from app.api.v1.endpoints._helpers import get_user_futmondo_client
-from app.services.sofascore_client import get_sofascore_client
+from app.services.sofascore_client import get_sofascore_client, SofascoreIPBanError
 from app.services.db_connection import get_db
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def should_apply_replacement(
+    synced: int, processed: int, banned: bool, min_ratio: float
+) -> Tuple[bool, str]:
+    """Decide si aplicar el reemplazo de la caché y devuelve (aplicar, razón).
+
+    Criterio de éxito del repoblado con doble protección (FR2):
+    - Si ``banned`` es True → ``(False, "ip_ban")``: se detectó un baneo de IP
+      durante el repoblado, se aborta y NO se toca la caché (FR2.2).
+    - Si ``processed == 0`` (no había jugadores del computer que procesar) → no
+      hay conjunto nuevo que aplicar; se considera ``(False, "below_threshold")``
+      para preservar la caché anterior en lugar de vaciarla.
+    - Si ``processed > 0`` y ``synced / processed < min_ratio`` (repoblado
+      parcial por debajo del umbral) → ``(False, "below_threshold")`` (FR2.4).
+    - En cualquier otro caso → ``(True, "ok")``: el repoblado es válido y se
+      aplica el reemplazo atómico.
+
+    Es una función pura (sin efectos secundarios ni acceso a BD) para poder
+    verificarla de forma aislada.
+    """
+    if banned:
+        return (False, "ip_ban")
+    if processed <= 0:
+        # Sin jugadores procesados no hay conjunto nuevo válido: no vaciamos la
+        # caché anterior. La razón de umbral es la más informativa disponible.
+        return (False, "below_threshold")
+    if synced / processed < min_ratio:
+        return (False, "below_threshold")
+    return (True, "ok")
 
 
 @router.post("/sofascore")
@@ -19,9 +50,13 @@ async def sync_sofascore(
     championship_id: str = Query(default=CHAMPIONSHIP_ID),
 ) -> Dict:
     """Sincroniza ratings de Sofascore para los jugadores del mercado actual.
-    
-    Busca cada jugador por nombre en Sofascore, obtiene su rating y stats,
-    y los guarda en caché.
+
+    Busca cada jugador por nombre en Sofascore, obtiene su rating y stats, y
+    reemplaza la caché ``sofascore_cache`` de forma ATÓMICA (todo-o-nada, FR1):
+    primero recolecta todos los resultados del repoblado y solo entonces, dentro
+    de UNA sola transacción, ejecuta ``DELETE`` + ``INSERT``. Si el repoblado no
+    supera el criterio de éxito (baneo de IP o cobertura por debajo del umbral),
+    la caché anterior se conserva intacta y no se ejecuta ningún ``DELETE``.
     """
     try:
         client = get_user_futmondo_client(request)
@@ -62,16 +97,13 @@ async def sync_sofascore(
         db = get_db()
         synced = 0
         errors = 0
+        banned = False
         now = datetime.now()
 
-        # Limpiar caché anterior de este campeonato
-        with db.get_connection() as conn:
-            cursor = db.get_cursor(conn)
-            sql = "DELETE FROM sofascore_cache"
-            cursor.execute(sql)
-            logger.info("Sofascore cache cleared")
-
-        # Collect all results, then batch insert
+        # FR1.2 / FR2.2: NO se borra la caché aquí. Primero recolectamos todos los
+        # resultados del repoblado en memoria; el reemplazo (DELETE + INSERT) se
+        # decide y ejecuta después, en una única transacción, solo si el repoblado
+        # supera el criterio de éxito. Así un fallo a mitad preserva la caché.
         cache_rows = []
 
         for p in computer_players:
@@ -95,6 +127,12 @@ async def sync_sofascore(
                     continue
 
                 cache_rows.append((
+                    # championship_id: columna DEPRECADA (FR3.2). Ninguna consulta
+                    # de lectura de sofascore_cache filtra por championship_id — la
+                    # caché es compartida por jugador, no por campeonato (FR3.1).
+                    # Se sigue escribiendo por compatibilidad con el esquema y el
+                    # ON CONFLICT actual (FR3.3); su retirada requiere migración de
+                    # esquema y queda fuera de alcance.
                     player_name, championship_id,
                     full_info.get('id'), full_info.get('name'), full_info.get('team'),
                     full_info.get('rating'), full_info.get('goals'), full_info.get('assists'),
@@ -112,14 +150,33 @@ async def sync_sofascore(
                 synced += 1
                 logger.info(f"Sofascore: {player_name} -> rating {full_info.get('rating')}")
 
+            except SofascoreIPBanError as ban_exc:
+                # FR2.1/FR2.2: baneo de IP detectado. Abortamos el repoblado; el
+                # reemplazo NO se aplicará y la caché anterior queda intacta.
+                banned = True
+                logger.error(f"Sofascore IP ban detectado durante el sync: {ban_exc}")
+                break
             except Exception as e:
                 logger.error(f"Sofascore sync error for '{player_name}': {e}")
                 errors += 1
 
-        # Batch insert all results at once
-        if cache_rows:
+        # FR2 / FR1.3: evaluar el criterio de éxito. Solo si el repoblado es
+        # válido se reemplaza la caché.
+        applied, reason = should_apply_replacement(
+            synced, len(computer_players), banned, SOFASCORE_MIN_COVERAGE_RATIO
+        )
+
+        if applied and cache_rows:
+            # FR1.1/FR1.2/NFR1: DELETE + INSERT en UNA sola transacción. Si el
+            # INSERT falla, el rollback del context manager revierte el DELETE y
+            # la caché anterior sobrevive intacta. Cualquier lectura concurrente
+            # ve la caché vieja completa o la nueva completa, nunca un estado
+            # parcial.
             with db.get_connection() as conn:
                 cursor = db.get_cursor(conn)
+                cursor.execute("DELETE FROM sofascore_cache")
+                logger.info("Sofascore cache cleared (dentro de la transacción de reemplazo)")
+
                 if db.db_type in ["postgresql", "postgres"]:
                     from psycopg2.extras import execute_values
                     raw_cursor = cursor._cursor if hasattr(cursor, '_cursor') else cursor
@@ -167,12 +224,26 @@ async def sync_sofascore(
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, cache_rows)
                 logger.info(f"Batch inserted {len(cache_rows)} sofascore records")
+        else:
+            # FR1.3/FR2.2/FR2.4: no se supera el criterio de éxito. NO se toca la
+            # caché (ni DELETE ni INSERT): la caché anterior queda intacta.
+            logger.warning(
+                f"Reemplazo de caché Sofascore NO aplicado (reason={reason}, "
+                f"synced={synced}, total={len(computer_players)})"
+            )
 
+        # FR2.3: respuesta diferenciada. `success` sigue True aunque no se aplique
+        # el reemplazo (baneo o umbral), pero `applied` y `reason` permiten al
+        # frontend y al cron distinguir cada caso.
         return {
             "success": True,
+            "applied": applied,
+            "reason": reason,
             "synced": synced,
             "errors": errors,
             "total_players": len(computer_players),
         }
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))

@@ -1,0 +1,33 @@
+{
+  "stage": "code-generation",
+  "upstream_ids": [
+    "FR1.1", "FR1.2", "FR1.3",
+    "FR2.1", "FR2.2", "FR2.3", "FR2.4", "FR2.5",
+    "FR3.1", "FR3.2", "FR3.3",
+    "NFR1", "NFR2", "NFR3", "NFR4"
+  ],
+  "coverage": [
+    { "id": "FR1.1", "status": "OK", "target": "backend/app/api/v1/endpoints/sofascore_sync.py::sync_sofascore (DELETE+INSERT atómico solo si should_apply_replacement)" },
+    { "id": "FR1.2", "status": "OK", "target": "backend/app/api/v1/endpoints/sofascore_sync.py::sync_sofascore (una sola with db.get_connection())" },
+    { "id": "FR1.3", "status": "OK", "target": "backend/app/api/v1/endpoints/sofascore_sync.py (rama else: no DELETE ni INSERT)" },
+    { "id": "FR2.1", "status": "OK", "target": "backend/app/services/sofascore_client.py::_get y search_player (403->SofascoreIPBanError, 404->None)" },
+    { "id": "FR2.2", "status": "OK", "target": "backend/app/api/v1/endpoints/sofascore_sync.py (except SofascoreIPBanError -> banned=True, break) + should_apply_replacement" },
+    { "id": "FR2.3", "status": "OK", "target": "backend/app/api/v1/endpoints/sofascore_sync.py (respuesta con applied/reason)" },
+    { "id": "FR2.4", "status": "OK", "target": "backend/app/api/v1/endpoints/sofascore_sync.py::should_apply_replacement (synced/processed < min_ratio)" },
+    { "id": "FR2.5", "status": "OK", "target": "backend/app/core/constants.py::SOFASCORE_MIN_COVERAGE_RATIO" },
+    { "id": "FR3.1", "status": "OK", "target": "backend/app/api/v1/endpoints/sofascore_sync.py (DELETE FROM sofascore_cache sobre toda la tabla)" },
+    { "id": "FR3.2", "status": "OK", "target": "backend/app/api/v1/endpoints/sofascore_sync.py (comentario de deprecación de championship_id en el INSERT)" },
+    { "id": "FR3.3", "status": "OK", "target": "backend/app/api/v1/endpoints/sofascore_sync.py (ON CONFLICT (player_name, championship_id) sin cambios)" },
+    { "id": "NFR1", "status": "OK", "target": "transacción única; test_endpoint_* verifica orden DELETE/INSERT y ausencia de escritura parcial" },
+    { "id": "NFR2", "status": "OK", "target": "sin nuevas dependencias ni infraestructura (Step 10)" },
+    { "id": "NFR3", "status": "OK", "target": "3 ficheros fuente + 1 test (superficie mínima)" },
+    { "id": "NFR4", "status": "OK", "target": "backend/tests/test_sofascore_sync_characterization.py (13/13 passed); suite completa 51 passed, 3 failed solo en test_analytics_service.py (ficheros no tocados, fallos preexistentes) -> sin regresión introducida por el bugfix" }
+  ],
+  "reverse": [
+    { "id": "constants.py::SOFASCORE_MIN_COVERAGE_RATIO", "status": "OK", "target": "FR2.5" },
+    { "id": "sofascore_client.py::SofascoreIPBanError", "status": "OK", "target": "FR2.1" },
+    { "id": "sofascore_sync.py::should_apply_replacement", "status": "OK", "target": "FR2.2, FR2.4" },
+    { "id": "sofascore_sync.py::sync_sofascore (transacción)", "status": "OK", "target": "FR1.1, FR1.2, FR1.3, NFR1" },
+    { "id": "test_sofascore_sync_characterization.py", "status": "OK", "target": "FR1, FR2, NFR4 (regresión dirigida)" }
+  ]
+}

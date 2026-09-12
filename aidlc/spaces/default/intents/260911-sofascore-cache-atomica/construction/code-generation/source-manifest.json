@@ -1,0 +1,27 @@
+{
+  "stage": "code-generation",
+  "intent": "260911-sofascore-cache-atomica",
+  "project_type": "brownfield",
+  "sources": [
+    {
+      "path": "backend/app/core/constants.py",
+      "change": "modified",
+      "sha256": "sha256:7dfdd4ce8eb507753e566d253cb6224c9c0f51dccc188c143ef4d338a855b08f"
+    },
+    {
+      "path": "backend/app/services/sofascore_client.py",
+      "change": "modified",
+      "sha256": "sha256:1a5ce5dff668081d5d1fd0823617913e447851a6bf78dec1692c806180c38586"
+    },
+    {
+      "path": "backend/app/api/v1/endpoints/sofascore_sync.py",
+      "change": "modified",
+      "sha256": "sha256:5f3f9471d17d3d61ddd2e45726d8a3d712ffa40960e7d068d803ca0f02e0b0c8"
+    },
+    {
+      "path": "backend/tests/test_sofascore_sync_characterization.py",
+      "change": "created",
+      "sha256": "sha256:971749b7435cc97203175a10f8738086938a61f3bc90dda6b5001841f3f7c9e7"
+    }
+  ]
+}

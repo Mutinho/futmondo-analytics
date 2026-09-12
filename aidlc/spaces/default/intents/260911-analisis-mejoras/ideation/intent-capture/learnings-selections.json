@@ -1,0 +1,14 @@
+{
+  "stage_slug": "intent-capture",
+  "space": "default",
+  "intent": "260911-analisis-mejoras",
+  "selections": [
+    {
+      "candidate_id": "c1",
+      "source_heading": "Interpretations",
+      "scope": "project",
+      "heading": "Corrections",
+      "text": "ALWAYS mantener el proyecto a coste 0€: descartar toda mejora o dependencia con gasto recurrente; solo proponer soluciones sostenibles en tiers gratuitos (Neon free, Fly.io free allowance, GitHub Actions free)"
+    }
+  ]
+}

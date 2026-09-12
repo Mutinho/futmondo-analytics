@@ -1,0 +1,27 @@
+{
+  "stage": "domain-design",
+  "upstream_ids": ["FR1", "FR2", "FR3", "FR4", "FR5", "FR6", "FR7", "FR8", "FR9", "FR10", "FR11", "FR12", "FR13", "FR14", "FR15", "FR16", "FR17", "FR18"],
+  "coverage": [
+    { "id": "FR1", "status": "OK", "target": "TaskManager" },
+    { "id": "FR2", "status": "OK", "target": "IntegrationClients" },
+    { "id": "FR3", "status": "OK", "target": "DataServices" },
+    { "id": "FR4", "status": "OK", "target": "IntegrationClients" },
+    { "id": "FR5", "status": "OK", "target": "Auth" },
+    { "id": "FR6", "status": "OK", "target": "ApiEndpoints" },
+    { "id": "FR7", "status": "OK", "target": "ApiEndpoints" },
+    { "id": "FR8", "status": "OK", "target": "Proxy" },
+    { "id": "FR9", "status": "OK", "target": "Auth" },
+    { "id": "FR10", "status": "OK", "target": "AngularApp" },
+    { "id": "FR11", "status": "OK", "target": "CICD" },
+    { "id": "FR12", "status": "OK", "target": "CICD" },
+    { "id": "FR13", "status": "OK", "target": "DataServices" },
+    { "id": "FR14", "status": "OK", "target": "Backend" },
+    { "id": "FR15", "status": "OK", "target": "ApiEndpoints" },
+    { "id": "FR16", "status": "OK", "target": "Cron" },
+    { "id": "FR17", "status": "OK", "target": "CICD" },
+    { "id": "FR18", "status": "OK", "target": "ApiEndpoints" }
+  ],
+  "reverse": [
+    { "id": "CICD", "status": "N/A", "target": "componente transversal de CI/CD; realiza FR11, FR12, FR17 sin runtime de aplicación" }
+  ]
+}

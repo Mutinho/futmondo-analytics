@@ -13,6 +13,16 @@ logger = logging.getLogger(__name__)
 BASE_URL = "https://api.sofascore.com/api/v1"
 
 
+class SofascoreIPBanError(Exception):
+    """Señala un baneo de IP de Sofascore (respuesta HTTP 403) — FR2.1.
+
+    Se distingue de un "jugador no encontrado" (404 / sin resultados), que
+    devuelve ``None``. El endpoint de sync captura esta excepción para abortar
+    el repoblado y NO aplicar el reemplazo de la caché (FR2.2), preservando la
+    caché anterior intacta.
+    """
+
+
 class SofascoreClient:
     """Client para la API no oficial de Sofascore."""
 
@@ -29,18 +39,30 @@ class SofascoreClient:
         self._last_request = time.time()
 
     def _get(self, endpoint: str) -> Optional[Dict]:
-        """GET request con throttling y error handling."""
+        """GET request con throttling y error handling.
+
+        Distingue el baneo de IP (HTTP 403 → lanza ``SofascoreIPBanError``,
+        FR2.1) del "no encontrado" (404 → ``None``). El resto de status ≠ 200
+        conserva el comportamiento actual (warning + ``None``).
+        """
         self._throttle()
         url = f"{BASE_URL}{endpoint}"
         try:
             resp = self.session.get(url, timeout=10)
             if resp.status_code == 200:
                 return resp.json()
+            elif resp.status_code == 403:
+                # Baneo de IP: propagar como excepción para abortar el repoblado.
+                logger.error(f"Sofascore 403 (posible baneo de IP) for {endpoint}")
+                raise SofascoreIPBanError(f"Sofascore devolvió 403 para {endpoint}")
             elif resp.status_code == 404:
                 return None
             else:
                 logger.warning(f"Sofascore {resp.status_code} for {endpoint}")
                 return None
+        except SofascoreIPBanError:
+            # Propagar el baneo sin tragarlo en el except genérico de abajo.
+            raise
         except Exception as e:
             logger.error(f"Sofascore request error: {e}")
             return None
@@ -51,6 +73,10 @@ class SofascoreClient:
         url = f"{BASE_URL}/search/players"
         try:
             resp = self.session.get(url, params={"q": name}, timeout=10)
+            if resp.status_code == 403:
+                # Baneo de IP: propagar para abortar el repoblado (FR2.1/FR2.2).
+                logger.error(f"Sofascore search 403 (posible baneo de IP) for '{name}'")
+                raise SofascoreIPBanError(f"Sofascore devolvió 403 buscando '{name}'")
             if resp.status_code != 200:
                 logger.warning(f"Sofascore search {resp.status_code} for '{name}'")
                 return None
@@ -85,6 +111,9 @@ class SofascoreClient:
                 "team": entity.get("team", {}).get("name") if entity.get("team") else None,
                 "position": entity.get("position"),
             }
+        except SofascoreIPBanError:
+            # No tragar el baneo en el except genérico: debe propagarse (FR2.1).
+            raise
         except Exception as e:
             logger.error(f"Sofascore search error for '{name}': {e}")
             return None

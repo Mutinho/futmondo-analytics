@@ -1,0 +1,16 @@
+[
+  {
+    "uuid": "01a09005-378d-71f7-b993-7845d91ccf43",
+    "slug": "analisis-mejoras",
+    "dirName": "260911-analisis-mejoras",
+    "scope": "analysis-plan",
+    "status": "complete"
+  },
+  {
+    "uuid": "01a09233-2b02-799e-8a05-f1ac7ff15559",
+    "slug": "sofascore-cache-atomica",
+    "dirName": "260911-sofascore-cache-atomica",
+    "scope": "bugfix",
+    "status": "in-flight"
+  }
+]

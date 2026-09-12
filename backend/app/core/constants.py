@@ -1,5 +1,13 @@
 """Shared constants for the Futmondo Analytics backend."""
 
+# Umbral mínimo de cobertura del repoblado de Sofascore (FR2.5).
+# Red de seguridad secundaria: si el repoblado no consigue rating para al menos
+# este ratio de los jugadores del computer procesados, el reemplazo de la caché
+# NO se aplica y se conserva la caché anterior intacta (ver FR2.4). Es una
+# constante configurable (no un literal disperso) para poder ajustar el umbral
+# sin cambios de diseño.
+SOFASCORE_MIN_COVERAGE_RATIO = 0.5
+
 # LaLiga teams — Futmondo IDs → name + logo
 # Used as static fallback when the API doesn't return team info
 LALIGA_TEAMS = {
