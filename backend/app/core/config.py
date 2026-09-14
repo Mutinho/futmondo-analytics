@@ -72,13 +72,60 @@ API_PORT = int(os.getenv("API_PORT", "8000"))
 # Only the web API service issues/validates JWTs. The cron worker
 # (futmondo-cron) imports this module too but never touches JWT, so we don't
 # require the secret there — otherwise the whole sync would fail to start.
-JWT_SECRET = os.getenv("JWT_SECRET", "")
-if not JWT_SECRET:
-    _fly_app = os.getenv("FLY_APP_NAME", "")
-    _is_web_service = _fly_app and "cron" not in _fly_app  # api = web; cron = worker
-    if _is_web_service:
-        raise RuntimeError("FATAL: JWT_SECRET must be set in the web API service!")
-    JWT_SECRET = "futmondo-dev-secret-change-in-prod"
+#
+# NFR1.1 (endurecimiento afirmado): el servicio WEB debe fallar SIEMPRE en el
+# arranque si JWT_SECRET falta O es igual al valor por defecto inseguro,
+# independientemente de FLY_APP_NAME. El worker cron (identificado por "cron" en
+# FLY_APP_NAME) sí puede arrancar sin secreto porque nunca emite/valida JWT.
+JWT_DEFAULT_INSECURE_SECRET = "futmondo-dev-secret-change-in-prod"
+
+
+def is_cron_worker() -> bool:
+    """True solo para el worker cron (que legítimamente no necesita JWT_SECRET).
+
+    El servicio web es el caso por defecto: cualquier proceso que NO sea el
+    worker cron se trata como servicio web y exige un secreto válido. Así el
+    guard deja de depender de que FLY_APP_NAME esté presente para el web.
+    """
+    fly_app = os.getenv("FLY_APP_NAME", "")
+    return bool(fly_app) and "cron" in fly_app
+
+
+def resolve_jwt_secret(secret, cron_worker):
+    """Resuelve el JWT_SECRET aplicando el endurecimiento NFR1.1.
+
+    Args:
+        secret: valor de JWT_SECRET tal cual lo entrega el entorno ("" si falta).
+        cron_worker: True si el proceso es el worker cron.
+
+    Returns:
+        El secreto validado (para el worker cron devuelve el valor tal cual,
+        que puede ser el default o vacío porque nunca firma tokens).
+
+    Raises:
+        RuntimeError: si el servicio web arranca sin secreto o con el default
+        inseguro.
+    """
+    if cron_worker:
+        # El worker cron nunca toca JWT: no se le exige secreto.
+        return secret
+
+    # Servicio web: fallo de arranque duro (fail-fast) ante secreto ausente o
+    # igual al default inseguro. No se degrada a un valor por defecto.
+    if not secret:
+        raise RuntimeError(
+            "FATAL: JWT_SECRET must be set in the web API service "
+            "(no puede estar vacío)."
+        )
+    if secret == JWT_DEFAULT_INSECURE_SECRET:
+        raise RuntimeError(
+            "FATAL: JWT_SECRET must not equal the insecure default value "
+            f"'{JWT_DEFAULT_INSECURE_SECRET}' in the web API service."
+        )
+    return secret
+
+
+JWT_SECRET = resolve_jwt_secret(os.getenv("JWT_SECRET", ""), is_cron_worker())
 
 # Gemini AI Assistant
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
