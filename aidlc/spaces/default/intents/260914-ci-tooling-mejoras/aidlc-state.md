@@ -1,11 +1,11 @@
 # AI-DLC State Tracking
 
 ## Project Information
-- **Project**: FR2 — Reemplazo transaccional de la cache de Sofascore. El endpoint POST /api/v1/sync/sofascore (backend/app/api/v1/endpoints/sofascore_sync.py) hace DELETE FROM sofascore_cache antes de repoblar la cache jugador a jugador; si el repoblado falla a mitad (baneo de IP de Sofascore, exit code 2), la cache queda vacia o incompleta. Objetivo: hacer el reemplazo atomico de modo que la cache anterior permanezca intacta si el repoblado no tiene exito. Restricciones: mantener stack actual (FastAPI + Neon PostgreSQL), sin reescrituras grandes, coste 0 EUR (tiers gratuitos). Proyecto brownfield futmondo-analytics.
+- **Project**: Mejoras tecnicas de CI/tooling detectadas en el intent de analisis 260911-analisis-mejoras y registradas en docs/BACKLOG-mejoras-ci-tooling.md. Acometer las 5 en un mismo intent (coste 0 euros, ninguna bloquea el despliegue): (1) actualizar actions de GitHub deprecadas en Node 20 a majors sobre Node 24 en ci.yml y fly-deploy.yml; (2) resolver/vigilar punycode DeprecationWarning DEP0040 via deps transitivas; (3) migrar animaciones de @angular/animations a la nueva API (animate.enter/animate.leave) de Angular 22; (4) migrar el runner de tests del frontend de Karma a Vitest (@angular/build:unit-test runner vitest, retirar karma.conf.js y devDependencies de Karma); (5) alinear la version de Node local a >=22.22.3 (EBADENGINE) via nvm. Secuenciar por riesgo, dejando Karma->Vitest para el final. Respetar coste 0-euros.
 - **Project Description Source**: project-description.json
 - **Project Type**: Brownfield
-- **Scope**: bugfix
-- **Start Date**: 2026-09-11T20:40:22Z
+- **Scope**: refactor
+- **Start Date**: 2026-09-14T08:42:51Z
 - **State Version**: 8
 - **Active Agent**: aidlc-pipeline-deploy-agent
 - **Worktree Path**:
@@ -13,12 +13,12 @@
 - **Practices Affirmed Timestamp**:
 
 ## Scope Configuration
-- **Stages to Execute**: 0.1, 0.2, 0.3, 2.1, 2.3, 3.5, 3.6, 4.1, 4.3
-- **Stages to Skip**: 1.1 (intent-capture), 1.2 (market-research), 1.3 (feasibility), 1.4 (scope-definition), 1.5 (team-formation), 1.6 (rough-mockups), 1.7 (approval-handoff), 2.2 (practices-discovery), 2.4 (user-stories), 2.5 (refined-mockups), 2.6 (domain-design), 2.7 (units-generation), 2.8 (contract-design), 2.9 (delivery-planning), 3.1 (functional-design), 3.2 (nfr-requirements), 3.3 (nfr-design), 3.4 (infrastructure-design), 3.7 (ci-pipeline), 4.2 (environment-provisioning), 4.4 (observability-setup), 4.5 (incident-response), 4.6 (performance-validation), 4.7 (feedback-optimization)
+- **Stages to Execute**: 0.1, 0.2, 0.3, 2.1, 2.3, 3.1, 3.5, 3.6, 4.1, 4.3
+- **Stages to Skip**: 1.1 (intent-capture), 1.2 (market-research), 1.3 (feasibility), 1.4 (scope-definition), 1.5 (team-formation), 1.6 (rough-mockups), 1.7 (approval-handoff), 2.2 (practices-discovery), 2.4 (user-stories), 2.5 (refined-mockups), 2.6 (domain-design), 2.7 (units-generation), 2.8 (contract-design), 2.9 (delivery-planning), 3.2 (nfr-requirements), 3.3 (nfr-design), 3.4 (infrastructure-design), 3.7 (ci-pipeline), 4.2 (environment-provisioning), 4.4 (observability-setup), 4.5 (incident-response), 4.6 (performance-validation), 4.7 (feedback-optimization)
 - **Depth**: Minimal
 - **Test Strategy**: Minimal
 - **Review Override**: 
-- **Change Control**: relaxed (from scope bugfix)
+- **Change Control**: relaxed (from scope refactor)
 
 ## Workspace State
 - **Project Root**: .
@@ -27,12 +27,14 @@
 - **Build System**: npm (package.json)
 
 ## Execution Plan Summary
-- **Total Stages**: 9
-- **Completed**: 6
+- **Total Stages**: 10
+- **Completed**: 9
 - **In Progress**: none
 
 ## Runtime State
-- **Revision Count**: 0
+- **Revision Count**: 2
+
+
 
 ## Phase Progress
 <!-- Status values: Pending, Active, Verified, Skipped -->
@@ -73,7 +75,7 @@
 
 ### CONSTRUCTION PHASE
 Per unit: [TBD]
-- [ ] functional-design — SKIP
+- [x] functional-design — EXECUTE
 - [ ] nfr-requirements — SKIP
 - [ ] nfr-design — SKIP
 - [ ] infrastructure-design — SKIP
@@ -82,9 +84,9 @@ Per unit: [TBD]
 - [ ] ci-pipeline — SKIP
 
 ### OPERATION PHASE
-- [S] deployment-pipeline — EXECUTE
+- [x] deployment-pipeline — EXECUTE
 - [ ] environment-provisioning — SKIP
-- [S] deployment-execution — EXECUTE
+- [x] deployment-execution — EXECUTE
 - [ ] observability-setup — SKIP
 - [ ] incident-response — SKIP
 - [ ] performance-validation — SKIP
@@ -95,9 +97,9 @@ Per unit: [TBD]
 - **Current Stage**: deployment-execution
 - **Next Stage**: none
 - **Status**: Completed
-- **Last Updated**: 2026-09-12T20:13:29Z
+- **Last Updated**: 2026-09-14T11:18:54Z
 
 ## Session Resume Point
-- **Last Completed Stage**: build-and-test
+- **Last Completed Stage**: deployment-execution
 - **Next Action**: Workflow complete
 - **Pending Artifacts**: none

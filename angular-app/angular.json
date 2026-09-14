@@ -106,9 +106,8 @@
           "builder": "@angular/build:unit-test",
           "options": {
             "tsConfig": "tsconfig.spec.json",
-            "runner": "karma",
-            "buildTarget": "angular-app:build:development",
-            "browsers": ["ChromeHeadless"]
+            "runner": "vitest",
+            "buildTarget": "angular-app:build:development"
           }
         }
       }

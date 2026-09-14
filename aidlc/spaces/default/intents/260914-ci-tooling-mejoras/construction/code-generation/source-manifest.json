@@ -1,0 +1,16 @@
+{
+  "stage": "code-generation",
+  "version": 1,
+  "writes": [
+    { "path": ".github/workflows/ci.yml" },
+    { "path": ".github/workflows/fly-deploy.yml" },
+    { "path": ".nvmrc" },
+    { "path": "README.md" },
+    { "path": "angular-app/angular.json" },
+    { "path": "angular-app/package.json" },
+    { "path": "angular-app/package-lock.json" },
+    { "path": "angular-app/tsconfig.spec.json" },
+    { "path": "angular-app/karma.conf.js" },
+    { "path": "angular-app/src/app/core/interceptors/auth.interceptor.spec.ts" }
+  ]
+}
