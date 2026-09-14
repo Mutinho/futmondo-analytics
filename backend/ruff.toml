@@ -1,0 +1,30 @@
+# Configuración base de ruff (lint + formato) para el backend.
+#
+# Escalonado (Code Style afirmado + R-05): arranca en modo TOLERANTE (advisory)
+# para no romper el gate de golpe sobre la base heredada sin formatear. El gate
+# de CI ejecuta `ruff check` en modo advisory (continue-on-error) en esta fase;
+# se pasará a bloqueante en un trabajo posterior, tras un formateo inicial en un
+# commit aislado y saneada la deuda.
+
+target-version = "py312"
+line-length = 100
+
+[lint]
+# Conjunto mínimo inicial: errores/warnings de pyflakes (F) y pycodestyle (E),
+# más imports (I). Se ampliará por trinquete en trabajos posteriores.
+select = ["E", "F", "I"]
+# Silencios pragmáticos para la base heredada (se reducirán con el tiempo):
+#  E501 line-too-long — muchas líneas largas heredadas; se formatea gradualmente.
+#  E402 module-import-not-at-top — patrón de imports diferidos existente.
+#  E722 bare-except — try/except amplios heredados en la capa de datos.
+ignore = ["E501", "E402", "E722"]
+
+[lint.per-file-ignores]
+# Los tests pueden usar imports tras setear variables de entorno (E402) y
+# fixtures que parecen no usadas.
+"tests/**" = ["E402", "F401"]
+"conftest.py" = ["E402"]
+
+[format]
+quote-style = "double"
+indent-style = "space"
