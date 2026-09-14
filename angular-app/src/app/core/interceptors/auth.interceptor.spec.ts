@@ -1,3 +1,4 @@
+import { vi, describe, beforeEach, afterEach, it, expect } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import {
   HttpClient,
@@ -18,20 +19,28 @@ import { AuthService } from '../services/auth.service';
  * Congela el comportamiento ACTUAL: inyección del header Bearer, exclusión de
  * las URLs de auth, `withCredentials` para `/auth/*`, y el flujo de refresh en
  * cola ante un 401 (primer 401 dispara refresh y reintenta con el token nuevo;
- * si el refresh falla, propaga el error y hace logout). Es el primer test
- * frontend que estrena el runner; no se regeneran specs sobre lo existente.
+ * si el refresh falla, propaga el error y hace logout).
+ *
+ * Migrado de Jasmine/Karma a Vitest (runner del builder `@angular/build:unit-test`)
+ * conservando idénticas aserciones de comportamiento (no regresión, BR4.3/FR4.5).
  */
+type AuthMock = {
+  getAccessToken: ReturnType<typeof vi.fn>;
+  refresh: ReturnType<typeof vi.fn>;
+  logout: ReturnType<typeof vi.fn>;
+};
+
 describe('authInterceptor (caracterizacion)', () => {
   let http: HttpClient;
   let httpMock: HttpTestingController;
-  let auth: jasmine.SpyObj<AuthService>;
+  let auth: AuthMock;
 
   beforeEach(() => {
-    auth = jasmine.createSpyObj<AuthService>('AuthService', [
-      'getAccessToken',
-      'refresh',
-      'logout',
-    ]);
+    auth = {
+      getAccessToken: vi.fn(),
+      refresh: vi.fn(),
+      logout: vi.fn(),
+    };
 
     TestBed.configureTestingModule({
       providers: [
@@ -48,7 +57,7 @@ describe('authInterceptor (caracterizacion)', () => {
   afterEach(() => httpMock.verify());
 
   it('adjunta el header Authorization Bearer cuando hay access token', () => {
-    auth.getAccessToken.and.returnValue('tok-123');
+    auth.getAccessToken.mockReturnValue('tok-123');
 
     http.get('/api/v1/user/me').subscribe();
 
@@ -58,7 +67,7 @@ describe('authInterceptor (caracterizacion)', () => {
   });
 
   it('no adjunta Authorization en las URLs de auth (login) y usa withCredentials', () => {
-    auth.getAccessToken.and.returnValue('tok-123');
+    auth.getAccessToken.mockReturnValue('tok-123');
 
     http.post('/auth/login', {}).subscribe();
 
@@ -69,7 +78,7 @@ describe('authInterceptor (caracterizacion)', () => {
   });
 
   it('no adjunta Authorization cuando no hay token en memoria', () => {
-    auth.getAccessToken.and.returnValue(null);
+    auth.getAccessToken.mockReturnValue(null);
 
     http.get('/api/v1/market/today').subscribe();
 
@@ -78,64 +87,83 @@ describe('authInterceptor (caracterizacion)', () => {
     req.flush({});
   });
 
-  it('ante un 401 refresca y reintenta con el nuevo token', (done) => {
-    auth.getAccessToken.and.returnValue('old-token');
-    auth.refresh.and.returnValue(Promise.resolve('new-token'));
+  it('ante un 401 refresca y reintenta con el nuevo token', () =>
+    new Promise<void>((resolve, reject) => {
+      auth.getAccessToken.mockReturnValue('old-token');
+      auth.refresh.mockResolvedValue('new-token');
 
-    http.get('/api/v1/user/me').subscribe({
-      next: (body: any) => {
-        expect(body.ok).toBe(true);
-        expect(auth.refresh).toHaveBeenCalledTimes(1);
-        done();
-      },
-      error: done.fail,
-    });
+      http.get('/api/v1/user/me').subscribe({
+        next: (body: any) => {
+          try {
+            expect(body.ok).toBe(true);
+            expect(auth.refresh).toHaveBeenCalledTimes(1);
+            resolve();
+          } catch (e) {
+            reject(e);
+          }
+        },
+        error: reject,
+      });
 
-    // Primera peticion -> 401
-    httpMock
-      .expectOne('/api/v1/user/me')
-      .flush({ detail: 'expired' }, { status: 401, statusText: 'Unauthorized' });
+      // Primera peticion -> 401
+      httpMock
+        .expectOne('/api/v1/user/me')
+        .flush({ detail: 'expired' }, { status: 401, statusText: 'Unauthorized' });
 
-    // Tras el refresh (microtask), se reintenta con el token nuevo.
-    setTimeout(() => {
-      const retry = httpMock.expectOne('/api/v1/user/me');
-      expect(retry.request.headers.get('Authorization')).toBe('Bearer new-token');
-      retry.flush({ ok: true });
-    }, 0);
-  });
+      // Tras el refresh (microtask), se reintenta con el token nuevo.
+      setTimeout(() => {
+        try {
+          const retry = httpMock.expectOne('/api/v1/user/me');
+          expect(retry.request.headers.get('Authorization')).toBe('Bearer new-token');
+          retry.flush({ ok: true });
+        } catch (e) {
+          reject(e);
+        }
+      }, 0);
+    }));
 
-  it('ante un 401 con refresh fallido propaga el error y hace logout', (done) => {
-    auth.getAccessToken.and.returnValue('old-token');
-    auth.refresh.and.returnValue(Promise.resolve(null));
+  it('ante un 401 con refresh fallido propaga el error y hace logout', () =>
+    new Promise<void>((resolve, reject) => {
+      auth.getAccessToken.mockReturnValue('old-token');
+      auth.refresh.mockResolvedValue(null);
 
-    http.get('/api/v1/user/me').subscribe({
-      next: () => done.fail('deberia propagar error'),
-      error: (err) => {
-        expect(err.status).toBe(401);
-        expect(auth.logout).toHaveBeenCalled();
-        done();
-      },
-    });
+      http.get('/api/v1/user/me').subscribe({
+        next: () => reject(new Error('deberia propagar error')),
+        error: (err) => {
+          try {
+            expect(err.status).toBe(401);
+            expect(auth.logout).toHaveBeenCalled();
+            resolve();
+          } catch (e) {
+            reject(e);
+          }
+        },
+      });
 
-    httpMock
-      .expectOne('/api/v1/user/me')
-      .flush({ detail: 'expired' }, { status: 401, statusText: 'Unauthorized' });
-  });
+      httpMock
+        .expectOne('/api/v1/user/me')
+        .flush({ detail: 'expired' }, { status: 401, statusText: 'Unauthorized' });
+    }));
 
-  it('ante un 403 hace logout inmediato y propaga el error', (done) => {
-    auth.getAccessToken.and.returnValue('tok');
+  it('ante un 403 hace logout inmediato y propaga el error', () =>
+    new Promise<void>((resolve, reject) => {
+      auth.getAccessToken.mockReturnValue('tok');
 
-    http.get('/api/v1/user/me').subscribe({
-      next: () => done.fail('deberia propagar error'),
-      error: (err) => {
-        expect(err.status).toBe(403);
-        expect(auth.logout).toHaveBeenCalled();
-        done();
-      },
-    });
+      http.get('/api/v1/user/me').subscribe({
+        next: () => reject(new Error('deberia propagar error')),
+        error: (err) => {
+          try {
+            expect(err.status).toBe(403);
+            expect(auth.logout).toHaveBeenCalled();
+            resolve();
+          } catch (e) {
+            reject(e);
+          }
+        },
+      });
 
-    httpMock
-      .expectOne('/api/v1/user/me')
-      .flush({ detail: 'forbidden' }, { status: 403, statusText: 'Forbidden' });
-  });
+      httpMock
+        .expectOne('/api/v1/user/me')
+        .flush({ detail: 'forbidden' }, { status: 403, statusText: 'Forbidden' });
+    }));
 });

@@ -53,6 +53,18 @@ docker compose up --build
 # → http://futmondo.localhost
 ```
 
+## Versión de Node (desarrollo local)
+
+El repo fija la versión de Node en `.nvmrc` (`22.22.3`, alineada con la línea Node 22 que usa CI). Con [nvm](https://github.com/nvm-sh/nvm):
+
+```bash
+nvm use        # usa la versión de .nvmrc
+# o, si no la tienes instalada:
+nvm install
+```
+
+Usar esta versión evita el aviso `EBADENGINE` al instalar/usar los paquetes de Angular 22 y mantiene local y CI coherentes.
+
 ## Autenticación
 
 - Los usuarios se autentican con su email/password de Futmondo

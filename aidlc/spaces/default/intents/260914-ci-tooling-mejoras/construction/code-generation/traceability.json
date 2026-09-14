@@ -1,0 +1,37 @@
+{
+  "stage": "code-generation",
+  "upstream_ids": [
+    "FR1.1", "FR1.2", "FR1.3",
+    "FR2.1", "FR2.2", "FR2.3",
+    "FR3.1", "FR3.3", "FR3.4",
+    "FR4.1", "FR4.2", "FR4.3", "FR4.4", "FR4.5",
+    "FR5.1", "FR5.2",
+    "FR6.1", "FR6.2",
+    "NFR1", "NFR2", "NFR3", "NFR4", "NFR5"
+  ],
+  "coverage": [
+    { "id": "FR1.1", "status": "OK", "target": ".github/workflows/ci.yml" },
+    { "id": "FR1.2", "status": "OK", "target": ".github/workflows/ci.yml" },
+    { "id": "FR1.3", "status": "OK", "target": ".github/workflows/fly-deploy.yml" },
+    { "id": "FR2.1", "status": "OK", "target": "angular-app/package-lock.json" },
+    { "id": "FR2.2", "status": "OK", "target": "angular-app/package.json" },
+    { "id": "FR2.3", "status": "OK", "target": "aidlc/spaces/default/codekb/futmondo-analytics/dependencies.md" },
+    { "id": "FR3.1", "status": "OK", "target": "angular-app/src/app/app.config.ts" },
+    { "id": "FR3.3", "status": "OK", "target": "aidlc/spaces/default/codekb/futmondo-analytics/architecture.md" },
+    { "id": "FR3.4", "status": "OK", "target": "aidlc/spaces/default/codekb/futmondo-analytics/architecture.md" },
+    { "id": "FR4.1", "status": "OK", "target": "angular-app/angular.json" },
+    { "id": "FR4.2", "status": "OK", "target": "angular-app/package.json" },
+    { "id": "FR4.3", "status": "OK", "target": "angular-app/src/app/core/interceptors/auth.interceptor.spec.ts" },
+    { "id": "FR4.4", "status": "OK", "target": "angular-app/package-lock.json" },
+    { "id": "FR4.5", "status": "OK", "target": "aidlc/spaces/default/intents/260914-ci-tooling-mejoras/construction/code-generation/unit-test-instructions.md" },
+    { "id": "FR5.1", "status": "OK", "target": ".nvmrc" },
+    { "id": "FR5.2", "status": "OK", "target": "README.md" },
+    { "id": "FR6.1", "status": "OK", "target": ".github/workflows/fly-deploy.yml" },
+    { "id": "FR6.2", "status": "OK", "target": "aidlc/spaces/default/intents/260914-ci-tooling-mejoras/construction/code-generation/code-generation-plan.md" },
+    { "id": "NFR1", "status": "OK", "target": "angular-app/package.json" },
+    { "id": "NFR2", "status": "OK", "target": "angular-app/src/app/core/interceptors/auth.interceptor.spec.ts" },
+    { "id": "NFR3", "status": "OK", "target": ".nvmrc" },
+    { "id": "NFR4", "status": "OK", "target": ".github/workflows/ci.yml" },
+    { "id": "NFR5", "status": "OK", "target": "angular-app/angular.json" }
+  ]
+}

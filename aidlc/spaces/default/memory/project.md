@@ -67,3 +67,5 @@
 <!-- Project-specific corrections from human feedback. -->
 <!-- Format: NEVER/ALWAYS [behavior] (learned [date]) -->
 - ALWAYS mantener el proyecto a coste 0€: descartar toda mejora o dependencia con gasto recurrente; solo proponer soluciones sostenibles en tiers gratuitos (Neon free, Fly.io free allowance, GitHub Actions free) (learned 2026-09-11) <!-- cid:260911-analisis-mejoras:intent-capture:a64ea58ac71fc6e7985eddb4c78948ff11827c7ed40537a25c6fac73a6bb3c81 -->
+- ALWAYS verificar npm ci y ng test en local (o revisar el lock) antes de pushear tras cambiar devDependencies del frontend, para no romper el gate de CI (learned 2026-09-14) <!-- cid:260912-analytics-tests-fix:deployment-execution:0ea68257a2ff0bccf48656b5ace52be1efaf362d3166078342c2a0491ce27727 -->
+- ALWAYS verificar el build/tests del frontend en un contenedor `node:<versión de .nvmrc>` (con volumen anónimo para `node_modules`) cuando el Node local no alcance el mínimo que exige el Angular CLI; coste 0€ (learned 2026-09-14) <!-- cid:260914-ci-tooling-mejoras:deployment-execution:4a9616552729869fa85366642edb5f7079643479f82a6cf5c5d3baeb8674792c -->

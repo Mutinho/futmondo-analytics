@@ -29,13 +29,13 @@ jobs:
 
       # --- Secret scanning (BLOQUEANTE desde el inicio) ---
       - name: Secret scan (gitleaks)
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # --- Backend: Python / pytest ---
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
@@ -69,7 +69,7 @@ jobs:
 
       # --- Frontend: Angular ---
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '22'
 
@@ -77,19 +77,14 @@ jobs:
         working-directory: ./angular-app
         run: npm ci
 
-      - name: Install headless Chrome
-        uses: browser-actions/setup-chrome@v1
-
       - name: ESLint (advisory)
         working-directory: ./angular-app
         continue-on-error: true
         run: npx ng lint || echo "ESLint advisory — no bloquea todavia"
 
-      - name: Frontend tests (ng test headless) — BLOQUEANTE
+      - name: Frontend tests (ng test con Vitest) — BLOQUEANTE
         working-directory: ./angular-app
-        env:
-          CHROME_BIN: ${{ steps.setup-chrome.outputs.chrome-path }}
-        run: npx ng test --watch=false --browsers=ChromeHeadless
+        run: npx ng test --watch=false
 
       - name: Dependency audit (npm audit, advisory)
         working-directory: ./angular-app

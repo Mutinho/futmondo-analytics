@@ -1,84 +1,53 @@
-# Dependencias — Futmondo Analytics
+# Dependencies — Futmondo Analytics
 
-> Reverse-engineering. Escaneo previo FULL preservado; rerun FOCUSED sobre
-> `backend/app/services/` y `backend/tests/`. Dependencias externas (paquetes y
-> servicios de terceros) y dependencias internas cross-package.
+> Artefacto CodeKB (architect). Full rescan sobre `./`. Base: `developer-scan.md`.
+> Las versiones de paquetes se catalogan una sola vez en `technology-stack.md`; aquí se documentan **relaciones** de dependencia.
 
-## Dependencias externas — servicios de terceros
+## Dependencias externas (servicios y datos)
 
-| Servicio | Uso | Componente que depende | Riesgo |
-|----------|-----|------------------------|--------|
-| API Futmondo (oficial) | Autenticación y datos del campeonato | `integration clients` (`futmondo_client`), `auth`, `cron` | Disponibilidad/rate limits; token de sesión en memoria por usuario |
-| API Sofascore (no oficial) | Ratings de jugadores | `integration clients` (`sofascore_client`) | Baneo de IP (exit code 2 en `sofascore-sync.yml`); sin API key |
-| Gemini (`google-genai`) | Chat del asistente | `data services` (`assistant_service`) | Cuota/coste; debe respetar tier gratuito |
-| Groq (`groq`) | Fallback del asistente | `data services` (`assistant_service`) | Cuota/coste |
-| Neon PostgreSQL | Persistencia productiva | `backend`, `cron`, `scripts` | Tier gratuito (regla coste 0€) |
-| Fly.io | Hosting de las 3 apps | despliegue | Free allowance; `min_machines_running=1` |
-| GitHub Actions | CI/CD y crons programados | pipelines | Minutos gratuitos |
+| Dependencia | Tipo | Consumidor | Notas |
+|-------------|------|------------|-------|
+| API Futmondo | Servicio externo | `backend`, `cron` | Autenticación y datos de campeonato; se usa la sesión Futmondo del usuario |
+| API Sofascore | Servicio externo | `backend`, `cron` | Ratings/tendencia vía `curl_cffi` |
+| Proveedores IA (`google-genai`, `groq`) | Servicio externo | `backend` (`assistant_service`) | Assistant |
+| Neon PostgreSQL | Datastore gestionado | `backend`, `cron` | Serverless, tier free |
+| Fly.io | Plataforma de despliegue | `angular-app`, `backend`, `cron` | Free allowance |
+| GitHub Actions | CI/CD | Repo | Tier free |
 
-## Dependencias externas — paquetes
-
-- **Backend** (`requirements.txt`): FastAPI, uvicorn, pydantic, PyJWT,
-  psycopg2-binary, curl_cffi, libsql-experimental, requests, python-dotenv,
-  python-multipart, google-genai, groq, pytest, pytest-cov, httpx. Versiones en
-  `technology-stack.md`.
-- **Frontend** (`package.json`): Angular 22 (core/material/cdk/router/forms/
-  service-worker), chart.js, ng2-charts, marked, rxjs, typescript; test con
-  Karma + Jasmine.
-- **Notas**: `libsql-experimental` es dependencia heredada (backend Turso ya no en
-  ruta activa). No hay `pyproject.toml`/`setup.py`: las dependencias Python viven
-  solo en `requirements.txt`.
-
-## Dependencia de test (foco del rerun)
-
-- `backend/tests/` depende de `pytest` + `monkeypatch` (no de BD real). El
-  fixture `analytics_service` de `test_analytics_service.py` sustituye
-  `AnalyticsService.__init__` por un `fake_init` que inyecta un `StubDM` (fake de
-  `DataManager`). Acoplamiento implícito: la fixture asume que los métodos
-  públicos no dependen de estado inicializado en `__init__`, lo que NO se cumple
-  (`_team_cache`/`_player_cache`). Ver `code-quality-assessment.md`.
-
-## Dependencias internas cross-package
+## Dependencias cruzadas internas (entre paquetes)
 
 ```mermaid
 graph LR
-    FE["angular-app"] -->|proxy /api,/auth| BE["backend"]
-    PROXY["proxy (local)"] --> BE
-    PROXY --> FE
-    CRON["cron"] -->|reutiliza Dockerfile| BE
-    SCRIPTS["backend/scripts"] --> SVC["data services"]
-    SCRIPTS --> IC["integration clients"]
-    EP["api endpoints"] --> SVC
-    EP --> IC
-    EP --> TM["task manager"]
-    EP --> AUTH["auth"]
-    AUTH --> IC
-    SVC --> DB[("PostgreSQL")]
-    IC --> EXT["APIs externas"]
-    TESTS["backend/tests"] -->|StubDM fake| SVC
+  angular_app["angular-app"] -->|"REST /auth/*, /api/v1/*"| backend["backend"]
+  cron["cron"] -->|"reutiliza imagen"| backend
+  proxy["proxy"] -->|"enruta"| angular_app
+  proxy -->|"enruta"| backend
+  backend -->|"SQL"| db["Neon PostgreSQL"]
+  cron -->|"SQL"| db
 ```
 
-Fallback de texto: el frontend depende del backend en runtime (proxy). El `proxy`
-local depende de backend y frontend. El `cron` reutiliza la imagen del backend.
-Dentro del backend: los `api endpoints` dependen de `data services`,
-`integration clients`, `task manager` y `auth`; `auth` depende de
-`integration clients` (validación Futmondo); `data services` depende de
-`PostgreSQL`; `integration clients` de las APIs externas. Los `backend/scripts`
-dependen de `data services` e `integration clients`. La suite `backend/tests`
-depende de `data services` (`AnalyticsService`) mediante fakes por fixture, sin
-BD real.
+<!-- Text fallback: angular-app depende de backend por REST (/auth/*, /api/v1/*). cron reutiliza la imagen del backend. proxy (local) enruta hacia angular-app y backend. backend y cron dependen de Neon PostgreSQL por SQL. -->
 
-## Acoplamientos de riesgo
+- **angular-app → backend**: acoplamiento por contrato HTTP (Bearer JWT). Única dependencia de código cruzada del frontend.
+- **cron → backend**: acoplamiento por artefacto de build (comparten `backend/Dockerfile` y `scripts/sync_data.py`). Cambios en el backend afectan al cron.
+- **proxy → {angular-app, backend}**: sólo enrutado local (docker-compose); no afecta a producción Fly.
 
-- **`data services` como hub**: los "god files" (`data_manager_v2`,
-  `data_sync_service`, `analytics_service`) concentran el fan-in de endpoints y
-  scripts → alto riesgo de cambio.
-- **Caracterización acoplada a estado privado**: `test_analytics_service.py`
-  depende de detalles de `__init__` de `AnalyticsService`; cualquier cambio en la
-  inicialización de caches o en el nombre de clave de salida rompe/altera la
-  suite (foco del intent).
-- **`task manager` in-memory**: acoplamiento implícito al ciclo de vida del
-  proceso; reinicios Fly rompen tareas en curso.
-- **Build**: frontend y backend son independientes en build; el acoplamiento es
-  en runtime (HTTP) y en compose (`proxy`/`frontend` dependen de `backend`
-  healthy).
+## Deuda de dependencias (resumen; detalle en `code-quality-assessment.md`)
+
+- `punycode@1.4.1` transitivo en `angular-app/package-lock.json` (origen de `DEP0040`).
+  **Nota de vigilancia (intent `260914-ci-tooling-mejoras`, FR2 / BR2.1):** la cadena
+  transitiva concreta es `karma`/`karma-jasmine-html-reporter` → `dom-serialize@2.2.1`
+  → `ent@2.2.2` → `punycode@1.4.1`, toda ella `dev: true` (tooling de test, no runtime).
+  Por eso `npm ls punycode` sobre el árbol resuelto da vacío fuera del stack de Karma.
+  **Resolución:** la retirada de las devDependencies de Karma en la migración a Vitest
+  (mejora 4, FR4.2 / BR4.2) elimina `dom-serialize → ent → punycode` del árbol, con lo
+  que el aviso `DEP0040` desaparece sin actualizar ninguna dependencia directa de runtime
+  ni introducir coste. Si tras retirar Karma persistiera `DEP0040` por otra transitiva,
+  registrar aquí la nueva cadena y la versión objetivo que la eliminaría.
+- `libsql-experimental==0.0.55` y `nixpacks.toml` (Railway) — posibles restos heredados a confirmar.
+- ESLint tooling referenciado pero no instalado en devDependencies del frontend.
+
+## Referencias cruzadas
+
+- Versiones exactas: `technology-stack.md`.
+- Componentes que participan en cada relación: `component-inventory.md`.

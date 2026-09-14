@@ -18,6 +18,13 @@
     "slug": "analytics-tests-fix",
     "dirName": "260912-analytics-tests-fix",
     "scope": "bugfix",
-    "status": "in-flight"
+    "status": "complete"
+  },
+  {
+    "uuid": "01a09f15-5866-778d-b734-09d97366fd9b",
+    "slug": "ci-tooling-mejoras",
+    "dirName": "260914-ci-tooling-mejoras",
+    "scope": "refactor",
+    "status": "complete"
   }
 ]
