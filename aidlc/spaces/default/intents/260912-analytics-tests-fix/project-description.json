@@ -1,0 +1,1 @@
+"Arreglar los 3 tests preexistentes en verde en backend/tests/test_analytics_service.py: AnalyticsService no tiene atributo _team_cache (test_championship_trends, test_clause_network) y falta la clave latest_price (test_player_value_trend). Objetivo: dejar la suite completa de pytest en verde para desbloquear el gate de CI de fly-deploy.yml."

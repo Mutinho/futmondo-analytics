@@ -1,7 +1,8 @@
 # Dependencias — Futmondo Analytics
 
-> Reverse-engineering (escaneo FULL). Dependencias externas (paquetes y servicios
-> de terceros) y dependencias internas cross-package.
+> Reverse-engineering. Escaneo previo FULL preservado; rerun FOCUSED sobre
+> `backend/app/services/` y `backend/tests/`. Dependencias externas (paquetes y
+> servicios de terceros) y dependencias internas cross-package.
 
 ## Dependencias externas — servicios de terceros
 
@@ -28,6 +29,15 @@
   ruta activa). No hay `pyproject.toml`/`setup.py`: las dependencias Python viven
   solo en `requirements.txt`.
 
+## Dependencia de test (foco del rerun)
+
+- `backend/tests/` depende de `pytest` + `monkeypatch` (no de BD real). El
+  fixture `analytics_service` de `test_analytics_service.py` sustituye
+  `AnalyticsService.__init__` por un `fake_init` que inyecta un `StubDM` (fake de
+  `DataManager`). Acoplamiento implícito: la fixture asume que los métodos
+  públicos no dependen de estado inicializado en `__init__`, lo que NO se cumple
+  (`_team_cache`/`_player_cache`). Ver `code-quality-assessment.md`.
+
 ## Dependencias internas cross-package
 
 ```mermaid
@@ -45,6 +55,7 @@ graph LR
     AUTH --> IC
     SVC --> DB[("PostgreSQL")]
     IC --> EXT["APIs externas"]
+    TESTS["backend/tests"] -->|StubDM fake| SVC
 ```
 
 Fallback de texto: el frontend depende del backend en runtime (proxy). El `proxy`
@@ -53,13 +64,19 @@ Dentro del backend: los `api endpoints` dependen de `data services`,
 `integration clients`, `task manager` y `auth`; `auth` depende de
 `integration clients` (validación Futmondo); `data services` depende de
 `PostgreSQL`; `integration clients` de las APIs externas. Los `backend/scripts`
-dependen de `data services` e `integration clients`.
+dependen de `data services` e `integration clients`. La suite `backend/tests`
+depende de `data services` (`AnalyticsService`) mediante fakes por fixture, sin
+BD real.
 
 ## Acoplamientos de riesgo
 
 - **`data services` como hub**: los "god files" (`data_manager_v2`,
-  `data_sync_service`) concentran el fan-in de endpoints y scripts → alto riesgo
-  de cambio.
+  `data_sync_service`, `analytics_service`) concentran el fan-in de endpoints y
+  scripts → alto riesgo de cambio.
+- **Caracterización acoplada a estado privado**: `test_analytics_service.py`
+  depende de detalles de `__init__` de `AnalyticsService`; cualquier cambio en la
+  inicialización de caches o en el nombre de clave de salida rompe/altera la
+  suite (foco del intent).
 - **`task manager` in-memory**: acoplamiento implícito al ciclo de vida del
   proceso; reinicios Fly rompen tareas en curso.
 - **Build**: frontend y backend son independientes en build; el acoplamiento es

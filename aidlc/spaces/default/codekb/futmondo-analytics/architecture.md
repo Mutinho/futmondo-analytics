@@ -1,7 +1,8 @@
 # Arquitectura del Sistema — Futmondo Analytics
 
-> Reverse-engineering (escaneo FULL). Diagramas Mermaid validados; cada diagrama
-> incluye un fallback de texto inmediatamente debajo.
+> Reverse-engineering. Escaneo previo FULL preservado; rerun FOCUSED sobre
+> `backend/app/services/` y `backend/tests/`. Diagramas Mermaid validados; cada
+> diagrama incluye un fallback de texto inmediatamente debajo.
 
 ## Visión general del sistema
 
@@ -183,6 +184,35 @@ margen ±25%) y adjunta el rating Sofascore. Al pujar, el backend proxya la puja
 `/1/market/bid` de Futmondo con `price` como query param entero. Riesgo: el
 backend NO valida rango/positividad de `price` (solo el frontend valida min/max).
 
+### Analítica bajo test — `AnalyticsService` con `StubDM` (foco del rerun)
+
+```mermaid
+sequenceDiagram
+    participant T as pytest fixture
+    participant AS as AnalyticsService
+    participant CACHE as _team_cache / _player_cache (in-memory)
+    participant DM as StubDM (fake DataManager)
+
+    T->>AS: monkeypatch __init__ -> fake_init(self) { self.dm = stub_dm }
+    Note over AS,CACHE: fake_init NO inicializa _team_cache ni _player_cache
+    T->>AS: get_championship_trends / get_clause_network / get_player_value_trend
+    AS->>CACHE: lee/escribe _team_cache / _player_cache
+    CACHE-->>AS: AttributeError (atributos ausentes)
+    AS->>DM: get_* (datos fake)
+    DM-->>AS: dicts sin player_name / con price
+    Note over AS: get_player_value_trend emite last_transaction_price (el test exige latest_price)
+```
+
+Fallback de texto: la fixture de `test_analytics_service.py` sustituye el
+`__init__` de `AnalyticsService` por un `fake_init` que solo asigna `self.dm =
+stub_dm` y NO inicializa `_team_cache` ni `_player_cache`. Los métodos públicos
+`get_championship_trends` (vía `_safe_team_info`), `get_clause_network` (vía
+`_resolve_team`/`_build_team_lookup`) y `get_player_value_trend` (vía
+`_safe_player_info`) leen/escriben esos atributos y lanzan `AttributeError`.
+Además, `get_player_value_trend` emite la clave `last_transaction_price` mientras
+el test espera `latest_price`, produciendo un `KeyError` independiente. Detalle y
+punto de arreglo en `code-quality-assessment.md`.
+
 ## Decisiones de diseño destacables
 
 - **JWT en dos tokens**: access (60 min, en memoria del navegador) + refresh (30
@@ -194,11 +224,51 @@ backend NO valida rango/positividad de `price` (solo el frontend valida min/max)
   salvo `AUTH_EXCLUDED_PATHS`.
 - **Capa de abstracción de BD multi-backend**: flexibilidad histórica
   (SQLite/Turso/PostgreSQL) hoy con ramas muertas.
+- **Caché de instancia en `AnalyticsService`**: `_team_cache` y `_player_cache`
+  se inicializan en el `__init__` real (analytics_service.py:16-17) y actúan como
+  memoización por instancia; los métodos públicos asumen su presencia. Es un
+  acoplamiento a estado de instancia que la caracterización debe respetar.
+
+## ADR — Registro de decisión (síntesis del rerun)
+
+### ADR-RE-001: Punto de arreglo de la suite de `AnalyticsService`
+
+- **Status**: Proposed (decisión final del stage code-generation).
+- **Context**: Tres tests de caracterización (`test_championship_trends`,
+  `test_clause_network`, `test_player_value_trend`) fallan. Dos raíces: (a) la
+  fixture `fake_init` omite `_team_cache`/`_player_cache` presentes en el
+  `__init__` real; (b) divergencia de nombre de clave `last_transaction_price`
+  (servicio) vs `latest_price` (test). Restricción dura: no romper los otros
+  tests del fichero ni el resto de la suite; regla coste 0€; scope `bugfix`.
+- **Decision**: preferir el arreglo en el **test** (Alternativa A): inicializar
+  `_team_cache`/`_player_cache` en `fake_init` y alinear la aserción de clave con
+  la salida real del servicio. Es el cambio de menor blast radius: no toca el
+  contrato de salida consumido por `/api/v1/analytics/*` (skimmed only).
+- **Consequences**:
+  - Positivo: cero riesgo para consumidores del servicio; la caracterización
+    congela el comportamiento real actual, que es el objetivo de una suite de
+    caracterización.
+  - Negativo: mantiene la deuda de naming (`last_transaction_price` vs
+    `latest_price`) y el acoplamiento de la fixture a atributos privados.
+  - Neutral: si el negocio decidiera que la clave pública debe llamarse
+    `latest_price`, ese es un cambio de contrato separado (Alternativa B) que
+    exige revisar los endpoints `/api/v1/analytics/*` antes de renombrar.
+- **Alternatives Considered**:
+  - **Alternativa B — tocar el servicio** (renombrar/duplicar clave a
+    `latest_price` y endurecer los métodos ante caches ausentes): riesgo de
+    romper el contrato consumido por endpoints no leídos en profundidad;
+    rechazada para un scope `bugfix` sin verificación de esos consumidores.
+  - **Alternativa C — no monkeypatchear `__init__`** y usar el `__init__` real
+    con un DM fake inyectado: cambio mayor de la estrategia de test; rechazada
+    por blast radius en toda la fixture del fichero.
 
 ## Oportunidades de mejora arquitectónica
 
 - Persistir el estado de sync y las sesiones (durabilidad frente a reinicios Fly).
 - Podar el multi-backend de BD hacia Neon único.
-- Romper los "god files" (`data_manager_v2.py`, `data_sync_service.py`).
+- Romper los "god files" (`data_manager_v2.py`, `data_sync_service.py`,
+  `analytics_service.py`).
+- Unificar el contrato del dict de salida de `AnalyticsService` (fuente única de
+  verdad para nombres de clave como `latest_price`/`last_transaction_price`).
 - Hacer transaccional el reemplazo de la caché Sofascore (hoy DELETE antes de
   repoblar).

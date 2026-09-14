@@ -1,6 +1,7 @@
 # Inventario de Componentes — Futmondo Analytics
 
-> Reverse-engineering (escaneo FULL). Lista completa de componentes con
+> Reverse-engineering. Escaneo previo FULL preservado; rerun FOCUSED sobre
+> `backend/app/services/` y `backend/tests/`. Lista completa de componentes con
 > responsabilidades y dependencias. Los headings H2 de componente se comparan
 > literalmente por el rerun guard y deben coincidir verbatim con la lista
 > `components` del bloque Scope of Analysis en `reverse-engineering-timestamp.md`.
@@ -10,7 +11,9 @@
 El sistema se descompone en componentes desplegables (frontend, backend, proxy,
 cron) y, dentro del backend, en subsistemas lógicos (auth, servicios de datos,
 clientes de integración, endpoints, gestor de tareas). A continuación cada
-componente con su responsabilidad y dependencias.
+componente con su responsabilidad y dependencias. En este rerun solo `data
+services` se re-verificó en profundidad; el resto se conserva del escaneo FULL
+previo y aparece degradado a `shallow` en el bloque Scope of Analysis.
 
 ## angular-app
 
@@ -51,8 +54,19 @@ componente con su responsabilidad y dependencias.
   `data_manager_v2.py` (acceso a datos, 166 KB), `data_sync_service.py`
   (orquestación de sync, 84 KB), `analytics_service.py` (34 KB),
   `assistant_service.py` (asistente IA, 51 KB), `photo_service.py` (23 KB).
+- **`analytics_service.py` (re-verificado en profundidad, foco del rerun)**: clase
+  `AnalyticsService` con estado de instancia `_team_cache`/`_player_cache`
+  (memoización, inicializados en `__init__` l.16-17) y métodos públicos
+  `get_championship_trends` (l.124), `get_player_value_trend` (l.437),
+  `get_clause_network` (l.668), `get_player_form`, `get_opportunity_streaks`,
+  `get_matchday_projections`. Helpers privados `_safe_team_info`,
+  `_safe_player_info`, `_build_team_lookup`, `_resolve_team` dependen del estado
+  de instancia. Emite `last_transaction_price` (no `latest_price`).
 - **Dependencias**: `PostgreSQL` (`db_connection`), `futmondo_client`,
-  `sofascore_client`, servicios IA. Deuda: "god files" intestables sin fakes.
+  `sofascore_client`, servicios IA. Deuda: "god files" intestables sin fakes;
+  acoplamiento de la caracterización de `AnalyticsService` a atributos privados de
+  instancia y divergencia de nombre de clave de salida (ver
+  `code-quality-assessment.md`).
 
 ## integration clients
 
@@ -72,7 +86,8 @@ componente con su responsabilidad y dependencias.
   player-finances, statistics, user-stats, clausulable-players, phantoms,
   matchdays, initialize, user, assistant, sofascore_detail, `_helpers`).
 - **Dependencias**: `data services`, `integration clients`, `task manager`,
-  `auth` (`request.state.user`).
+  `auth` (`request.state.user`). Nota: los routers de analítica serializan los
+  dicts de `AnalyticsService`; sensibles a un renombrado de clave de salida.
 
 ## task manager
 

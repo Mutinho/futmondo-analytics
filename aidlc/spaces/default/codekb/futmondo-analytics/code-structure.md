@@ -1,6 +1,7 @@
 # Estructura del Código — Futmondo Analytics
 
-> Reverse-engineering (escaneo FULL). Organización de paquetes/módulos,
+> Reverse-engineering. Escaneo previo FULL preservado; rerun FOCUSED sobre
+> `backend/app/services/` y `backend/tests/`. Organización de paquetes/módulos,
 > clasificación de ficheros y patrones de código observados.
 
 ## Organización de paquetes/módulos
@@ -32,12 +33,43 @@ backend/app/
 │   ├── data_manager_v2.py      # 166 KB — acceso a datos (god file)
 │   ├── data_sync_service.py    # 84 KB — orquestación de sync (god file)
 │   ├── assistant_service.py    # 51 KB — asistente IA (god file)
-│   ├── analytics_service.py    # 34 KB — analítica (god file)
+│   ├── analytics_service.py    # 34 KB — analítica (god file, foco del rerun)
 │   └── photo_service.py        # 23 KB — gestión de fotos de jugadores
 ├── api/v1/endpoints/     # 23 routers por dominio (sync, market, analytics, …)
 ├── models/               # modelos de dominio
 ├── scripts/              # jobs one-shot y migraciones heredadas
 └── tests/                # 6 ficheros de caracterización (pytest)
+```
+
+### `AnalyticsService` — estructura interna relevante (foco del rerun)
+
+`analytics_service.py` expone una clase `AnalyticsService` con:
+
+- **Estado de instancia** (analytics_service.py:12-17): `self.dm = DataManagerV2()`,
+  `self._team_cache: Dict[str, Dict[str, Dict]] = {}`,
+  `self._player_cache: Dict[str, Dict] = {}`.
+- **Helpers privados**: `_safe_team_info` (l.18, usa `_player_cache` como flag
+  `__teams_loaded__` y escribe en `_team_cache`), `_safe_player_info` (l.40, usa
+  `_player_cache`), `_build_team_lookup` (l.55, lee/escribe `_team_cache`),
+  `_resolve_team` (l.94).
+- **Métodos públicos bajo test**: `get_championship_trends` (l.124),
+  `get_player_value_trend` (l.437, emite `last_transaction_price` en l.474),
+  `get_clause_network` (l.668); más `get_player_form`, `get_opportunity_streaks`,
+  `get_matchday_projections` (deben permanecer en verde).
+
+### Suite de tests del backend (`backend/tests/`)
+
+```
+backend/tests/
+├── test_analytics_service.py         # foco: fakes de DataManager (StubDM)
+├── test_auth_characterization.py
+├── test_db_admin_guard.py
+├── test_jwt_startup.py
+├── test_db_engine_characterization.py
+└── test_finance_characterization.py
+backend/conftest.py                    # fixtures + monkeypatch, pythonpath = .
+backend/pytest.ini                     # cobertura informativa (--cov=app opcional)
+backend/ruff.toml                      # select E,F,I; advisory
 ```
 
 ### Frontend (por feature)
@@ -79,12 +111,22 @@ angular-app/src/app/
 - **Sync desacoplada por hilo + polling**: `threading.Thread(daemon=True)` sobre
   `_run_sync_in_background`, progreso vía `TaskManager` (patrón task-id +
   polling).
+- **Memoización por instancia en `AnalyticsService`**: `_team_cache`/`_player_cache`
+  inicializadas en `__init__` y consultadas por los helpers privados; patrón
+  frágil cuando un test sustituye `__init__` completo (ver
+  `code-quality-assessment.md`).
+- **Testing de caracterización con fakes por fixture**: `test_analytics_service.py`
+  monkeypatchea `AnalyticsService.__init__` con un `fake_init` que inyecta un
+  `StubDM`; no usa BD real. `conftest.py` fija `pythonpath = .` para que
+  `from app...` resuelva ejecutando pytest desde `backend/`.
 - **Standalone components + signals (Angular 22)**: features standalone; core con
   interceptor de auth y guards. `angular.json` configura `skipTests: true` en los
   schematics.
 - **Anti-patrones observados**: `except Exception: pass` silencioso en arranque y
-  migraciones; "god files" que superan con creces el objetivo de <300 líneas;
-  estado no durable en memoria; ramas muertas de configuración multi-backend.
+  migraciones; `try/except` amplio en `_build_team_lookup` (l.66-68) que enmascara
+  la ausencia de `get_all_users_with_points` en `StubDM`; "god files" que superan
+  el objetivo de <300 líneas; estado no durable en memoria; ramas muertas de
+  configuración multi-backend.
 
 ## Convenciones
 

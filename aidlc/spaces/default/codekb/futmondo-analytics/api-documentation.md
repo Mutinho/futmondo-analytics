@@ -1,8 +1,9 @@
 # Documentación de APIs — Futmondo Analytics
 
-> Reverse-engineering (escaneo FULL). APIs internas expuestas por el backend y
-> APIs externas consumidas. Los nombres de ruta y parámetros se mantienen
-> literales.
+> Reverse-engineering. Escaneo previo FULL preservado; rerun FOCUSED sobre
+> `backend/app/services/` y `backend/tests/`. APIs internas expuestas por el
+> backend y APIs externas consumidas. Los nombres de ruta y parámetros se
+> mantienen literales.
 
 ## API interna (REST — FastAPI)
 
@@ -48,6 +49,21 @@ Routers adicionales montados (dominio): `matchdays` (doble montaje en
 `/api/v1/matchdays` y `/v1/matchdays`), `initialize`, `statistics`,
 `user-stats`, `clausulable-players`, `roster`, `favorites`, `transactions`,
 `sofascore` (detail), `phantoms`.
+
+### Contrato interno de `AnalyticsService` (consumido por `/api/v1/analytics/*`, `statistics`, `clausulable-players`)
+
+`AnalyticsService` no es una API HTTP en sí, pero sus dicts de salida forman el
+contrato de datos que los routers de analítica serializan. Puntos observados en
+el rerun (evidencia en `analytics_service.py`):
+
+- `get_player_value_trend` (l.437) emite la clave `last_transaction_price`
+  (l.474), NO `latest_price`. La cadena `latest_price` no aparece en
+  `backend/app/`. La suite de caracterización espera `latest_price`, lo que
+  revela una divergencia de contrato (detalle en `code-quality-assessment.md`).
+- **Advertencia de contrato**: renombrar la clave de salida en el servicio a
+  `latest_price` afectaría a los consumidores `/api/v1/analytics/*` (skimmed
+  only en este rerun); debe verificarse antes de cualquier renombrado del lado
+  del servicio.
 
 ## APIs externas consumidas
 

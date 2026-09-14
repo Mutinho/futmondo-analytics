@@ -6,66 +6,61 @@
 
 ## Metadatos de ejecución
 
-- **Fecha**: 2026-09-11T12:58:18Z
-- **Commit hash**: `dcc4139d6eeb465621bb50b8a83aa7bf8f9ebb0a` (`dcc4139`)
-- **Tipo de escaneo**: FULL (primera vez, sin store previo — NO_STORE)
-- **Profundidad**: Standard
+- **Fecha**: 2026-09-13T05:44:07Z
+- **Commit hash**: `099e223` (fingerprint del scope acuñado sobre las
+  `analyzed.paths` de este run; el commit del árbol de trabajo se resuelve en
+  build)
+- **Tipo de escaneo**: FOCUSED sobre store previo STALE (re-síntesis parcial)
+- **Profundidad**: Minimal
 - **Tipo de proyecto**: Brownfield
+- **Scope**: bugfix
 - **Repo**: repo único (workspace root), `/home/javi/futmondo-analytics`
-- **Intent**: analisis-mejoras
+- **Intent**: 260912-analytics-tests-fix
 - **Pipeline**: developer (escaneo) → architect (síntesis, este artefacto)
 
 ## Alcance y notas
 
-Escaneo FULL que cubrió el repo completo: raíz, `backend/` (config, auth,
-services, los 23 endpoints, tests, scripts), `angular-app/` (build, core,
-features a nivel de directorio), `proxy/`, `cron/` y `.github/workflows/`. Los
-"god files" de `backend/app/services/` se conocen por interfaz y llamadas (skim),
-y las 17 features Angular se inventariaron a nivel de directorio/fichero. Estos
-matices se reflejan en `shallow.paths` del bloque siguiente. La huella
-(`fingerprint`) se deja como `unknown`: la acuña el conductor.
+Rerun ENFOCADO sobre `backend/app/services/` (con `analytics_service.py`
+re-verificado en profundidad) y `backend/tests/` (suite de caracterización,
+`test_analytics_service.py`). El store previo era un escaneo FULL
+(`intent: analisis-mejoras`, `kind: full`) hoy STALE: su prosa se PRESERVA, pero
+sus `analyzed.paths` profundas se DEGRADAN a `shallow.paths` porque esa cobertura
+profunda no se pudo re-verificar en este run. Solo el componente `data services`
+se re-verificó en profundidad; el resto del inventario se conserva del escaneo
+previo. La huella (`fingerprint`) se acuñó con `codekb-scope-diff --mint` sobre
+`backend/app/services/,backend/tests/`.
 
 ## Scope of Analysis
 
 ```yaml
 scope_version: 1
-kind: full
-intent: analisis-mejoras
-fingerprint: e754d1ca9d5677d9ec0876b91b089ae27858f272
+kind: partial
+intent: 260912-analytics-tests-fix
+fingerprint: 099e22398dc485929ac6dffec6fd830befd2bea4
 analyzed:
+  paths:
+    - backend/app/services/
+    - backend/tests/
+  components:
+    - data services
+shallow:
   paths:
     - ./
     - backend/
     - backend/app/
     - backend/app/core/
     - backend/app/auth/
-    - backend/app/services/
     - backend/app/api/v1/endpoints/
-    - backend/tests/
     - backend/scripts/
     - angular-app/
     - angular-app/src/app/core/
+    - angular-app/src/app/features/
     - proxy/
     - cron/
     - .github/workflows/
-  components:
-    - angular-app
-    - backend
-    - auth
-    - data services
-    - integration clients
-    - api endpoints
-    - task manager
-    - backend/scripts
-    - cron
-    - proxy
-shallow:
-  paths:
+    - docs/
     - backend/app/services/data_manager_v2.py
     - backend/app/services/data_sync_service.py
     - backend/app/services/assistant_service.py
-    - backend/app/services/analytics_service.py
     - backend/app/services/photo_service.py
-    - angular-app/src/app/features/
-    - docs/
 ```

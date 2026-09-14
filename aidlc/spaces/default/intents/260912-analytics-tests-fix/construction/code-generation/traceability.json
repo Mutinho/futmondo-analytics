@@ -1,0 +1,18 @@
+{
+  "stage": "code-generation",
+  "unit": "code-generation",
+  "upstream_ids": ["FR1.1", "FR1.2", "FR1.3", "FR2.1", "FR2.2", "FR2.3", "FR3.1", "FR3.2", "NFR1", "NFR2", "NFR3"],
+  "coverage": [
+    { "id": "FR1.1", "status": "OK", "target": "backend/tests/test_analytics_service.py" },
+    { "id": "FR1.2", "status": "OK", "target": "backend/tests/test_analytics_service.py" },
+    { "id": "FR1.3", "status": "OK", "target": "backend/tests/test_analytics_service.py" },
+    { "id": "FR2.1", "status": "OK", "target": "backend/tests/test_analytics_service.py" },
+    { "id": "FR2.2", "status": "N/A", "target": "sin cambios en backend/app/ por diseño (Alternativa A)" },
+    { "id": "FR2.3", "status": "OK", "target": "backend/tests/test_analytics_service.py" },
+    { "id": "FR3.1", "status": "OK", "target": "backend/tests/test_analytics_service.py (54 passed en ejecución real)" },
+    { "id": "FR3.2", "status": "OK", "target": "backend/tests/test_analytics_service.py (suite de caracterización verde)" },
+    { "id": "NFR1", "status": "OK", "target": "pytest exit code 0 (54 passed) verificado en ejecución real; CI lo re-verifica" },
+    { "id": "NFR2", "status": "OK", "target": "backend/tests/test_analytics_service.py (único fichero modificado)" },
+    { "id": "NFR3", "status": "OK", "target": "backend/tests/test_analytics_service.py (aserciones reales, sin debilitar)" }
+  ]
+}

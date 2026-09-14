@@ -11,6 +11,13 @@
     "slug": "sofascore-cache-atomica",
     "dirName": "260911-sofascore-cache-atomica",
     "scope": "bugfix",
+    "status": "complete"
+  },
+  {
+    "uuid": "01a09742-7e44-7b3d-8cc7-accc4166ddd6",
+    "slug": "analytics-tests-fix",
+    "dirName": "260912-analytics-tests-fix",
+    "scope": "bugfix",
     "status": "in-flight"
   }
 ]

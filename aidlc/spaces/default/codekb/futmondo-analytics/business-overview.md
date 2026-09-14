@@ -1,8 +1,10 @@
 # Visión de Negocio — Futmondo Analytics
 
-> Artefacto de reverse-engineering (escaneo FULL, primera vez, profundidad
-> Standard, proyecto brownfield). Basado en el handoff del developer y en la
-> lectura del código fuente real. Repo raíz: `/home/javi/futmondo-analytics`.
+> Artefacto de reverse-engineering. Escaneo previo FULL (profundidad Standard,
+> brownfield) preservado. Este rerun es FOCUSED sobre `backend/app/services/` y
+> `backend/tests/` (intent `260912-analytics-tests-fix`, scope `bugfix`); el
+> resto del contenido se conserva y se marca shallow en el bloque Scope of
+> Analysis. Repo raíz: `/home/javi/futmondo-analytics`.
 
 ## Dominio y propósito
 
@@ -38,6 +40,11 @@ individuales de cada usuario — no existen credenciales globales.
 - **Finanzas por usuario**: cálculo de dinero por participante (presupuesto +
   puntos×€ + profit de transacciones + dream team + MVP + clasificación con la
   fórmula proporcional de Futmondo + castigos/bonificaciones).
+- **Analítica de campeonato** (`AnalyticsService`, foco de este rerun): tendencias
+  de campeonato (`get_championship_trends`), red de cláusulas
+  (`get_clause_network`), tendencia de valor de jugador (`get_player_value_trend`),
+  forma de jugador, rachas de oportunidad y proyecciones de jornada. Alimenta los
+  informes de Evolución, Estadísticas, Clausulables y Analytics del frontend.
 - **Evolución, Estadísticas, Clausulables, Analytics, Phantoms**: gráficos e
   informes derivados; detección de "phantom players" (jugadores en plantilla sin
   compra registrada).
@@ -68,3 +75,7 @@ hay margen de mejora en la liga.
 - **Dependencia de APIs de terceros**: Futmondo (oficial) y Sofascore (no
   oficial, con riesgo de baneo de IP). La disponibilidad del análisis depende de
   la disponibilidad de esas APIs externas.
+- **Fiabilidad de la analítica bajo test**: la suite de caracterización de
+  `AnalyticsService` es la red de seguridad que congela el comportamiento de la
+  capa analítica; su verde es condición del gate de CI (ver
+  `code-quality-assessment.md`).

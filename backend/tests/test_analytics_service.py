@@ -59,6 +59,15 @@ def analytics_service(monkeypatch):
 
     def fake_init(self):
         self.dm = stub_dm
+        # Replica el estado del __init__ real (analytics_service.py) sin instanciar
+        # DataManagerV2 ni tocar la BD. _safe_team_info consulta la BD directamente
+        # (get_db + SELECT teams); bajo el fixture no hay BD, así que precargamos el
+        # cache de equipos con lo que el stub conoce y marcamos "__teams_loaded__"
+        # para que sirva el team_name desde caché en lugar de caer al fallback team_id.
+        self._team_cache = {
+            "team-1": {"team_id": "team-1", "user_id": None, "team_name": "Team One"},
+        }
+        self._player_cache = {"__teams_loaded__": True}
 
     monkeypatch.setattr(AnalyticsService, "__init__", fake_init)
     return AnalyticsService()
@@ -77,7 +86,7 @@ def test_player_form(analytics_service):
 
 def test_player_value_trend(analytics_service):
     result = analytics_service.get_player_value_trend("champ", window=30)
-    assert result["players"][0]["latest_price"] == 1000000
+    assert result["players"][0]["last_transaction_price"] == 1000000
 
 
 def test_clause_network(analytics_service):

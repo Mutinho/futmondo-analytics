@@ -1,8 +1,9 @@
 # Stack Tecnológico — Futmondo Analytics
 
-> Reverse-engineering (escaneo FULL). Lenguajes, frameworks y librerías con
-> versiones, según `backend/requirements.txt`, `angular-app/package.json` y los
-> ficheros de build leídos.
+> Reverse-engineering. Escaneo previo FULL preservado; rerun FOCUSED sobre
+> `backend/app/services/` y `backend/tests/`. Lenguajes, frameworks y librerías
+> con versiones, según `backend/requirements.txt`, `angular-app/package.json` y
+> los ficheros de build leídos.
 
 ## Lenguajes y runtimes
 
@@ -28,9 +29,15 @@
 | python-multipart | `>=0.0.6` | parsing multipart |
 | google-genai | `==1.14.0` | asistente IA (Gemini) |
 | groq | `==0.25.0` | asistente IA (fallback Groq) |
-| pytest | `>=8.0.0` | testing backend |
+| pytest | `>=8.0.0` | testing backend (runner de la suite de caracterización) |
 | pytest-cov | `>=5.0.0` | cobertura (sin piso bloqueante) |
 | httpx | `>=0.27.0` | requerido por `TestClient` |
+
+Nota del rerun: la suite de `backend/tests/` se ejecuta con `pytest` +
+`monkeypatch` desde `backend/` (`pythonpath = .` en `pytest.ini`) para que
+`from app...` resuelva. En este entorno no se pudo ejecutar pytest (módulo no
+instalado; regla coste 0€, scope Minimal); la ejecución real corresponde al
+stage `build-and-test`.
 
 ## Frontend — frameworks y librerías
 
