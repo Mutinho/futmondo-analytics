@@ -108,8 +108,7 @@
             "tsConfig": "tsconfig.spec.json",
             "runner": "karma",
             "buildTarget": "angular-app:build:development",
-            "karmaConfig": "karma.conf.js",
-            "browsers": ["ChromeHeadlessNoSandbox"]
+            "browsers": ["ChromeHeadless"]
           }
         }
       }
