@@ -1,0 +1,97 @@
+name: CI Gate
+
+# FR8.1 / NFR4.1: gate de calidad en cada Pull Request hacia `main`. Ningún
+# cambio se fusiona sin que este workflow pase (combinado con branch protection:
+# marcar el job `quality` como required status check en `main`).
+#
+# Escalonado (R-05): ruff/ESLint y el escaneo de dependencias arrancan en modo
+# ADVISORY (no bloquean todavía). Los TESTS (pytest, ng test) y el escaneo de
+# SECRETOS (gitleaks) son BLOQUEANTES desde el inicio.
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Lint + Tests + Scans
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          # gitleaks necesita el historial para escanear commits del PR.
+          fetch-depth: 0
+
+      # --- Secret scanning (BLOQUEANTE desde el inicio) ---
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # --- Backend: Python / pytest ---
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install backend dependencies
+        working-directory: ./backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Ruff lint (advisory)
+        working-directory: ./backend
+        continue-on-error: true
+        run: |
+          pip install ruff
+          ruff check .
+
+      - name: Backend tests (pytest con cobertura) — BLOQUEANTE
+        working-directory: ./backend
+        env:
+          # NFR1.1: el arranque del servicio web exige un secreto no-default; en
+          # CI se inyecta uno efímero y no productivo para que la app importe.
+          JWT_SECRET: ci-ephemeral-secret-not-a-real-one
+        run: python -m pytest tests -q --cov=app --cov-report=term-missing
+
+      - name: Dependency audit (pip-audit, advisory)
+        working-directory: ./backend
+        continue-on-error: true
+        run: |
+          pip install pip-audit
+          pip-audit -r requirements.txt
+
+      # --- Frontend: Angular ---
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install frontend dependencies
+        working-directory: ./angular-app
+        run: npm ci
+
+      - name: Install headless Chrome
+        uses: browser-actions/setup-chrome@v1
+
+      - name: ESLint (advisory)
+        working-directory: ./angular-app
+        continue-on-error: true
+        run: npx ng lint || echo "ESLint advisory — no bloquea todavia"
+
+      - name: Frontend tests (ng test headless) — BLOQUEANTE
+        working-directory: ./angular-app
+        env:
+          CHROME_BIN: ${{ steps.setup-chrome.outputs.chrome-path }}
+        run: npx ng test --watch=false --browsers=ChromeHeadlessNoSandbox
+
+      - name: Dependency audit (npm audit, advisory)
+        working-directory: ./angular-app
+        continue-on-error: true
+        run: npm audit --audit-level=high

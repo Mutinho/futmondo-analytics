@@ -1,15 +1,67 @@
 name: Deploy to Fly.io
 
+# FR8.2 / NFR2.1: un rojo nunca llega a producción. Defensa en profundidad:
+#  1) El PR se gatea con .github/workflows/ci.yml + branch protection (required
+#     status check en `main`) — impide fusionar en rojo.
+#  2) Este workflow (que corre en push a `main`) reejecuta lint+tests en un job
+#     `verify` del que dependen los deploys vía `needs:` (needs: NO cruza
+#     workflows, por eso el gate se replica aquí para el push directo).
+# Tras el deploy, un smoke test contra `/health` verifica el release (NFR2.2:
+# no hay staging separado; el health check es la verificación de release).
+
 on:
   push:
     branches:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
+  verify:
+    name: Verify (lint + tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install backend dependencies
+        working-directory: ./backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Backend tests (pytest) — BLOQUEANTE
+        working-directory: ./backend
+        env:
+          JWT_SECRET: ci-ephemeral-secret-not-a-real-one
+        run: python -m pytest tests -q
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install frontend dependencies
+        working-directory: ./angular-app
+        run: npm ci
+
+      - name: Install headless Chrome
+        uses: browser-actions/setup-chrome@v1
+
+      - name: Frontend tests (ng test headless) — BLOQUEANTE
+        working-directory: ./angular-app
+        run: npx ng test --watch=false --browsers=ChromeHeadlessNoSandbox
+
   deploy-backend:
     name: Deploy Backend
     runs-on: ubuntu-latest
+    needs: verify
     steps:
       - uses: actions/checkout@v5
 
@@ -35,3 +87,28 @@ jobs:
         working-directory: ./angular-app
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+  smoke-test:
+    name: Smoke test (/health)
+    runs-on: ubuntu-latest
+    needs: [deploy-backend, deploy-frontend]
+    steps:
+      - name: Verify backend /health responde 200
+        run: |
+          set -e
+          URL="${SMOKE_HEALTH_URL:-https://futmondo-api.fly.dev/health}"
+          echo "Smoke test contra $URL"
+          for i in 1 2 3 4 5; do
+            code=$(curl -s -o /tmp/health.json -w "%{http_code}" "$URL" || echo "000")
+            echo "Intento $i -> HTTP $code"
+            if [ "$code" = "200" ]; then
+              cat /tmp/health.json
+              echo "Smoke test OK"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Smoke test FALLIDO: /health no devolvio 200"
+          exit 1
+        env:
+          SMOKE_HEALTH_URL: ${{ vars.SMOKE_HEALTH_URL }}
