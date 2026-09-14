@@ -1,7 +1,7 @@
 import { Component, inject, signal, effect } from '@angular/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDialog } from '@angular/material/dialog';
-import { BaseChartDirective } from 'ng2-charts';
+import { BaseChartDirective, provideCharts, withDefaultRegisterables } from 'ng2-charts';
 import { ChartConfiguration, ChartOptions, ChartEvent, ActiveElement } from 'chart.js';
 import { StatsService } from '../../core/services/stats.service';
 import { ChampionshipService } from '../../core/services/championship.service';
@@ -15,6 +15,9 @@ const COLORS = ['#4CAF50', '#2196F3', '#FF9800', '#9C27B0', '#F44336', '#00BCD4'
   selector: 'app-stats',
   standalone: true,
   imports: [MatProgressSpinnerModule, BaseChartDirective, PageHeaderComponent],
+  // Registro de Chart.js a nivel de componente (ruta lazy): mantiene
+  // chart.js/ng2-charts fuera del bundle initial (FR1.1, BR1.1, BR1.3).
+  providers: [provideCharts(withDefaultRegisterables())],
   template: `
     <app-page-header title="Estadísticas" icon="bar_chart" description="Datos por jugador y equipo." />
 

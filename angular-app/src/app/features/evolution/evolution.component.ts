@@ -1,6 +1,6 @@
 import { Component, ChangeDetectionStrategy, inject, signal, effect } from '@angular/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { BaseChartDirective } from 'ng2-charts';
+import { BaseChartDirective, provideCharts, withDefaultRegisterables } from 'ng2-charts';
 import { ChartConfiguration, ChartOptions } from 'chart.js';
 import { EvolutionService } from '../../core/services/evolution.service';
 import { ChampionshipService } from '../../core/services/championship.service';
@@ -19,6 +19,10 @@ const TEAM_COLORS = [
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [MatProgressSpinnerModule, BaseChartDirective, PageHeaderComponent],
+  // Registro de Chart.js a nivel de componente: como esta ruta es lazy
+  // (loadComponent), chart.js/ng2-charts quedan en su chunk lazy y fuera del
+  // bundle initial (FR1.1, BR1.1, BR1.3).
+  providers: [provideCharts(withDefaultRegisterables())],
   templateUrl: './evolution.component.html',
   styleUrl: './evolution.component.scss',
 })
