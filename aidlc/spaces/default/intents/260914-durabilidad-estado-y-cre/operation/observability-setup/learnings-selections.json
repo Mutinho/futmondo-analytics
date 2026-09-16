@@ -1,0 +1,14 @@
+{
+  "stage_slug": "observability-setup",
+  "space": "default",
+  "intent": "260914-durabilidad-estado-y-cre",
+  "selections": [
+    {
+      "candidate_id": "c2",
+      "source_heading": "Deviations",
+      "scope": "project",
+      "heading": "Corrections",
+      "text": "En etapas de Operation cuyo conocimiento asume AWS/CloudWatch, adaptar al stack real (Fly.io + Neon) y al mandato de coste 0 €: generar artefactos con las herramientas gratuitas disponibles (`fly logs`, healthcheck, logging estructurado) y marcar explícitamente como NO-APLICA/diferido lo que exige servicios de pago (SLO formales con burn-rate, tracing distribuido, anomaly detection ML), documentando la alternativa gratuita en vez de inventar infraestructura inexistente."
+    }
+  ]
+}

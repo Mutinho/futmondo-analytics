@@ -1,0 +1,22 @@
+{
+  "stage": "infrastructure-design",
+  "unit": "u1-durable-session",
+  "upstream_ids": [
+    "NFR1.2",
+    "NFR1.4",
+    "NFR5.1",
+    "NFR5.2",
+    "NFR-OBS.1",
+    "NFR-OBS.2",
+    "NFR3"
+  ],
+  "coverage": [
+    { "id": "NFR1.2", "status": "OK", "target": "FUTMONDO_CRED_KEY provisto como secret de Fly.io (fly secrets set), fuera del repo/CI; rotacion manual + scheme versionado" },
+    { "id": "NFR1.4", "status": "OK", "target": "gitleaks bloqueante en gate de MR (ci.yml) y anadido al job verify de fly-deploy.yml (push a main); cierra el hueco de secretos por push directo" },
+    { "id": "NFR5.1", "status": "OK", "target": "Tablas durables user_session/protected_credential en Neon; script SQL idempotente aplicado en deploy-backend antes de servir trafico" },
+    { "id": "NFR5.2", "status": "OK", "target": "Neon como autoridad de estado/concurrencia (SELECT FOR UPDATE); sin estado autoritativo en memoria; tolera multi-instancia sin re-provisionar" },
+    { "id": "NFR-OBS.1", "status": "OK", "target": "Log estructurado JSON de eventos de sesion en stdout recogido por Fly.io; sin secretos" },
+    { "id": "NFR-OBS.2", "status": "OK", "target": "Sin metricas/tracing/alerting de pago; senal por conteo de logs Fly.io; sin dashboard" },
+    { "id": "NFR3", "status": "OK", "target": "Sin servicios nuevos: 2 tablas + 1 secret dentro de tiers free (Neon free, Fly.io free, GitHub Actions free); coste 0EUR" }
+  ]
+}

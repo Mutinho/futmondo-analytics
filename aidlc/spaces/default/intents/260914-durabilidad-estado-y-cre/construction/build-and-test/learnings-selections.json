@@ -1,0 +1,14 @@
+{
+  "stage_slug": "build-and-test",
+  "space": "default",
+  "intent": "260914-durabilidad-estado-y-cre",
+  "selections": [
+    {
+      "candidate_id": "c1",
+      "source_heading": "Interpretations",
+      "scope": "project",
+      "heading": "Corrections",
+      "text": "Para reproducir la suite de pytest en local a coste 0 cuando el Python del sistema es más nuevo que el de CI, crear un venv efímero excluyendo `libsql-experimental` (no compila fuera de 3.12 y no lo ejercitan los tests, que usan el fake SQLite) y fijar un `JWT_SECRET` de arranque efímero."
+    }
+  ]
+}

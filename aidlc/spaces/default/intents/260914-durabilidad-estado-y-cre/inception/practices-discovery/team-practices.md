@@ -1,9 +1,9 @@
-# Team-Level Rules
+# Prácticas del equipo — Futmondo Analytics
 
-> This team's affirmed practices and corrections. Loaded after `org.md` as
-> strict-additive guidance; contradictions with broader policy are rejected.
-> Populated by the practices-discovery affirmation gate. Edit at the gate,
-> not directly.
+> Versión integrada por el lead (aidlc-pipeline-deploy-agent) a partir de la
+> evidencia real del repositorio (**brownfield**), las tres contribuciones de
+> soporte (calidad, desarrollo, seguridad) y las decisiones de la entrevista
+> humana. Cinco secciones con encabezados exactos del protocolo.
 
 ## Way of Working
 
@@ -86,10 +86,6 @@ Notas y evidencia adicional:
   lo detendría el gate de MR (relevante a FR5). Se apoya en branch protection para forzar
   MRs; formalizar si `verify` debe replicar gitleaks queda para diseño de pipeline.
 
-## Change Control
-
-<!-- Affirmed by the team. Mode: strict or relaxed. Strict here holds for every intent and cannot be changed from chat. -->
-
 ## Deployment
 
 **Desplegamos on-merge a `main`** hacia Fly.io (región `cdg`), sin entorno de staging
@@ -145,14 +141,20 @@ Deferimos a las configuraciones del proyecto, en **modo escalonado (advisory →
 - **Convenciones visibles**: código idiomático por lenguaje (snake_case Python,
   camelCase TS).
 
-## Forbidden
+## Sources
 
-<!-- Team-specific forbidden patterns -->
-
-## Mandated
-
-<!-- Team-specific mandates -->
-
-## Corrections
-
-<!-- Self-learning loop appends here. -->
+- Historial git: `git log --oneline -30`, `git branch -a`, HEAD `8d71c88`.
+- CI/CD: `.github/workflows/ci.yml`, `fly-deploy.yml`, `daily-sync.yml`,
+  `sofascore-sync.yml`.
+- Deploy: `backend/fly.toml` (`futmondo-api`, región `cdg`), `angular-app/fly.toml`
+  (`futmondo-app`), `docker-compose.yml`.
+- Calidad/estilo: `backend/ruff.toml`, `backend/pytest.ini`, `backend/conftest.py`,
+  `angular-app/eslint.config.js`, `.nvmrc`.
+- Contribuciones: `contributions/aidlc-{quality,developer,devsecops}-agent.md`.
+- Entrevista: `practices-discovery-questions.md` (Q1–Q5).
+- CodeKB: `aidlc/spaces/default/codekb/futmondo-analytics/` — `technology-stack.md`,
+  `code-quality-assessment.md`, `architecture.md`, `business-overview.md`,
+  `code-structure.md`, `dependencies.md`.
+- Reglas: `aidlc/spaces/default/memory/project.md` (coste 0 €, CI frontend),
+  `aidlc/spaces/default/memory/org.md` (`## Way of Working`, `## Testing Posture`,
+  `## Deployment`).

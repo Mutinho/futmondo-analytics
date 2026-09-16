@@ -1,0 +1,24 @@
+{
+  "stage": "code-generation",
+  "unit": "u1-durable-session",
+  "version": 1,
+  "writes": [
+    { "path": "backend/app/stores/__init__.py" },
+    { "path": "backend/app/stores/session_repository.py" },
+    { "path": "backend/app/security/__init__.py" },
+    { "path": "backend/app/security/credential_protection.py" },
+    { "path": "backend/app/services/session_service.py" },
+    { "path": "backend/tests/test_durable_session_characterization.py" },
+    { "path": "backend/tests/test_durable_session_repository.py" },
+    { "path": "backend/tests/test_durable_session_service.py" },
+    { "path": "backend/tests/test_durable_session_api.py" },
+    { "path": "backend/app/core/config.py" },
+    { "path": "backend/app/auth/session_store.py" },
+    { "path": "backend/app/auth/routes.py" },
+    { "path": "backend/app/api/v1/endpoints/_helpers.py" },
+    { "path": "backend/app/main.py" },
+    { "path": "backend/conftest.py" },
+    { "path": ".github/workflows/fly-deploy.yml" },
+    { "path": "docs/DEPLOY.md" }
+  ]
+}

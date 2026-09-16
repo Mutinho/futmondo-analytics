@@ -1,0 +1,15 @@
+{
+  "stage": "units-generation",
+  "upstream_ids": ["FR1.1", "FR1.2", "FR1.3", "FR1.4", "FR1.5", "FR1.6", "FR5.1", "FR5.2", "NFR5"],
+  "coverage": [
+    { "id": "FR1.1", "status": "OK", "target": "U1" },
+    { "id": "FR1.2", "status": "OK", "target": "U1" },
+    { "id": "FR1.3", "status": "OK", "target": "U1" },
+    { "id": "FR1.4", "status": "OK", "target": "U2" },
+    { "id": "FR1.5", "status": "OK", "target": "U2" },
+    { "id": "FR1.6", "status": "OK", "target": "U2" },
+    { "id": "FR5.1", "status": "OK", "target": "U1" },
+    { "id": "FR5.2", "status": "OK", "target": "U1" },
+    { "id": "NFR5", "status": "OK", "target": "U1, U2 (transversal: autoridad de estado/concurrencia en BD, no en memoria de proceso)" }
+  ]
+}

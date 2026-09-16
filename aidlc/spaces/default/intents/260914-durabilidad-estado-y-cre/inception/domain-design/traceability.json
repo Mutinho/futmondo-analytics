@@ -1,0 +1,14 @@
+{
+  "stage": "domain-design",
+  "upstream_ids": ["FR1.1", "FR1.2", "FR1.3", "FR1.4", "FR1.5", "FR1.6", "FR5.1", "FR5.2"],
+  "coverage": [
+    { "id": "FR1.1", "status": "OK", "target": "SessionRepository" },
+    { "id": "FR1.2", "status": "OK", "target": "SessionService" },
+    { "id": "FR1.3", "status": "OK", "target": "SessionService" },
+    { "id": "FR1.4", "status": "OK", "target": "TaskRepository" },
+    { "id": "FR1.5", "status": "OK", "target": "TaskService" },
+    { "id": "FR1.6", "status": "OK", "target": "TaskService" },
+    { "id": "FR5.1", "status": "OK", "target": "CredentialProtection" },
+    { "id": "FR5.2", "status": "Deferred", "target": "CredentialProtection (elección fina de mecanismo diferida a Functional/NFR design por FR5.2/ADR-003)" }
+  ]
+}
