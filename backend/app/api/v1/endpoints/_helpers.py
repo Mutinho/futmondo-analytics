@@ -56,29 +56,42 @@ def get_championship_config(championship_id: str, request: Request) -> dict:
 
 def get_user_futmondo_client(request: Request) -> FutmondoClient:
     """Get an authenticated FutmondoClient for the current user.
-    
-    Uses the session store (populated at login). If session lost (e.g. after restart),
-    attempts to re-create it using the stored credentials in the session.
-    
+
+    Resolves the session through ``SessionService.ensure_session``: it first
+    tries the in-memory cache and, on a miss (e.g. after a server restart),
+    rebuilds the session from the durable store and the encrypted re-auth handle
+    (u1-durable-session). This replaces the previous behavior where a cold cache
+    after a restart returned an opaque 403.
+
     Raises:
-        HTTPException 401 if no session available and can't re-create
+        HTTPException 401 if the user is not authenticated, if the session is
+            unrecoverable (a fresh Futmondo login is required — actionable), or
+            if re-authentication fails transiently (the client may retry).
     """
-    from app.auth.session_store import get_session_store
-    
+    from app.services.session_service import (
+        SessionUnrecoverableError,
+        TransientSessionError,
+        get_session_service,
+    )
+
     user = getattr(request.state, "user", None)
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    
-    store = get_session_store()
-    client = store.get_client(user["user_id"])
-    
-    if client:
-        return client
-    
-    # Session lost (server restart). Try to re-create from stored credentials.
-    # The session store keeps email+password in memory, but after restart they're gone.
-    # Return 403 (not 401) so the interceptor doesn't try to refresh — goes straight to logout.
-    raise HTTPException(
-        status_code=403,
-        detail="Sesión de Futmondo expirada. Por favor, inicia sesión de nuevo."
-    )
+
+    service = get_session_service()
+    try:
+        return service.ensure_session(user["user_id"])
+    except SessionUnrecoverableError:
+        # Session cannot be rebuilt (no durable credential, invalid credential,
+        # or restart without protection). Actionable 401 so the client re-logs in
+        # instead of hitting an opaque 403.
+        raise HTTPException(
+            status_code=401,
+            detail="Tu sesión de Futmondo ha caducado. Vuelve a iniciar sesión para continuar.",
+        )
+    except TransientSessionError:
+        # Recoverable upstream failure: do not force a re-login; ask to retry.
+        raise HTTPException(
+            status_code=401,
+            detail="No se pudo restablecer la sesión de Futmondo temporalmente. Inténtalo de nuevo en unos segundos.",
+        )

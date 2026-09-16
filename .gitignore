@@ -16,6 +16,9 @@ ENV/
 *.egg-info/
 dist/
 build/
+.coverage
+.coverage.*
+htmlcov/
 
 # Database
 *.db
@@ -25,6 +28,7 @@ build/
 
 # Node
 node_modules/
+node_modules.old-*/
 npm-debug.log
 yarn-error.log
 

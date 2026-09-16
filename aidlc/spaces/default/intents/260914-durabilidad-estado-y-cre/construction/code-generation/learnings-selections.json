@@ -1,0 +1,14 @@
+{
+  "stage_slug": "code-generation",
+  "space": "default",
+  "intent": "260914-durabilidad-estado-y-cre",
+  "selections": [
+    {
+      "candidate_id": "c2",
+      "source_heading": "Tradeoffs",
+      "scope": "project",
+      "heading": "Code Style",
+      "text": "NUNCA correr `ruff format` masivo sobre archivos brownfield ya modificados: infla diffs con reflow ajeno, expone avisos preexistentes y (al cambiar bytes) invalida el pase de revisión en vuelo. Formatear SOLO los archivos nuevos de la unidad, o de forma quirúrgica; la reviewer solo corre `ruff check` (no `format`), así que el binding de la fuente reclamada se mantiene estable durante su pasada si los archivos nuevos ya están formateados."
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "stage": "nfr-design",
+  "unit": "u1-durable-session",
+  "upstream_ids": [
+    "NFR2.1",
+    "NFR2.2",
+    "NFR1.1",
+    "NFR1.2",
+    "NFR1.3",
+    "NFR1.4",
+    "NFR5.2",
+    "NFR5.1",
+    "NFR5.3",
+    "NFR4.1",
+    "NFR-OBS.1",
+    "NFR-OBS.2"
+  ],
+  "coverage": [
+    { "id": "NFR2.1", "status": "OK", "target": "performance-design: cache-aside con SessionStore, 0 ops BD en hit / ≤1 en miss; pooling db_connection reutilizado" },
+    { "id": "NFR2.2", "status": "OK", "target": "performance-design + reliability-design: idempotencia ensureSession (BR1.2) + lock BD (Q3-A), 1 reconstruccion por (reinicio,usuario)" },
+    { "id": "NFR1.1", "status": "OK", "target": "security-design: no se persiste ni loggea la contrasena; handle opaco; cierto por construccion (Q1-A)" },
+    { "id": "NFR1.2", "status": "OK", "target": "security-design: material accesible solo tras CredentialProtection; re-auth interno (Q2-A); sin clave de app nueva" },
+    { "id": "NFR1.3", "status": "OK", "target": "security-design: guard de arranque JWT_SECRET no-default intacto (test_jwt_startup.py existente)" },
+    { "id": "NFR1.4", "status": "OK", "target": "security-design: sin secretos nuevos en repo; gitleaks bloqueante en gate de MR" },
+    { "id": "NFR5.2", "status": "OK", "target": "scalability-design + reliability-design: sin estado autoritativo en memoria; BD autoridad; lock cross-instancia (Q3-A)" },
+    { "id": "NFR5.1", "status": "OK", "target": "reliability-design: fuente de verdad en BD; rehidratacion desde BD al reiniciar; 100% reconstruible con medio de re-auth" },
+    { "id": "NFR5.3", "status": "OK", "target": "reliability-design: degradacion a 401 accionable en 100% de irrecuperables; nunca 403 opaco ni cuelgue" },
+    { "id": "NFR4.1", "status": "OK", "target": "reliability-design: caracterizacion primero + fakes de persistencia; gate CI bloqueante mantiene la suite verde" },
+    { "id": "NFR-OBS.1", "status": "OK", "target": "observability-design: log estructurado JSON (event/user_id/outcome/correlation_id) de eventos de sesion; niveles INFO/WARN/ERROR; nunca la credencial" },
+    { "id": "NFR-OBS.2", "status": "OK", "target": "observability-design: sin metricas/tracing de pago; senal derivada por conteo de logs Fly.io; sin dashboard" }
+  ]
+}

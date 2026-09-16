@@ -26,5 +26,19 @@
     "dirName": "260914-ci-tooling-mejoras",
     "scope": "refactor",
     "status": "complete"
+  },
+  {
+    "uuid": "01a09fbd-4c37-7985-9ceb-2b5feeb886a6",
+    "slug": "bundle-optimization",
+    "dirName": "260914-bundle-optimization",
+    "scope": "refactor",
+    "status": "complete"
+  },
+  {
+    "uuid": "01a0a060-beb7-787d-adb8-9785f6317762",
+    "slug": "durabilidad-estado-y-cre",
+    "dirName": "260914-durabilidad-estado-y-cre",
+    "scope": "feature",
+    "status": "complete"
   }
 ]

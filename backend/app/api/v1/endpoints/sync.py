@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from app.services.data_manager_v2 import DataManagerV2
 from app.services.data_sync_service import DataSyncService
-from app.services.task_manager import get_task_manager
+from app.services.task_service import TaskConflictError, TaskPersistenceError, get_task_service
 from app.services.db_connection import get_db
 from app.core.config import CHAMPIONSHIP_ID
 
@@ -78,8 +78,13 @@ def _check_phantoms(championship_id: str, client, user_id: str = None) -> Dict:
 
 
 def _run_sync_in_background(task_id: str, sync_type: str, championship_id: str, client, user_id: str = ""):
-    """Worker function that runs sync in a separate thread."""
-    tm = get_task_manager()
+    """Worker function that runs sync in a separate thread.
+
+    State transitions are persisted through ``TaskService`` (DB authority + best-
+    effort cache) so progress survives a restart and ``/task/{id}`` stays
+    queryable (FR1.4).
+    """
+    tm = get_task_service()
     try:
         tm.mark_running(task_id, step="initializing")
 
@@ -304,21 +309,30 @@ async def trigger_sync(
     from app.api.v1.endpoints._helpers import get_user_futmondo_client
     client = get_user_futmondo_client(request)
 
-    tm = get_task_manager()
+    service = get_task_service()
 
-    # Prevent duplicate syncs
-    active = tm.get_active_task(championship_id)
-    if active:
+    # Prevent duplicate syncs — uniqueness is checked against the PERSISTED
+    # state (FR1.6), so it holds after a restart and across instances. A task
+    # left interrupted-by-restart is terminal and does not block a relaunch.
+    try:
+        service.get_active_or_conflict(championship_id)
+    except TaskConflictError as conflict:
         return JSONResponse(
             status_code=409,
             content={
                 "success": False,
-                "detail": "A sync is already running for this championship",
-                "task_id": active.task_id,
-            }
+                "detail": "Ya hay una sincronización en curso para este campeonato",
+                "task_id": conflict.active_task_id,
+            },
         )
 
-    task = tm.create_task(sync_type, championship_id)
+    try:
+        task = service.create(sync_type, championship_id)
+    except TaskPersistenceError:
+        raise HTTPException(
+            status_code=503,
+            detail="No se pudo registrar la sincronización; inténtalo de nuevo",
+        )
 
     # Launch in background thread
     user_id = getattr(request.state, "user", {}).get("user_id", "")
@@ -353,10 +367,10 @@ async def get_task_status(task_id: str) -> Dict:
         - result: final results (only when completed)
         - error: error message (only when failed)
     """
-    tm = get_task_manager()
-    task = tm.get_task(task_id)
+    tm = get_task_service()
+    task = tm.get(task_id)
 
     if not task:
-        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+        raise HTTPException(status_code=404, detail=f"Tarea {task_id} no encontrada")
 
     return {"success": True, **task.to_dict()}

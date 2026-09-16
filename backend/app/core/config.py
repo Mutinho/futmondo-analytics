@@ -127,6 +127,15 @@ def resolve_jwt_secret(secret, cron_worker):
 
 JWT_SECRET = resolve_jwt_secret(os.getenv("JWT_SECRET", ""), is_cron_worker())
 
+# Futmondo credential-protection key (u1-durable-session).
+# Symmetric key used to encrypt the Futmondo re-auth handle at rest so a durable
+# session can be rehydrated after a restart without ever persisting the password
+# in cleartext (FR5.1/NFR1). MUST be provisioned as a Fly.io secret in
+# production; never commit a real value to the repo. Empty when unset: the
+# credential-protection layer treats an unset key as "protection unavailable"
+# and degrades gracefully rather than crashing unrelated endpoints.
+FUTMONDO_CRED_KEY = os.getenv("FUTMONDO_CRED_KEY", "")
+
 # Gemini AI Assistant
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 

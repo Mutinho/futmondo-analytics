@@ -32,8 +32,20 @@ fly secrets set \
   DATABASE_URL="postgresql://user:pass@host/db?sslmode=require" \
   BASE_URL="https://api.futmondo.com" \
   CHAMPIONSHIP_ID="592416daa3a2dd871a7a9956" \
+  JWT_SECRET="$(openssl rand -hex 32)" \
+  FUTMONDO_CRED_KEY="$(python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')" \
   --app futmondo-api
 ```
+
+> **`FUTMONDO_CRED_KEY` (durabilidad de sesión — u1-durable-session).** Clave
+> simétrica Fernet (base64 url-safe, 32 bytes) que cifra en reposo el handle de
+> re-autenticación de Futmondo, de modo que la sesión sobrevive a un reinicio
+> **sin** persistir jamás la contraseña en claro (FR5.1 / NFR1). Genérala con
+> `Fernet.generate_key()` y guárdala SOLO como secret de Fly.io — **nunca** en el
+> repositorio ni en el workflow. Si no está configurada, el backend arranca
+> igual pero no puede rehidratar sesiones tras un reinicio: el primer uso
+> devuelve un **401 accionable** (re-login) en lugar de un 403 opaco. Rotarla
+> invalida los handles cifrados existentes y obliga a un nuevo login por usuario.
 
 ### 3. Desplegar backend
 

@@ -16,6 +16,10 @@ class TaskStatus:
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"
+    # Terminal state for a task that was mid-flight when the process stopped.
+    # The database is the authority for this state (FR1.5); the in-memory cache
+    # only mirrors it so a warm-cache read stays consistent with persistence.
+    INTERRUPTED_BY_RESTART = "interrupted_by_restart"
 
 
 class Task:
@@ -118,6 +122,26 @@ class TaskManager:
             task.completed_at = datetime.now()
             task.error = error
             task.current_step = None
+
+    def put(self, task: "Task") -> None:
+        """Insert or replace a task in the best-effort cache.
+
+        Used by ``TaskService`` to warm the cache from a durable DB record after
+        a restart (cold cache) without going through ``create_task`` (which mints
+        a new id and enforces the cap). Best-effort only: the database remains
+        the authority for task state (NFR5).
+        """
+        with self._lock:
+            self._tasks[task.task_id] = task
+
+    def clear(self) -> None:
+        """Drop all cached tasks (best-effort cache invalidation).
+
+        Used by ``TaskService`` after the startup interrupted-by-restart sweep so
+        stale in-flight entries never mask the authoritative DB state on reads.
+        """
+        with self._lock:
+            self._tasks.clear()
 
 
 # Global singleton

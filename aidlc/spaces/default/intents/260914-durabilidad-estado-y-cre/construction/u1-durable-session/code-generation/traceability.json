@@ -1,0 +1,27 @@
+{
+  "stage": "code-generation",
+  "unit": "u1-durable-session",
+  "upstream_ids": [
+    "FR1.1", "FR1.2", "FR1.3", "FR5.1", "FR5.2",
+    "NFR1", "NFR2", "NFR3", "NFR4", "NFR5",
+    "BR1.1", "BR1.2", "BR1.3", "BR1.4", "BR1.5", "BR1.6"
+  ],
+  "coverage": [
+    { "id": "FR1.1", "status": "OK", "target": "backend/app/stores/session_repository.py" },
+    { "id": "FR1.2", "status": "OK", "target": "backend/app/services/session_service.py" },
+    { "id": "FR1.3", "status": "OK", "target": "backend/app/api/v1/endpoints/_helpers.py" },
+    { "id": "FR5.1", "status": "OK", "target": "backend/app/security/credential_protection.py" },
+    { "id": "FR5.2", "status": "OK", "target": "backend/app/security/credential_protection.py" },
+    { "id": "NFR1", "status": "OK", "target": "backend/app/security/credential_protection.py" },
+    { "id": "NFR2", "status": "OK", "target": "backend/app/auth/session_store.py" },
+    { "id": "NFR3", "status": "OK", "target": "docs/DEPLOY.md" },
+    { "id": "NFR4", "status": "OK", "target": "backend/tests/test_durable_session_characterization.py" },
+    { "id": "NFR5", "status": "OK", "target": "backend/app/stores/session_repository.py" },
+    { "id": "BR1.1", "status": "OK", "target": "backend/app/stores/session_repository.py" },
+    { "id": "BR1.2", "status": "OK", "target": "backend/tests/test_durable_session_service.py" },
+    { "id": "BR1.3", "status": "OK", "target": "backend/app/services/session_service.py" },
+    { "id": "BR1.4", "status": "OK", "target": "backend/tests/test_durable_session_repository.py" },
+    { "id": "BR1.5", "status": "OK", "target": "backend/app/services/session_service.py" },
+    { "id": "BR1.6", "status": "OK", "target": "backend/app/auth/routes.py" }
+  ]
+}
