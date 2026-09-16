@@ -1,149 +1,67 @@
-# Evaluación de Calidad del Código — Futmondo Analytics
+# Code Quality Assessment — Futmondo Analytics
 
-> Reverse-engineering. Escaneo previo FULL preservado; rerun FOCUSED sobre
-> `backend/app/services/` y `backend/tests/`. Cobertura de tests, linting, CI/CD,
-> calidad de documentación y deuda técnica, según la evidencia del scan y el
-> código.
+> Artefacto CodeKB (architect). Base: `developer-scan.md`. Store STALE tras FOCUSED SCAN del backend `backend/`. El backend refleja lo verificado en este run; la prosa del frontend y de CI/CD se preserva del análisis previo.
 
 ## Cobertura de tests
 
-- **Backend**: `backend/tests/` con 6 ficheros de **caracterización** (congelan el
-  comportamiento actual, metodología `custom` characterization-first, ver
-  `conftest.py`): `test_analytics_service.py` (con fakes de `DataManager`),
-  `test_auth_characterization.py`, `test_db_admin_guard.py`, `test_jwt_startup.py`,
-  `test_db_engine_characterization.py`, `test_finance_characterization.py`.
-  `--cov=app` disponible pero **sin piso bloqueante** (`pytest.ini`).
-- **Frontend**: **cobertura efectivamente ~0**. Solo existe
-  `angular-app/src/app/core/interceptors/auth.interceptor.spec.ts` (1 test).
-  `angular.json` fija `skipTests: true` en todos los schematics → los componentes
-  y servicios nuevos nacen sin test. `karma-coverage` está configurado (report
-  html + text-summary) pero sin umbral.
-- **Asimetría**: `ci.yml` marca `ng test` como bloqueante, pero el gate pasa con
-  cobertura casi nula porque apenas hay specs.
-
-## Hallazgo del intent — 3 tests rojos en `test_analytics_service.py` (foco del rerun)
-
-Objetivo del intent `260912-analytics-tests-fix`: dejar en verde
-`test_championship_trends`, `test_clause_network` y `test_player_value_trend`
-para desbloquear el gate de CI de `fly-deploy.yml`, sin romper el resto de la
-suite. **Dos raíces distintas**:
-
-1. **Caches de instancia ausentes bajo la fixture** (`AttributeError`). El
-   fixture `analytics_service` monkeypatchea `AnalyticsService.__init__` con:
-   ```
-   def fake_init(self):
-       self.dm = stub_dm
-   ```
-   que NO inicializa `self._team_cache` ni `self._player_cache` (presentes en el
-   `__init__` real, analytics_service.py:16-17). Los métodos afectados:
-   - `test_championship_trends` → `get_championship_trends` (l.124) →
-     `_safe_team_info` (l.18): lee `_player_cache["__teams_loaded__"]` (l.23) y
-     escribe en `_team_cache` (l.29) → `AttributeError`.
-   - `test_clause_network` → `get_clause_network` (l.668) → `_resolve_team`
-     (l.94) → `_build_team_lookup` (l.55): lee/escribe `_team_cache` (l.57, l.92)
-     → `AttributeError`.
-   - `test_player_value_trend` → `get_player_value_trend` (l.437) también toca
-     `_player_cache` vía `_safe_player_info` (l.40).
-2. **Divergencia de nombre de clave de salida** (`KeyError`). `get_player_value_trend`
-   emite `last_transaction_price` (l.474) mientras el test hace
-   `assert result["players"][0]["latest_price"] == 1000000`. La cadena
-   `latest_price` NO aparece en toda `backend/app/`. El valor esperado (1000000)
-   equivale al actual `last_transaction_price = transactions_prices[-1]`
-   (l.462/474), alimentado por el stub `get_transactions_raw` con `price: 1000000`.
-
-### Punto de arreglo sugerido (ver ADR-RE-001 en `architecture.md`)
-
-- **Recomendado (Alternativa A — arreglar el test, menor blast radius)**:
-  1. En el `fake_init` del fixture, inicializar también
-     `self._team_cache = {}` y `self._player_cache = {}` (replicar el estado del
-     `__init__` real sin instanciar `DataManagerV2`).
-  2. Alinear la aserción de clave del test con la salida real del servicio:
-     usar `last_transaction_price` en `test_player_value_trend` (o mapear el
-     valor esperado a esa clave). NO renombrar en el servicio bajo scope
-     `bugfix`.
-- **Alternativa B (tocar el servicio)**: añadir/renombrar la clave `latest_price`
-  y/o endurecer los helpers ante caches ausentes. **Riesgo**: altera el contrato
-  de salida consumido por `/api/v1/analytics/*` (skimmed only) — verificar esos
-  consumidores antes de renombrar. Rechazada por defecto para `bugfix`.
-- **Restricción dura**: no romper `test_player_form`, `test_opportunity_streaks`
-  ni `test_matchday_projections` ni el resto de la suite de caracterización;
-  postura de test del scope `bugfix` = regresión dirigida + suite existente en
-  verde.
+- **Backend** (verificado este run): `backend/tests/` con 7 ficheros — `test_auth_characterization.py`, `test_jwt_startup.py`, `test_db_admin_guard.py`, `test_db_engine_characterization.py`, `test_finance_characterization.py`, `test_analytics_service.py`, `test_sofascore_sync_characterization.py` — + `conftest.py` (provee `clean_jwt_env`, fija `sys.path`). Runner `pytest` (`pytest.ini`: `testpaths = tests`, `pythonpath = .`; se ejecuta desde `backend/`), con `pytest-cov` presente pero **sin piso bloqueante** (activable con `--cov=app`). Sesgo characterization-first.
+  - **Hueco crítico para el intent**: **no hay tests directos de `SessionStore` ni de `TaskManager`** — el estado en memoria (núcleo del intent) está sin cobertura. Antes de refactorizar hacia durabilidad conviene congelar comportamiento con tests de caracterización.
+  - **Guard de arranque JWT** ya endurecido y cubierto (`test_jwt_startup.py`, NFR1.1).
+- **Frontend** (preservado): un único `.spec.ts` real (`auth.interceptor.spec.ts`), runner Vitest + jsdom vía `@angular/build:unit-test`; cobertura casi nula por `skipTests: true` en schematics.
 
 ## Linting y formato
 
-- **Backend**: ruff (`ruff.toml`, `select=["E","F","I"]`, con `E501/E402/E722`
-  ignorados; per-file-ignores para `tests/**` y `conftest.py`). Modo **ADVISORY**
-  en CI. Formato con ruff format (`quote-style = "double"`).
-- **Frontend**: ESLint (`eslint.config.js`), `ng lint` **ADVISORY** en CI. Formato
-  con Prettier (`.prettierrc`).
+- **Backend** (verificado este run): `ruff` (`backend/ruff.toml`, `select = [E, F, I]`, `ignore = [E501, E402, E722]`, `line-length = 100`, `target-version = py312`) — modo **advisory/tolerante** en CI (continue-on-error) por fase de saneamiento.
+- **Frontend** (preservado): ESLint flat config (`typescript-eslint` + `angular-eslint`, reglas base a `warn`) — advisory; `prettier ^3.8.1`.
 
 ## CI/CD
 
-Cuatro workflows GitHub Actions:
+> Preservado del análisis previo.
 
-| Workflow | Trigger | Gates |
-|----------|---------|-------|
-| `ci.yml` | PR → main | **BLOQUEANTE**: gitleaks, pytest, `ng test`. **ADVISORY**: ruff, ESLint, pip-audit, npm audit (decisión escalonada R-05). |
-| `fly-deploy.yml` | push → main | job `verify` (pytest + ng test) → deploy backend → deploy frontend → smoke test `/health`. **Gate a desbloquear por este intent.** |
-| `daily-sync.yml` | cron | job one-shot en Fly con polling de estado y verificación de exit code. |
-| `sofascore-sync.yml` | cron | one-shot; trata exit code 2 (baneo IP Sofascore) explícitamente. |
+4 workflows en `.github/workflows/`:
 
-Procesos documentados en `docs/PR-GATE.md` y `docs/ROLLBACK.md`.
+| Workflow | Disparo | Contenido |
+|----------|---------|-----------|
+| `ci.yml` | PR→main | gitleaks (BLOQUEANTE), pytest+cobertura (BLOQUEANTE), test del frontend (BLOQUEANTE); ruff, ESLint, pip-audit, npm audit advisory |
+| `fly-deploy.yml` | push→main | `verify` (pytest + test frontend) → `deploy-backend` → `deploy-frontend` → `smoke-test` contra `/health` |
+| `daily-sync.yml` | cron 4:30 UTC | máquina Fly one-shot (coste ~0) |
+| `sofascore-sync.yml` | cron 5:00 UTC | máquina Fly one-shot (coste ~0) |
 
-## Calidad de la documentación
+Despliegue Fly.io on-merge; healthcheck `/health`.
 
-- `README.md` completo (arquitectura, stack, deploy, endpoints).
-- `docs/` rico: `PROJECT_CONTEXT`, planes de migración, `DEPLOY`, `ROLLBACK`,
-  `PR-GATE`.
-- Comentarios en castellano con referencias a NFRs/FRs (endurecimiento previo ya
-  aplicado). Docstrings presentes en `conftest.py` y en la clase `AnalyticsService`.
+## Calidad de documentación
 
-## Deuda técnica
+- Docstrings de módulo/función presentes y descriptivos en el área auth/sync; OpenAPI automático de FastAPI en `/docs`.
+- `README.md` raíz + `angular-app/README.md`; `docs/` extenso (`DEPLOY`, `ROLLBACK`, `PR-GATE`, `PROJECT_CONTEXT`, `REVERSE_ENGINEERING`, backlogs).
+- **Señal de deuda documental**: el docstring de `_helpers.get_user_futmondo_client` menciona re-crear la sesión desde credenciales guardadas, pero el código real devuelve **403** tras un reinicio (las credenciales ya no existen). Divergencia comentario↔comportamiento a corregir.
 
-- **Contrato de test acoplado a atributos privados de instancia** (foco del rerun):
-  el `fake_init` de `test_analytics_service.py` sustituye `__init__` completo y
-  asume que los métodos públicos no dependen de `_team_cache`/`_player_cache`;
-  sí dependen → fragilidad estructural (analytics_service.py:16-17 vs fixture).
-- **Divergencia de nombre de clave de salida**: `last_transaction_price`
-  (servicio) vs `latest_price` (test); no hay fuente única de verdad para el
-  shape del dict de salida de `AnalyticsService`.
-- **`_safe_team_info` mezcla dos caches**: usa `_player_cache["__teams_loaded__"]`
-  como flag de carga de EQUIPOS (l.23/32); naming confuso.
-- **`try/except` amplio en `_build_team_lookup`** (l.66-68) enmascara que
-  `StubDM` no implementa `get_all_users_with_points`; el fallo real emerge en el
-  acceso a `_team_cache`, no en el método del dm.
-- **God files**: `data_manager_v2.py` (166 KB / ~4.700 líneas),
-  `data_sync_service.py` (84 KB), `assistant_service.py` (51 KB),
-  `analytics_service.py` (34 KB). Superan con creces el objetivo de <300 líneas.
-- **Manejo de errores demasiado amplio**: 159 `except Exception` y 6 `except:`
-  desnudos en `backend/app`; varios `except Exception: pass` silenciosos
-  (`token_store.init_auth_tables`, `_ensure_conversations_table` en `assistant.py`,
-  `_auto_detect_championships` en `auth/routes.py`).
-- **Estado no durable en memoria**: `TaskManager` y `SessionStore` son singletons
-  in-memory; un reinicio Fly pierde tareas de sync y sesiones → 403 "sesión
-  expirada". `SessionStore` guarda email+password en claro en memoria.
-- **Config heredada / entornos mezclados**: `config.py` con 3 backends de BD
-  (SQLite/Turso/PostgreSQL) y ramas muertas; `nixpacks.toml` (Railway) y
-  `migrate_to_turso.py` residuales; `constants.py` con `CHAMPIONSHIP_ID`/`LEAGUE_ID`
-  hardcodeados.
-- **`docker-compose.yml` fija `SSL_VERIFY=0`** en backend (local) — confirmar que
-  no se propaga a producción.
-- **Bug potencial**: `token_store.is_refresh_token_valid` con ternario ambiguo
-  (naive/aware datetimes).
-- **Doble montaje de rutas**: `matchdays` bajo `/api/v1/matchdays` y `/v1/matchdays`.
-- **Validación de entrada**: `market.py::place_bid` acepta `price` sin validar
-  rango/positividad en backend (solo el frontend valida min/max).
+## Deuda técnica del backend (foco del intent `260914-durabilidad-estado-y-cre`)
 
-## Postura de seguridad (positivo)
+Verificado este run; evidencia y orden de remediación en `architecture.md` → ADR.
 
-Endurecimiento presente y correcto: JWT fail-fast (`config.py::resolve_jwt_secret`),
-endpoints destructivos tras `ENABLE_DB_ADMIN` (404 por defecto), refresh HttpOnly,
-CORS con whitelist, gitleaks bloqueante en CI.
+1. **Estado 100 % en memoria, no durable (FR1)** — `SessionStore` (`app/auth/session_store.py`) y `TaskManager` (`app/services/task_manager.py`) son singletons de proceso; un reinicio/redeploy en Fly.io los borra. La sesión Futmondo no se reconstruye (`_helpers` → 403); una tarea de sync en curso queda huérfana (hilo daemon muerto), sin persistencia ni idempotencia. `fly.toml` fija `min=max=1`: oculta el problema multi-instancia pero no el de reinicio. **Núcleo del intent.**
+2. **Credenciales Futmondo en claro en memoria (FR5)** — `UserSession` guarda `email`/`password` en texto plano. Deuda de seguridad central: cualquier diseño de durabilidad debe cifrar en reposo o evitar guardar el `password`, y **no** reintroducir el patrón en BD.
+3. **`/auth/refresh` no reconstruye la sesión Futmondo** — renueva el access JWT pero deja al usuario con 403 en endpoints que usan el cliente Futmondo hasta re-login.
+4. **Migraciones ad-hoc sin versionado** — `token_store.init_auth_tables()` con `CREATE TABLE IF NOT EXISTS` + `ALTER TABLE` en `try/except: pass`; sin herramienta tipo Alembic. Riesgo al evolucionar el esquema (p. ej. para persistir sesión/estado).
+5. **`except Exception: pass` en varios puntos** (migraciones, auto-detección de campeonatos) — enmascara fallos.
+6. **Posible bug de precedencia** en la comparación de expiración de `is_refresh_token_valid` (ternaria sin paréntesis) — revisar.
+7. **`__import__(...)` dinámico de `get_db` en `refresh`** — acoplamiento oculto; sustituir por import estático.
+8. **Divergencia de runtime Python** 3.12 (Docker) vs 3.11 (Nixpacks) — normalizar si el diseño toca dependencias.
 
-## Nota de ejecución del rerun
+## Consideraciones transversales (steering activo)
 
-No se pudo EJECUTAR pytest en este entorno (`python`/`python3` presentes pero sin
-módulo `pytest`; regla coste 0€, scope Minimal → no se instalaron dependencias
-globales). El diagnóstico de los 3 fallos es estático y concluyente; la ejecución
-de la suite se realizará en el entorno de build (stage `build-and-test`).
+- **Coste 0 €**: la durabilidad debe apoyarse en Neon (ya disponible) o Turso (alternativa), sin introducir servicios de pago (p. ej. Redis). Respetar tiers gratuitos Neon/Fly.io/GitHub Actions.
+- **No asumir instancia única**: aunque `fly.toml` fije 1 máquina, el diseño debe soportar reinicio y potencial escalado.
+- **Characterization-first**: congelar comportamiento de `SessionStore`/`TaskManager` antes de refactorizar.
+
+## Deuda técnica fuera del foco (preservada del análisis previo)
+
+- Ejes del bundle inicial del frontend (Chart.js/ng2-charts eager, `marked` eager, `PreloadAllModules`, budget relajado) — detalle en el historial del store y en `architecture.md`.
+- `libsql-experimental==0.0.55` y `nixpacks.toml` (Railway) parecen restos previos; confirmar si siguen vivos.
+- Señal de seguridad (frontend, fuera de scope): `ng build` de producción usa `NODE_TLS_REJECT_UNAUTHORIZED=0`.
+
+## Referencias cruzadas
+
+- Versiones afectadas: `technology-stack.md`.
+- Relaciones de dependencia impactadas: `dependencies.md`.
+- Flujos y ADR de durabilidad: `architecture.md`.

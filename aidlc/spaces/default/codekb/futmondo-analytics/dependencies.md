@@ -1,20 +1,19 @@
 # Dependencies — Futmondo Analytics
 
-> Artefacto CodeKB (architect). Full rescan sobre `./`. Base: `developer-scan.md`.
-> Las versiones de paquetes se catalogan una sola vez en `technology-stack.md`; aquí se documentan **relaciones** de dependencia.
+> Artefacto CodeKB (architect). Base: `developer-scan.md`. Store STALE. Las versiones de paquetes se catalogan una sola vez en `technology-stack.md`; aquí se documentan **relaciones** de dependencia. Este run añade el detalle de dependencias internas del backend; la prosa del frontend se preserva.
 
 ## Dependencias externas (servicios y datos)
 
 | Dependencia | Tipo | Consumidor | Notas |
 |-------------|------|------------|-------|
-| API Futmondo | Servicio externo | `backend`, `cron` | Autenticación y datos de campeonato; se usa la sesión Futmondo del usuario |
+| API Futmondo | Servicio externo | `backend`, `cron` | Autenticación y datos de campeonato; se usa la sesión Futmondo del usuario (`token`+`userid` en el cuerpo) |
 | API Sofascore | Servicio externo | `backend`, `cron` | Ratings/tendencia vía `curl_cffi` |
 | Proveedores IA (`google-genai`, `groq`) | Servicio externo | `backend` (`assistant_service`) | Assistant |
-| Neon PostgreSQL | Datastore gestionado | `backend`, `cron` | Serverless, tier free |
+| Neon PostgreSQL | Datastore gestionado | `backend`, `cron` | Serverless, tier free; único almacén durable en uso |
 | Fly.io | Plataforma de despliegue | `angular-app`, `backend`, `cron` | Free allowance |
 | GitHub Actions | CI/CD | Repo | Tier free |
 
-## Dependencias cruzadas internas (entre paquetes)
+## Dependencias cruzadas internas (entre paquetes de despliegue)
 
 ```mermaid
 graph LR
@@ -32,20 +31,52 @@ graph LR
 - **cron → backend**: acoplamiento por artefacto de build (comparten `backend/Dockerfile` y `scripts/sync_data.py`). Cambios en el backend afectan al cron.
 - **proxy → {angular-app, backend}**: sólo enrutado local (docker-compose); no afecta a producción Fly.
 
+## Dependencias internas del backend (verificado este run)
+
+Grafo de módulos relevante al foco del intent (auth/sesión y sync):
+
+```mermaid
+graph TD
+  main["app.main (routers + AuthMiddleware)"]
+  routes["app.auth.routes"]
+  ss["app.auth.session_store (SessionStore)"]
+  ts["app.auth.token_store"]
+  jwt["app.auth.jwt_utils"]
+  helpers["api.v1.endpoints._helpers"]
+  sync["api.v1.endpoints.sync"]
+  tm["services.task_manager (TaskManager)"]
+  dss["services.data_sync_service"]
+  fc["services.futmondo_client"]
+  dbc["services.db_connection"]
+  db["Neon PostgreSQL"]
+
+  main --> routes
+  main --> sync
+  routes --> jwt
+  routes --> ss
+  routes --> ts
+  routes --> fc
+  helpers --> ss
+  helpers --> fc
+  sync --> tm
+  sync --> helpers
+  sync --> dss
+  ts --> dbc
+  dss --> dbc
+  dbc --> db
+```
+
+<!-- Text fallback: app.main monta los routers y el AuthMiddleware, y depende de app.auth.routes y api.v1.endpoints.sync. auth.routes depende de jwt_utils (JWT), session_store (SessionStore, memoria), token_store (persistencia) y futmondo_client. _helpers depende de session_store y futmondo_client (de ahi el 403 si la sesion no existe). sync depende de task_manager (memoria), _helpers y data_sync_service. token_store y data_sync_service acceden a Neon a traves de db_connection. -->
+
+- **Acoplamiento a estado en memoria**: `auth.routes` y `_helpers` dependen de `SessionStore`; `sync` depende de `TaskManager`. Ambos almacenes son singletons de proceso no durables → cualquier diseño de durabilidad toca estos bordes.
+- **Acoplamiento al abstractor de datos**: todo acceso durable pasa por `db_connection` (sin ORM); un cambio de esquema (p. ej. persistir sesión) se hace con las migraciones ad-hoc de `token_store` o equivalente.
+- **Imports diferidos / dinámicos**: `auth.routes` (`refresh`) usa `__import__(...)` para obtener `get_db` en runtime — acoplamiento oculto a `db_connection`.
+
 ## Deuda de dependencias (resumen; detalle en `code-quality-assessment.md`)
 
-- `punycode@1.4.1` transitivo en `angular-app/package-lock.json` (origen de `DEP0040`).
-  **Nota de vigilancia (intent `260914-ci-tooling-mejoras`, FR2 / BR2.1):** la cadena
-  transitiva concreta es `karma`/`karma-jasmine-html-reporter` → `dom-serialize@2.2.1`
-  → `ent@2.2.2` → `punycode@1.4.1`, toda ella `dev: true` (tooling de test, no runtime).
-  Por eso `npm ls punycode` sobre el árbol resuelto da vacío fuera del stack de Karma.
-  **Resolución:** la retirada de las devDependencies de Karma en la migración a Vitest
-  (mejora 4, FR4.2 / BR4.2) elimina `dom-serialize → ent → punycode` del árbol, con lo
-  que el aviso `DEP0040` desaparece sin actualizar ninguna dependencia directa de runtime
-  ni introducir coste. Si tras retirar Karma persistiera `DEP0040` por otra transitiva,
-  registrar aquí la nueva cadena y la versión objetivo que la eliminaría.
-- `libsql-experimental==0.0.55` y `nixpacks.toml` (Railway) — posibles restos heredados a confirmar.
-- ESLint tooling referenciado pero no instalado en devDependencies del frontend.
+- `libsql-experimental==0.0.55` y `nixpacks.toml` (Railway, `python311`) — posibles restos heredados a confirmar (deploy actual Fly.io + Neon).
+- Divergencia de runtime Python 3.12 (Docker) vs 3.11 (Nixpacks).
+- **Preservado (frontend, intents previos)**: `punycode@1.4.1` transitivo eliminado tras la migración de Karma a Vitest (`DEP0040` resuelto); ESLint tooling referenciado pero no instalado en devDependencies del frontend.
 
 ## Referencias cruzadas
 

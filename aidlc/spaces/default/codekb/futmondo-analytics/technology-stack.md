@@ -1,74 +1,61 @@
-# Stack Tecnológico — Futmondo Analytics
+# Technology Stack — Futmondo Analytics
 
-> Reverse-engineering. Escaneo previo FULL preservado; rerun FOCUSED sobre
-> `backend/app/services/` y `backend/tests/`. Lenguajes, frameworks y librerías
-> con versiones, según `backend/requirements.txt`, `angular-app/package.json` y
-> los ficheros de build leídos.
+> Artefacto CodeKB (architect). Base: `developer-scan.md`. Store STALE. Las versiones del backend reflejan lo **verificado en este run** (`backend/requirements.txt`); las del frontend se preservan del análisis previo (fuera del foco de este run).
 
-## Lenguajes y runtimes
+## Lenguajes
 
-| Lenguaje / runtime | Versión | Ubicación |
-|--------------------|---------|-----------|
-| Python | 3.12 (`python:3.12-slim`) | `backend/`, `cron/`, `backend/scripts/` |
-| TypeScript | `~6.0.2` | `angular-app/` |
-| Node/npm | `npm@11.12.1` | build frontend |
+- **Python 3.12** — backend y cron (Dockerfile `python:3.12-slim`; `ruff.toml` `target-version = py312`). **Divergencia**: `nixpacks.toml` (Railway heredado) fija `python311`.
+- **TypeScript** — frontend (`angular-app`).
 
-## Backend — frameworks y librerías
+## Backend (`backend/requirements.txt`, Python 3.12) — verificado este run
 
-| Librería | Versión | Propósito |
-|----------|---------|-----------|
-| FastAPI | `>=0.104.0` | framework de la API |
-| uvicorn[standard] | `>=0.24.0` | servidor ASGI |
-| pydantic | `>=2.5.0` | modelos y validación |
-| PyJWT | `==2.9.0` | firma/verificación JWT (HS256) |
-| psycopg2-binary | `>=2.9.9` | PostgreSQL (`ThreadedConnectionPool` 5-20) |
-| curl_cffi | `>=0.16.0` | cliente Sofascore con impersonación TLS |
-| libsql-experimental | `==0.0.55` | backend Turso/libSQL (embedded replica, heredado) |
-| requests | `>=2.31.0` | cliente API Futmondo |
-| python-dotenv | `>=1.0.0` | carga de `.env` |
-| python-multipart | `>=0.0.6` | parsing multipart |
-| google-genai | `==1.14.0` | asistente IA (Gemini) |
-| groq | `==0.25.0` | asistente IA (fallback Groq) |
-| pytest | `>=8.0.0` | testing backend (runner de la suite de caracterización) |
-| pytest-cov | `>=5.0.0` | cobertura (sin piso bloqueante) |
-| httpx | `>=0.27.0` | requerido por `TestClient` |
+| Paquete | Versión | Propósito |
+|---------|---------|-----------|
+| `fastapi` | `>=0.104.0` | Framework web/API |
+| `uvicorn[standard]` | `>=0.24.0` | Servidor ASGI (`uvicorn app.main:app`) |
+| `pydantic` | `>=2.5.0` | Modelos/validación (`app.auth.models`) |
+| `PyJWT` (`jwt`) | `==2.9.0` | Firma/verificación JWT HS256 |
+| `psycopg2-binary` | `>=2.9.9` | Cliente PostgreSQL (Neon) + `ThreadedConnectionPool` |
+| `libsql-experimental` | `==0.0.55` | Backend Turso/LibSQL (ruta alternativa; ver deuda técnica) |
+| `requests` | `>=2.31.0` | HTTP del `FutmondoClient` (`requests.Session`) |
+| `curl_cffi` | `>=0.16.0` | Cliente HTTP para Sofascore (impersonación de navegador) |
+| `python-dotenv` | `>=1.0.0` | Carga `.env` |
+| `python-multipart` | `>=0.0.6` | Form/multipart |
+| `google-genai` | `==1.14.0` | IA (assistant; fuera de foco) |
+| `groq` | `==0.25.0` | IA (assistant; fuera de foco) |
+| `pytest` | `>=8.0.0` | Runner de tests |
+| `pytest-cov` | `>=5.0.0` | Cobertura (informativa, sin piso bloqueante) |
+| `httpx` | `>=0.27.0` | `TestClient` de Starlette |
 
-Nota del rerun: la suite de `backend/tests/` se ejecuta con `pytest` +
-`monkeypatch` desde `backend/` (`pythonpath = .` en `pytest.ini`) para que
-`from app...` resuelva. En este entorno no se pudo ejecutar pytest (módulo no
-instalado; regla coste 0€, scope Minimal); la ejecución real corresponde al
-stage `build-and-test`.
+- **Linter/formato backend**: `ruff` (`backend/ruff.toml`, `select = [E, F, I]`, `ignore = [E501, E402, E722]`, `line-length = 100`) — **advisory** en CI.
 
-## Frontend — frameworks y librerías
+## Frontend (`angular-app`, `version 2.1.7`) — preservado del análisis previo
 
-| Librería | Versión | Propósito |
-|----------|---------|-----------|
-| Angular (core, material, cdk, router, forms, service-worker) | `^22.1.0` | framework SPA/PWA |
-| chart.js | `^4.5.1` | gráficos |
-| ng2-charts | `^10.0.0` | binding Angular de Chart.js |
-| marked | `^18.0.11` | render Markdown en el chat IA |
-| rxjs | `~7.8.0` | programación reactiva |
-| typescript | `~6.0.2` | lenguaje |
-| Karma + Jasmine | (config) | testing frontend |
-| @angular/build:application | Angular CLI 22 | builder |
+| Paquete | Versión | Propósito |
+|---------|---------|-----------|
+| `@angular/*` (`core`, `common`, `compiler`, `forms`, `router`, `platform-browser`, `service-worker`, `animations`) | `22.1.x` | Framework Angular 22 (standalone, signals) + PWA |
+| `@angular/material` | `22.1.6` | UI Material 22 |
+| `@angular/cdk` | `22.1.6` | CDK |
+| `chart.js` | `4.5.1` | Gráficos |
+| `ng2-charts` | `10.0.0` | Wrapper Angular de Chart.js |
+| `marked` | `18.0.13` | Render de Markdown del chat del asistente |
+| `rxjs` | `7.8.2` | Reactividad |
+| `tslib` | `2.8.1` | Runtime TypeScript |
 
-`package.json` del frontend en versión `2.1.7`; `main.py` reporta la API en
-versión `2.0.0`.
+devDependencies frontend (preservado): `@angular/build`/`@angular/cli` `22.1.x`, `vitest ^4.0.8` + `jsdom ^25` (runner vía `@angular/build:unit-test`), `prettier ^3.8.1`. **Engines**: `node: ^22.22.3 || ^24.15.0 || >=26.0.0`; raíz fija `.nvmrc` = `22.22.3`. ESLint (flat config) en modo advisory; devDeps de eslint aún no instaladas.
 
-## Infraestructura y build
+## Infraestructura / build / deploy
 
-- **Persistencia**: Neon PostgreSQL (serverless, Frankfurt). Capa de abstracción
-  con soporte adicional a SQLite y Turso/libSQL (ramas heredadas).
-- **Contenedores**: Docker (`backend/Dockerfile` sobre `python:3.12-slim`),
-  Docker Compose para orquestación local.
-- **Despliegue**: Fly.io (`flyctl deploy` por app: `futmondo-api`,
-  `futmondo-app`, `futmondo-cron`).
-- **CI/CD**: GitHub Actions (4 workflows).
-- **Residuos de plataforma**: `backend/nixpacks.toml` (Railway) y scripts de
-  migración a Turso — heredados, ya no en la ruta activa (Neon).
+| Tecnología | Uso |
+|------------|-----|
+| Neon PostgreSQL | Base de datos serverless (Frankfurt), tier free |
+| Fly.io (`flyctl`) | Deploy de `angular-app`, `backend` (región `cdg`), `cron`; free allowance |
+| Docker | `python:3.12-slim` (backend); multi-stage `node`→`nginx:alpine` (frontend) |
+| nginx (`nginx:alpine`) | Servido de SPA y reverse proxy local |
+| GitHub Actions | CI/CD (tier free) |
+| `nixpacks.toml` | Config Railway heredada (`target python311`); ver deuda técnica |
 
-## Integraciones externas
+## Referencias cruzadas
 
-- API oficial de Futmondo (autenticación y datos del campeonato).
-- API no oficial de Sofascore (ratings de jugadores).
-- Gemini (`google-genai`) + Groq (`groq`) para el asistente conversacional.
+- Relaciones de dependencia (externas e internas): `dependencies.md`.
+- Señales de deuda por versión/tooling: `code-quality-assessment.md`.

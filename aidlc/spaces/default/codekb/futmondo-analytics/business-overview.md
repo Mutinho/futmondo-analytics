@@ -1,81 +1,43 @@
-# Visión de Negocio — Futmondo Analytics
+# Business Overview — Futmondo Analytics
 
-> Artefacto de reverse-engineering. Escaneo previo FULL (profundidad Standard,
-> brownfield) preservado. Este rerun es FOCUSED sobre `backend/app/services/` y
-> `backend/tests/` (intent `260912-analytics-tests-fix`, scope `bugfix`); el
-> resto del contenido se conserva y se marca shallow en el bloque Scope of
-> Analysis. Repo raíz: `/home/javi/futmondo-analytics`.
+> Artefacto CodeKB (link 2, architect) del pipeline de Reverse Engineering. Base primaria: `developer-scan.md`. Este store es STALE tras un escaneo enfocado (FOCUSED SCAN) del backend `backend/` (durabilidad de estado y credenciales Futmondo).
 
-## Dominio y propósito
+## Dominio de negocio
 
-Futmondo Analytics es una aplicación web multi-usuario (PWA) que gestiona y
-analiza campeonatos de **Futmondo** (fantasy football). El dominio de negocio es
-el análisis financiero y de mercado de una liga fantasy: cada usuario opera sobre
-sus propios campeonatos y obtiene visibilidad de presupuestos, mercado de
-jugadores, finanzas por participante y evolución a lo largo de la temporada.
+Futmondo Analytics es una aplicación web **multi-usuario** que gestiona y analiza campeonatos de **Futmondo** (fantasy football). El dominio es la gestión económica y deportiva de una liga fantasy: presupuestos por equipo, mercado de fichajes con pujas, cláusulas, castigos/bonificaciones, rendimiento de jugadores, y el cálculo de finanzas derivado de la fórmula de premios de Futmondo.
 
-El sistema no es un juego en sí: es una capa analítica **sobre** la plataforma
-Futmondo. Se autentica con las credenciales Futmondo del propio usuario, valida
-esas credenciales contra la API oficial de Futmondo y, a partir de ahí, sincroniza
-y enriquece los datos del campeonato (transacciones, cláusulas, plantillas,
-clasificaciones, premios) para presentarlos como analítica accionable en un
-frontend instalable como app en iPhone.
+Los usuarios se autentican con sus **credenciales de Futmondo**; el backend valida contra la API de Futmondo y opera con la sesión de cada usuario (no hay credenciales globales). Los datos de campeonato (transacciones, jugadores, clasificación) son compartidos entre usuarios del mismo campeonato.
 
-Los datos del campeonato (transacciones, jugadores, standings) se comparten entre
-los usuarios de un mismo campeonato; las credenciales y la sesión Futmondo son
-individuales de cada usuario — no existen credenciales globales.
+## Propósito
+
+Ofrecer, desde una **PWA** instalable en iPhone, una capa de analítica y ayuda a la decisión que Futmondo no expone directamente: saldos por equipo, puja sugerida de mercado enriquecida con ratings de Sofascore, finanzas por usuario, evolución histórica y estadísticas avanzadas.
 
 ## Funcionalidad clave
 
-- **Presupuesto**: saldos por equipo con detalle de altas/bajas, puja máxima y
-  rendimiento.
-- **Mercado**: jugadores del "computer" en venta con puja sugerida (derivada del
-  histórico real de sobrepago vía `transactions.market_value_at_purchase` en
-  `market.py::_calculate_suggested_bid`), rating de Sofascore y tendencia. Incluye
-  puja real proxeada a Futmondo (`market.py::place_bid`).
-- **Sincronización asíncrona (11 pasos)**: sync en background con progreso paso a
-  paso (players, transactions, clauses, punishments_bonuses, dream_teams,
-  player_performance, rosters, team_standings, match_odds, prizes, phantoms). Es
-  la transacción de negocio más pesada del sistema.
-- **Finanzas por usuario**: cálculo de dinero por participante (presupuesto +
-  puntos×€ + profit de transacciones + dream team + MVP + clasificación con la
-  fórmula proporcional de Futmondo + castigos/bonificaciones).
-- **Analítica de campeonato** (`AnalyticsService`, foco de este rerun): tendencias
-  de campeonato (`get_championship_trends`), red de cláusulas
-  (`get_clause_network`), tendencia de valor de jugador (`get_player_value_trend`),
-  forma de jugador, rachas de oportunidad y proyecciones de jornada. Alimenta los
-  informes de Evolución, Estadísticas, Clausulables y Analytics del frontend.
-- **Evolución, Estadísticas, Clausulables, Analytics, Phantoms**: gráficos e
-  informes derivados; detección de "phantom players" (jugadores en plantilla sin
-  compra registrada).
-- **Asistente IA**: chat conversacional (Gemini con fallback Groq) con
-  persistencia de conversaciones.
-- **PWA + Dark Mode**: service worker, manifest, meta tags Apple; tema oscuro
-  persistido en `localStorage`.
+- **Autenticación**: login con credenciales Futmondo → JWT propio (access token en memoria, refresh token en cookie HttpOnly). Sesión Futmondo por usuario con TTL y re-auth automática.
+- **Presupuesto**: saldos por equipo con detalle de altas/bajas, puja máxima y rendimiento.
+- **Mercado**: jugadores del computer con puja sugerida (historial), rating Sofascore y tendencia; puja con validación min/max.
+- **Sincronización asíncrona**: sync en background multi-paso (jugadores, transacciones, cláusulas, castigos, dream teams, rendimiento, plantillas, clasificación, odds, phantoms, Sofascore) con seguimiento de progreso por polling.
+- **Finanzas**: cálculo de dinero por usuario combinando presupuesto, puntos, profit de transacciones, dream team, MVP, clasificación (fórmula proporcional de Futmondo) y castigos/bonificaciones.
+- **Analítica**: evolución, estadísticas, clausulables y analytics avanzado (balances, phantoms) con gráficos.
+- **Assistant (IA)**: servicio de asistente apoyado en proveedores `google-genai` / `groq`; su UI en el frontend es el chat (`AssistantChatComponent`) que renderiza Markdown.
+- **PWA / Dark mode**: service worker, manifest y meta tags Apple; tema oscuro persistido.
 
-## Actores y flujos de valor
+## Actores
 
-- **Usuario final** (participante de la liga): se autentica, dispara syncs,
-  consulta finanzas/mercado y realiza pujas desde el iPhone/navegador.
-- **Cron programado** (`futmondo-cron`, `backend/scripts/sync_data.py`): job
-  one-shot multi-championship que refresca datos sin intervención del usuario.
-- **Cron Sofascore** (`sofascore-sync.yml`): refresca la caché de ratings
-  Sofascore, con tolerancia al baneo de IP (exit code 2).
-
-El valor de negocio es convertir los datos crudos de Futmondo en decisiones:
-cuánto pujar, quién sobra financieramente, cómo evoluciona cada equipo y dónde
-hay margen de mejora en la liga.
+- **Usuario del campeonato**: gestiona sus campeonatos, consulta analítica y puja en mercado.
+- **Procesos programados (cron Fly)**: sincronización diaria de datos y de Sofascore sin intervención humana.
 
 ## Restricciones de negocio relevantes
 
-- **Coste 0€** es una regla de proyecto vigente (`project.md`): toda mejora debe
-  sostenerse en tiers gratuitos (Neon free, Fly.io free allowance, GitHub Actions
-  free). Esto condiciona la infraestructura (Fly `min_machines_running=1`, crons
-  one-shot) y descarta dependencias con gasto recurrente.
-- **Dependencia de APIs de terceros**: Futmondo (oficial) y Sofascore (no
-  oficial, con riesgo de baneo de IP). La disponibilidad del análisis depende de
-  la disponibilidad de esas APIs externas.
-- **Fiabilidad de la analítica bajo test**: la suite de caracterización de
-  `AnalyticsService` es la red de seguridad que congela el comportamiento de la
-  capa analítica; su verde es condición del gate de CI (ver
-  `code-quality-assessment.md`).
+- **Coste 0 €**: el proyecto se mantiene íntegramente en tiers gratuitos (Neon free, Fly.io free allowance, GitHub Actions free). Cualquier mejora debe respetar esta restricción.
+
+## Contexto del intent activo
+
+El intent `260914-durabilidad-estado-y-cre` (durabilidad de estado y credenciales, FR1 + FR5) **no cambia el dominio de negocio**: aborda una deuda técnica y de continuidad operativa. Hoy la **sesión Futmondo por usuario** y el **estado de las tareas de sync** viven exclusivamente en memoria de un único proceso backend, por lo que un reinicio o redeploy en Fly.io los pierde: el usuario conserva JWT válido pero cualquier endpoint que necesite el cliente Futmondo falla con **403** hasta re-login, y una tarea de sync en curso queda huérfana. Además, las credenciales Futmondo (`email`/`password`) se guardan **en claro en memoria**. El intent busca hacer durable ese estado y proteger las credenciales, respetando coste 0 € (Neon ya disponible) y sin asumir instancia única. Ver `code-quality-assessment.md` (deuda de durabilidad y seguridad) y `architecture.md` (flujos de auth/sesión y sync).
+
+## Referencias cruzadas
+
+- Componentes y responsabilidades: `component-inventory.md`.
+- Superficies de API e integraciones externas: `api-documentation.md`.
+- Arquitectura y flujos de negocio: `architecture.md`.

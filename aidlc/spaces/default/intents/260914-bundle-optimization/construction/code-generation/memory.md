@@ -2,7 +2,6 @@
 > This file is kept up to date automatically while the stage runs. Add observations at the review step, not by editing here directly.
 
 ## Interpretations
-- 2026-09-14T10:37Z — Aprendizaje a persistir como regla de proyecto: verificar `npm ci` y `ng test` en local (o revisar el lock) antes de pushear tras cambiar devDependencies del frontend, para no romper el gate de CI. Origen: en este despliegue el gate falló primero por `package-lock.json` desincronizado (npm ci) y luego por `karmaConfig` no soportado por el builder `@angular/build:unit-test`.
 <!-- example: 2026-05-29T10:14:32Z — chose REST over GraphQL; the consuming team only needs CRUD, revisit if subscriptions land -->
 
 ## Deviations
