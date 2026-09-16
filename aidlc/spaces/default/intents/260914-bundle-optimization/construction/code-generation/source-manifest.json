@@ -1,0 +1,13 @@
+{
+  "stage": "code-generation",
+  "version": 1,
+  "writes": [
+    { "path": "angular-app/src/app/core/preloading/idle-preloading-strategy.ts" },
+    { "path": "angular-app/src/app/core/preloading/idle-preloading-strategy.spec.ts" },
+    { "path": "angular-app/src/app/features/evolution/evolution.component.ts" },
+    { "path": "angular-app/src/app/features/stats/stats.component.ts" },
+    { "path": "angular-app/src/app/app.config.ts" },
+    { "path": "angular-app/src/app/shared/components/assistant-fab.component.ts" },
+    { "path": "angular-app/angular.json" }
+  ]
+}

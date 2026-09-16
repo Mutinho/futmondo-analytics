@@ -1,0 +1,1 @@
+"Optimizar el bundle inicial del frontend Angular para bajar de 1 MB (lazy-loading, revision de dependencias pesadas como chart.js/ng2-charts y marked, carga de Material) y restaurar el presupuesto maximumError de angular.json a 1 MB. Sin cambio funcional, coste 0 euros."

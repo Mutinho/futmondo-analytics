@@ -18,6 +18,16 @@
 
 **Reversión**: si la clave nueva causa problemas, el impacto es que los usuarios re-loguean (degradación segura). No hay estado que revertir; el password nunca se persiste.
 
+> **Nota operativa (verificado 2026-09-16).** Un `fly machine restart` / `fly apps restart`
+> **NO** recoge un secret fijado *después* de que la máquina arrancó: el proceso sigue leyendo
+> `FUTMONDO_CRED_KEY` vacío y persiste el warning `not configured` pese a que `fly secrets list`
+> lo muestre `Deployed`. Para que el proceso vea el secret hay que **recrear la máquina**:
+> `fly secrets set ...` (recrea y re-inyecta el entorno) o `fly deploy`. Además, la rehidratación
+> solo funciona para credenciales cifradas en un **login posterior** a que el secret sea legible:
+> los logins previos no guardaron nada. Verificación de que funciona: tras `fly apps restart`, un F5
+> autenticado debe mostrar en `fly logs` un `Attempting to login to Futmondo... ✅` emitido por el
+> servidor y `POST /auth/refresh 200` (NO 401) — esa re-auth la hace el backend, no el usuario.
+
 ## RB-2: Error de descifrado del handle de sesión
 
 **Síntoma**: `fly logs` muestra `InvalidToken`/`Fernet` al rehidratar (clave rotada o corrupta).

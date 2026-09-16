@@ -1,66 +1,91 @@
-# Reverse Engineering — Registro de Ejecución
+# Reverse Engineering Timestamp — Futmondo Analytics
 
-> Registro de cuándo se realizó el reverse-engineering y del alcance analizado.
-> El bloque `## Scope of Analysis` es leído por `codekb-scope-diff` en el próximo
-> rerun, por lo que refleja lo que este escaneo cubrió realmente.
+> Artefacto CodeKB (architect). Registra cuándo se realizó el reverse engineering.
 
-## Metadatos de ejecución
+## Registro
 
-- **Fecha**: 2026-09-13T05:44:07Z
-- **Commit hash**: `099e223` (fingerprint del scope acuñado sobre las
-  `analyzed.paths` de este run; el commit del árbol de trabajo se resuelve en
-  build)
-- **Tipo de escaneo**: FOCUSED sobre store previo STALE (re-síntesis parcial)
-- **Profundidad**: Minimal
-- **Tipo de proyecto**: Brownfield
-- **Scope**: bugfix
-- **Repo**: repo único (workspace root), `/home/javi/futmondo-analytics`
-- **Intent**: 260912-analytics-tests-fix
-- **Pipeline**: developer (escaneo) → architect (síntesis, este artefacto)
-
-## Alcance y notas
-
-Rerun ENFOCADO sobre `backend/app/services/` (con `analytics_service.py`
-re-verificado en profundidad) y `backend/tests/` (suite de caracterización,
-`test_analytics_service.py`). El store previo era un escaneo FULL
-(`intent: analisis-mejoras`, `kind: full`) hoy STALE: su prosa se PRESERVA, pero
-sus `analyzed.paths` profundas se DEGRADAN a `shallow.paths` porque esa cobertura
-profunda no se pudo re-verificar en este run. Solo el componente `data services`
-se re-verificó en profundidad; el resto del inventario se conserva del escaneo
-previo. La huella (`fingerprint`) se acuñó con `codekb-scope-diff --mint` sobre
-`backend/app/services/,backend/tests/`.
+- **Fecha de análisis**: 2026-09-15
+- **Source commit**: `git:8d71c88ecafa79e796794feec64fcc4c9d2e671b`
+- **Source fingerprint previo**: `git:349059d113480c24c1dfef2ecb8be28deb50a448` (snapshot del run anterior)
+- **Intent**: `260914-durabilidad-estado-y-cre`
+- **Tipo de escaneo**: FOCUSED SCAN sobre el backend `backend/` (durabilidad de estado y credenciales Futmondo, FR1 + FR5)
+- **Links del pipeline**: link 1 (developer scan) → link 2 (architect synthesis, este CodeKB)
+- **Base primaria**: `aidlc/spaces/default/intents/260914-durabilidad-estado-y-cre/inception/reverse-engineering/developer-scan.md`
+- **Nota de merge**: store previo **STALE** (análisis del intent `260914-bundle-optimization`, foco frontend). Se preserva la prosa fuera del foco (frontend, cron, proxy, bundle, CI/CD) y se actualiza/extiende la del backend (auth/`SessionStore`, `TaskManager`, persistencia Neon, sync). Por ser STALE, el bloque de scope registra **solo este run** en `analyzed`; las `analyzed.paths` profundas previas del store (frontend `angular-app/`) se **degradan a `shallow.paths`** porque su cobertura profunda no se pudo re-verificar, junto a las shallow existentes y las nuevas de este run.
 
 ## Scope of Analysis
 
 ```yaml
 scope_version: 1
 kind: partial
-intent: 260912-analytics-tests-fix
-fingerprint: 099e22398dc485929ac6dffec6fd830befd2bea4
+intent: 260914-durabilidad-estado-y-cre
+fingerprint: d2b01ebcf98fb0aa136bc02b6101309768d34cbe
 analyzed:
   paths:
-    - backend/app/services/
-    - backend/tests/
+    - backend/app/auth/session_store.py
+    - backend/app/auth/token_store.py
+    - backend/app/auth/routes.py
+    - backend/app/auth/jwt_utils.py
+    - backend/app/auth/dependencies.py
+    - backend/app/auth/models.py
+    - backend/app/services/task_manager.py
+    - backend/app/services/db_connection.py
+    - backend/app/services/futmondo_client.py
+    - backend/app/api/v1/endpoints/sync.py
+    - backend/app/api/v1/endpoints/_helpers.py
+    - backend/app/core/config.py
+    - backend/app/main.py
+    - backend/scripts/init_db.py
+    - backend/requirements.txt
+    - backend/Dockerfile
+    - backend/ruff.toml
+    - backend/pytest.ini
+    - backend/conftest.py
+    - backend/nixpacks.toml
+    - backend/fly.toml
   components:
-    - data services
+    - backend
 shallow:
   paths:
-    - ./
-    - backend/
-    - backend/app/
-    - backend/app/core/
-    - backend/app/auth/
+    - backend/app/services/
     - backend/app/api/v1/endpoints/
     - backend/scripts/
-    - angular-app/
-    - angular-app/src/app/core/
+    - backend/tests/
+    - backend/static/photos/
+    - backend/entrypoint.sh
+    - backend/run.py
+    - angular-app/package.json
+    - angular-app/package-lock.json
+    - angular-app/angular.json
+    - angular-app/tsconfig.json
+    - angular-app/tsconfig.app.json
+    - angular-app/tsconfig.spec.json
+    - angular-app/eslint.config.js
+    - angular-app/src/main.ts
+    - angular-app/src/styles.scss
+    - angular-app/src/app/app.config.ts
+    - angular-app/src/app/app.ts
+    - angular-app/src/app/app.routes.ts
+    - angular-app/src/app/features/analytics/analytics.routes.ts
+    - angular-app/src/app/features/budget/budget.routes.ts
+    - angular-app/src/app/shared/components/assistant-fab.component.ts
+    - angular-app/src/app/shared/components/assistant-chat.component.ts
+    - angular-app/src/app/features/evolution/evolution.component.ts
+    - angular-app/src/app/features/stats/stats.component.ts
     - angular-app/src/app/features/
-    - proxy/
-    - cron/
-    - .github/workflows/
+    - angular-app/src/app/core/
+    - angular-app/src/app/shared/
+    - angular-app/Dockerfile
+    - angular-app/fly.toml
+    - angular-app/nginx.conf
+    - angular-app/nginx.prod.conf
+    - angular-app/ngsw-config.json
+    - .github/workflows/ci.yml
+    - .github/workflows/fly-deploy.yml
+    - .github/workflows/daily-sync.yml
+    - .github/workflows/sofascore-sync.yml
+    - cron/fly.toml
+    - proxy/nginx.conf
+    - docker-compose.yml
     - docs/
-    - backend/app/services/data_manager_v2.py
-    - backend/app/services/data_sync_service.py
-    - backend/app/services/assistant_service.py
-    - backend/app/services/photo_service.py
 ```

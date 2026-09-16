@@ -1,0 +1,14 @@
+{
+  "stage_slug": "deployment-execution",
+  "space": "default",
+  "intent": "260912-analytics-tests-fix",
+  "selections": [
+    {
+      "candidate_id": "c1",
+      "source_heading": "Interpretations",
+      "scope": "project",
+      "heading": "Corrections",
+      "text": "ALWAYS verificar npm ci y ng test en local (o revisar el lock) antes de pushear tras cambiar devDependencies del frontend, para no romper el gate de CI"
+    }
+  ]
+}

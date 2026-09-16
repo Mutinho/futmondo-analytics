@@ -1,135 +1,79 @@
-# Estructura del Código — Futmondo Analytics
+# Code Structure — Futmondo Analytics
 
-> Reverse-engineering. Escaneo previo FULL preservado; rerun FOCUSED sobre
-> `backend/app/services/` y `backend/tests/`. Organización de paquetes/módulos,
-> clasificación de ficheros y patrones de código observados.
+> Artefacto CodeKB (architect). Base: `developer-scan.md`. Store STALE tras FOCUSED SCAN del backend `backend/`. La prosa del frontend se preserva del análisis previo.
 
-## Organización de paquetes/módulos
-
-Repo único (workspace root) con cinco áreas de nivel superior:
+## Organización de alto nivel (raíz del repo)
 
 ```
 futmondo-analytics/
-├── angular-app/          # Frontend Angular 22 (PWA)
-├── backend/              # Backend FastAPI (Python 3.12)
-├── proxy/                # nginx reverse proxy (solo local)
-├── cron/                 # App Fly.io futmondo-cron (reutiliza imagen backend)
-└── docs/                 # Documentación de contexto y planes
+├── angular-app/   # Frontend Angular 22 (PWA)
+├── backend/       # Backend FastAPI (Python 3.12)
+├── cron/          # Proceso worker one-shot (reutiliza backend/Dockerfile)
+├── proxy/         # nginx reverse proxy (local)
+├── docs/          # Documentación y backlogs
+├── .github/       # workflows de CI/CD
+├── stitch_*       # mockups de diseño estáticos (fuera del código de app)
+└── docker-compose.yml
 ```
 
-### Backend (por capas)
+## `backend/` (servicio web, Python 3.12) — verificado en profundidad este run
 
-```
-backend/app/
-├── main.py               # Bootstrap FastAPI, CORS, AuthMiddleware, 23 routers
-├── core/                 # config.py, constants.py (config y constantes)
-├── auth/                 # routes.py, jwt_utils.py, token_store.py,
-│                         #   session_store.py, dependencies.py, models.py
-├── services/             # capa de datos y lógica (ver "god files")
-│   ├── db_connection.py        # abstracción BD (PostgreSQL/SQLite/Turso)
-│   ├── futmondo_client.py      # cliente API Futmondo (requests)
-│   ├── sofascore_client.py     # cliente API Sofascore (curl_cffi)
-│   ├── task_manager.py         # estado in-memory de tareas de sync
-│   ├── data_manager_v2.py      # 166 KB — acceso a datos (god file)
-│   ├── data_sync_service.py    # 84 KB — orquestación de sync (god file)
-│   ├── assistant_service.py    # 51 KB — asistente IA (god file)
-│   ├── analytics_service.py    # 34 KB — analítica (god file, foco del rerun)
-│   └── photo_service.py        # 23 KB — gestión de fotos de jugadores
-├── api/v1/endpoints/     # 23 routers por dominio (sync, market, analytics, …)
-├── models/               # modelos de dominio
-├── scripts/              # jobs one-shot y migraciones heredadas
-└── tests/                # 6 ficheros de caracterización (pytest)
-```
+- `app/main.py` — montaje de routers (`app.api.v1.endpoints.*` + `app.auth.routes`), `AuthMiddleware` (whitelist de rutas públicas, inyecta `request.state.user`), endpoints raíz/`/health`/fotos, CORS.
+- `app/auth/` — módulo de autenticación (verificado):
+  - `routes.py` — `POST /auth/login` (valida contra Futmondo, upsert usuario, emite JWT, cookie HttpOnly, `store_session`, auto-detección de campeonatos), `POST /auth/refresh` (verifica refresh token, emite access token; **no** reconstruye sesión Futmondo), `POST /auth/logout` (revoca refresh, elimina sesión, limpia cookie).
+  - `session_store.py` — `SessionStore` singleton de proceso: `dict[str, UserSession]` con `threading.Lock` global + locks por usuario; `UserSession` guarda `email`/`password` **en claro**, `token`, `user_id`, TTL 12h.
+  - `token_store.py` — gestiona `app_users`, `refresh_tokens` (hash SHA-256, `revoked`, `expires_at`) y `user_championships`; `init_auth_tables()` con `CREATE TABLE IF NOT EXISTS` + `ALTER TABLE` en `try/except`.
+  - `jwt_utils.py` — firma/verificación JWT HS256 (PyJWT); guard de arranque endurecido (cubierto por `test_jwt_startup.py`).
+  - `dependencies.py` — dependencias FastAPI de auth.
+  - `models.py` — modelos Pydantic del área auth.
+- `app/api/v1/endpoints/` — **~24 routers** (uno por dominio). Verificados en profundidad:
+  - `sync.py` — `POST /trigger` (crea `Task` en `TaskManager`, lanza `threading.Thread` daemon, 409 si hay tarea activa, usa `get_user_futmondo_client(request)`), `GET /task/{task_id}` (polling desde memoria), `GET /status`, `GET /last-sync` (metadatos desde BD `sync_metadata`).
+  - `_helpers.py` — `get_user_futmondo_client(request)`: reconstruye/obtiene el cliente Futmondo desde la sesión en memoria; devuelve **403** si la sesión no existe (p. ej. tras reinicio).
+  - Resto (skimmed): `market.py`, `balances.py`, `player_finances.py`, `analytics.py`, `roster.py`, `transactions.py`, `favorites.py`, `clausulable_players.py`, `sofascore_sync.py`, `user.py`, `reset_db.py`, etc.
+- `app/services/` — **12 módulos** de servicio. Verificados: `task_manager.py` (`TaskManager` singleton de proceso, `dict[str, Task]`, cap 20, stale 10 min), `db_connection.py` (abstractor multi-backend SQLite/PostgreSQL-Neon/Turso, SQL directo con cursores, `ThreadedConnectionPool`, adaptación `?`↔`%s`), `futmondo_client.py` (cabecera: constructor, `login`, gestión de `token`/`user_id`/`session` con `requests.Session`). Skimmed: `data_manager_v2.py` (~166 KB), `data_sync_service.py` (~84 KB), `analytics_service.py`, `assistant_service.py`, `sofascore_client.py`, `photo_service.py`, `futmondo_service.py`, `data_initializer*.py`.
+- `app/core/` — `config.py` (configuración/settings) y constantes.
+- `app/models/` — modelos de datos ligeros (`models.py`).
+- `scripts/` — `init_db.py` (verificado) y scripts de sync/migración puntuales (`sync_data.py`, usado por cron; skimmed).
+- `tests/` — 7 ficheros `pytest`, `conftest.py` (provee `clean_jwt_env`, fija `sys.path`).
+- Config: `requirements.txt`, `pytest.ini`, `ruff.toml`, `nixpacks.toml` (heredado, Python 3.11), `Dockerfile` (Python 3.12), `fly.toml` (región `cdg`), `entrypoint.sh`, `run.py`, `conftest.py`.
 
-### `AnalyticsService` — estructura interna relevante (foco del rerun)
+**Patrones de código (backend)**: router-per-domain montados en `main.py`; `AuthMiddleware` con whitelist de rutas públicas; clientes de integración dedicados (patrón adapter/ACL); singletons de proceso para estado transitorio (`SessionStore`, `TaskManager`); acceso a datos por SQL directo (sin ORM) con adaptación manual de dialecto; imports diferidos dentro de funciones (patrón repetido, incl. `__import__` dinámico de `get_db` en `refresh`); tests de caracterización sobre comportamiento existente.
 
-`analytics_service.py` expone una clase `AnalyticsService` con:
+## `angular-app/` (aplicación, TypeScript) — preservado del análisis previo
 
-- **Estado de instancia** (analytics_service.py:12-17): `self.dm = DataManagerV2()`,
-  `self._team_cache: Dict[str, Dict[str, Dict]] = {}`,
-  `self._player_cache: Dict[str, Dict] = {}`.
-- **Helpers privados**: `_safe_team_info` (l.18, usa `_player_cache` como flag
-  `__teams_loaded__` y escribe en `_team_cache`), `_safe_player_info` (l.40, usa
-  `_player_cache`), `_build_team_lookup` (l.55, lee/escribe `_team_cache`),
-  `_resolve_team` (l.94).
-- **Métodos públicos bajo test**: `get_championship_trends` (l.124),
-  `get_player_value_trend` (l.437, emite `last_transaction_price` en l.474),
-  `get_clause_network` (l.668); más `get_player_form`, `get_opportunity_streaks`,
-  `get_matchday_projections` (deben permanecer en verde).
+Estructura por capas Angular standalone (sin NgModules):
 
-### Suite de tests del backend (`backend/tests/`)
+- `src/main.ts` — arranque: `bootstrapApplication(App, appConfig)`.
+- `src/app/app.config.ts` — `ApplicationConfig`: `provideAnimationsAsync()`, `provideCharts(withDefaultRegisterables())`, `withPreloading(PreloadAllModules)`.
+- `src/app/app.ts` — componente root `App`: shell de Material + CDK; incluye `AssistantFabComponent`.
+- `src/app/app.routes.ts` — routing raíz 100 % lazy.
+- `src/app/features/` — **17 features** con `*.routes.ts` lazy. Consumidores de gráficos: `features/evolution`, `features/stats`.
+- `src/app/core/` — `services`, `interceptors` (`auth.interceptor.ts`), `guards`, `models`.
+- `src/app/shared/` — `components` (incl. `assistant-fab.component.ts` → `assistant-chat.component.ts`, import estático de `marked`), `pipes`, `utils`, `styles`.
+- Config: `angular.json` (builder `@angular/build:application`), `package.json`, `tsconfig*.json`, `eslint.config.js`; PWA/serve: `ngsw-config.json`, `nginx*.conf`, `Dockerfile`, `fly.toml`.
 
-```
-backend/tests/
-├── test_analytics_service.py         # foco: fakes de DataManager (StubDM)
-├── test_auth_characterization.py
-├── test_db_admin_guard.py
-├── test_jwt_startup.py
-├── test_db_engine_characterization.py
-└── test_finance_characterization.py
-backend/conftest.py                    # fixtures + monkeypatch, pythonpath = .
-backend/pytest.ini                     # cobertura informativa (--cov=app opcional)
-backend/ruff.toml                      # select E,F,I; advisory
-```
+**Patrones de código (frontend)**: standalone components + signals; `ChangeDetectionStrategy.OnPush`; providers centralizados; interceptor HTTP para auth; routing lazy por feature.
 
-### Frontend (por feature)
+## `cron/` y `proxy/`
 
-```
-angular-app/src/app/
-├── core/                 # services/, interceptors/, guards/ (transversal)
-├── shared/               # componentes/utilidades compartidas
-└── features/             # 17 features standalone (Angular 22)
-```
+- `cron/fly.toml` — app `futmondo-cron`; reutiliza `backend/Dockerfile` y ejecuta `python scripts/sync_data.py` en máquina Fly efímera.
+- `proxy/nginx.conf` — reverse proxy para enrutado local (docker-compose) hacia frontend y backend.
 
 ## Clasificación de ficheros
 
-| Categoría | Ubicación | Ejemplos |
-|-----------|-----------|----------|
-| Bootstrap/entrypoint | `backend/app/main.py`, `backend/run.py`, `backend/entrypoint.sh` | montaje de routers, arranque uvicorn |
-| Configuración runtime | `backend/app/core/` | `config.py`, `constants.py` |
-| Auth | `backend/app/auth/` | JWT, token store, session store, middleware |
-| Endpoints/API | `backend/app/api/v1/endpoints/` | 23 routers por dominio |
-| Servicios/lógica | `backend/app/services/` | sync, analytics, clientes externos, asistente |
-| Scripts/jobs | `backend/scripts/` | `sync_data.py` (cron), migraciones a Turso, exportadores |
-| Tests | `backend/tests/`, `angular-app/**/*.spec.ts` | 6 ficheros pytest; 1 solo `.spec.ts` frontend |
-| Build/deploy | raíz y por app | `Dockerfile`, `fly.toml`, `docker-compose.yml`, workflows |
-| Frontend features | `angular-app/src/app/features/` | 17 features standalone |
-| Frontend core | `angular-app/src/app/core/` | `auth.interceptor.ts`, `auth.service.ts`, guards |
+| Categoría | Ubicaciones |
+|-----------|-------------|
+| Código de aplicación (frontend) | `angular-app/src/app/**` |
+| Código de servicio (backend) | `backend/app/**`, `backend/scripts/**` |
+| Tests | `backend/tests/**`, `angular-app/src/app/**/*.spec.ts` |
+| Config de build/CI | `*/package.json`, `*/angular.json`, `*/tsconfig*.json`, `backend/requirements.txt`, `*/Dockerfile`, `*/fly.toml`, `.github/workflows/*.yml`, `docker-compose.yml` |
+| Config de lint/formato | `angular-app/eslint.config.js`, `backend/ruff.toml`, `.prettierrc`, `.editorconfig` |
+| Infra de servido/PWA | `*/nginx*.conf`, `angular-app/ngsw-config.json` |
+| Documentación | `README.md`, `angular-app/README.md`, `docs/**` |
+| Assets de diseño (no-código) | `stitch_*` |
 
-## Patrones de código
+## Referencias cruzadas
 
-- **Router-per-domain (FastAPI)**: cada dominio tiene su router en
-  `api/v1/endpoints/` montado en `main.py` con su prefijo. Un dominio
-  (`matchdays`) se monta doblemente (`/api/v1/matchdays` y `/v1/matchdays`) para
-  evitar redirect loops — superficie duplicada.
-- **Middleware de autenticación central**: `AuthMiddleware` en `main.py` valida
-  Bearer para todo `/api/v1/*` salvo `AUTH_EXCLUDED_PATHS`, y adjunta
-  `request.state.user`.
-- **Abstracción de BD con adaptación de parámetros**: patrón
-  `sql = db.adapt_params(sql)` + `cursor.execute(...)` para soportar múltiples
-  backends con placeholders homogéneos (`?`).
-- **Sync desacoplada por hilo + polling**: `threading.Thread(daemon=True)` sobre
-  `_run_sync_in_background`, progreso vía `TaskManager` (patrón task-id +
-  polling).
-- **Memoización por instancia en `AnalyticsService`**: `_team_cache`/`_player_cache`
-  inicializadas en `__init__` y consultadas por los helpers privados; patrón
-  frágil cuando un test sustituye `__init__` completo (ver
-  `code-quality-assessment.md`).
-- **Testing de caracterización con fakes por fixture**: `test_analytics_service.py`
-  monkeypatchea `AnalyticsService.__init__` con un `fake_init` que inyecta un
-  `StubDM`; no usa BD real. `conftest.py` fija `pythonpath = .` para que
-  `from app...` resuelva ejecutando pytest desde `backend/`.
-- **Standalone components + signals (Angular 22)**: features standalone; core con
-  interceptor de auth y guards. `angular.json` configura `skipTests: true` en los
-  schematics.
-- **Anti-patrones observados**: `except Exception: pass` silencioso en arranque y
-  migraciones; `try/except` amplio en `_build_team_lookup` (l.66-68) que enmascara
-  la ausencia de `get_all_users_with_points` en `StubDM`; "god files" que superan
-  el objetivo de <300 líneas; estado no durable en memoria; ramas muertas de
-  configuración multi-backend.
-
-## Convenciones
-
-- Comentarios en castellano con referencias a NFRs/FRs (endurecimiento previo).
-- Formato: Prettier (frontend) + ruff format (backend). Lint: ruff (backend,
-  advisory en CI) y ESLint (frontend, advisory en CI).
+- Inventario de componentes con responsabilidades y dependencias: `component-inventory.md`.
+- Versiones de frameworks/librerías: `technology-stack.md`.
+- Deuda de estado en memoria y seguridad: `code-quality-assessment.md`.
