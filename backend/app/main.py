@@ -133,6 +133,30 @@ try:
 except Exception as e:
     logger.warning(f"Could not init auth tables at import time: {e}")
 
+# Ensure durable-session schema on startup (u1-durable-session, infra Q1-A).
+# Idempotent CREATE TABLE IF NOT EXISTS; safe to run on every boot.
+from app.stores.session_repository import ensure_durable_session_schema
+
+try:
+    ensure_durable_session_schema()
+except Exception as e:
+    logger.warning(f"Could not ensure durable-session schema at import time: {e}")
+
+# Ensure durable-task schema and sweep interrupted syncs on startup
+# (u2-durable-sync-tasks, FR1.4/FR1.5). Idempotent CREATE TABLE IF NOT EXISTS;
+# the sweep marks any pending/running task orphaned by the previous process as
+# interrupted-by-restart (it does NOT resume them).
+from app.stores.task_repository import ensure_durable_task_schema
+from app.services.task_service import get_task_service
+
+try:
+    ensure_durable_task_schema()
+    interrupted = get_task_service().mark_interrupted_on_startup()
+    if interrupted:
+        logger.info(f"Marked {interrupted} in-flight sync task(s) interrupted-by-restart")
+except Exception as e:
+    logger.warning(f"Could not ensure durable-task schema/sweep at import time: {e}")
+
 # Include auth router (no /api/v1 prefix — lives at /auth/*)
 from app.auth.routes import router as auth_router
 app.include_router(auth_router)

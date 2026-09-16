@@ -27,6 +27,11 @@ from app.auth.token_store import (
 from app.auth.session_store import get_session_store
 from app.services.futmondo_client import FutmondoClient
 from app.core.config import BASE_URL
+from app.services.session_service import (
+    SessionError,
+    get_session_service,
+)
+from app.stores.session_repository import SessionRepository
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +110,25 @@ async def login(body: LoginRequest, response: Response):
     store = get_session_store()
     store.store_session(user_id, client, body.email, body.password)
     
+    # Persist durable session state + encrypted re-auth handle so the session
+    # survives a restart (u1-durable-session, FR1.1/FR5.1). Best-effort: a
+    # persistence hiccup must not block a successful login.
+    try:
+        session_repository = SessionRepository()
+        session_repository.upsert(user_id, body.email, client.user_id or "")
+        service = get_session_service()
+        protection = getattr(service, "_protection", None)
+        if protection is not None:
+            protection.protect(user_id, body.email, body.password)
+        else:
+            logger.warning(
+                "Credential protection unavailable at login; durable rehydration "
+                "will be unavailable for user %s until FUTMONDO_CRED_KEY is set",
+                user_id,
+            )
+    except Exception as e:
+        logger.warning(f"Could not persist durable session state at login: {e}")
+    
     # Auto-detect championships on first login
     try:
         _auto_detect_championships(user_id, client)
@@ -157,7 +181,10 @@ async def refresh(request: Request, futmondo_refresh_token: Optional[str] = Cook
     # Get user info for the new access token
     from app.auth.token_store import get_user_by_email
     # We need email from somewhere — look up by user_id
-    db = __import__('app.services.db_connection', fromlist=['get_db']).get_db()
+    # Static module-level import (team.md Code Style: avoid dynamic __import__).
+    from app.services.db_connection import get_db
+
+    db = get_db()
     with db.get_connection() as conn:
         cursor = db.get_cursor(conn)
         sql = "SELECT futmondo_email, futmondo_user_id FROM app_users WHERE id = ?"
@@ -180,6 +207,16 @@ async def refresh(request: Request, futmondo_refresh_token: Optional[str] = Cook
         futmondo_user_id=futmondo_uid,
     )
     
+    # Trigger durable-session rehydration on refresh (BR1.6). Best-effort and
+    # without internal retries: a cold cache after a restart is rebuilt here so
+    # the first protected request finds a live session. A transient rehydration
+    # failure must not fail the token refresh; an unrecoverable one is left for
+    # the protected endpoint to surface as an actionable 401.
+    try:
+        get_session_service().ensure_session(user_id)
+    except SessionError as e:
+        logger.info(f"Session rehydration deferred on refresh for {user_id}: {e}")
+    
     return {
         "access_token": access_token,
         "token_type": "bearer",
@@ -199,8 +236,19 @@ async def logout(response: Response, futmondo_refresh_token: Optional[str] = Coo
         # Remove Futmondo session
         payload = verify_token(futmondo_refresh_token, expected_type="refresh")
         if payload:
+            user_id = payload["sub"]
             store = get_session_store()
-            store.remove_session(payload["sub"])
+            store.remove_session(user_id)
+            # Purge durable session state and the encrypted re-auth handle so a
+            # logged-out user cannot be silently rehydrated (FR5.1 / BR1.3).
+            try:
+                SessionRepository().delete(user_id)
+                service = get_session_service()
+                protection = getattr(service, "_protection", None)
+                if protection is not None:
+                    protection.forget(user_id)
+            except Exception as e:
+                logger.warning(f"Could not purge durable session state at logout: {e}")
     
     # Clear the cookie
     _clear_refresh_cookie(response)
