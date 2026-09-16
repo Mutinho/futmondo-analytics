@@ -10569,3 +10569,254 @@
 **Tool**: Bash
 
 ---
+
+## Guardrail Loaded
+**Timestamp**: 2026-09-16T12:48:00Z
+**Event**: GUARDRAIL_LOADED
+**Scope**: all
+**Path**: .kiro/steering/
+**Rule count**: 7
+
+---
+
+## Health Check
+**Timestamp**: 2026-09-16T12:48:00Z
+**Event**: HEALTH_CHECKED
+**Request**: /aidlc --doctor
+**Details**: 56 passed, 2 failed
+
+---
+
+## Guardrail Loaded
+**Timestamp**: 2026-09-16T12:48:38Z
+**Event**: GUARDRAIL_LOADED
+**Scope**: all
+**Path**: .kiro/steering/
+**Rule count**: 7
+
+---
+
+## Health Check
+**Timestamp**: 2026-09-16T12:48:38Z
+**Event**: HEALTH_CHECKED
+**Request**: /aidlc --doctor
+**Details**: 55 passed, 2 failed
+
+---
+
+## Guardrail Loaded
+**Timestamp**: 2026-09-16T12:48:42Z
+**Event**: GUARDRAIL_LOADED
+**Scope**: all
+**Path**: .kiro/steering/
+**Rule count**: 7
+
+---
+
+## Health Check
+**Timestamp**: 2026-09-16T12:48:42Z
+**Event**: HEALTH_CHECKED
+**Request**: /aidlc --doctor
+**Details**: 55 passed, 2 failed
+
+---
+
+## Session Start
+**Timestamp**: 2026-09-16T12:49:00Z
+**Event**: SESSION_STARTED
+**Source**: startup
+**Session**: 6478d4b2-5565-4c3a-b91b-29fcf680d04d
+
+---
+
+## Human Turn
+**Timestamp**: 2026-09-16T12:49:05Z
+**Event**: HUMAN_TURN
+**Session**: 6478d4b2-5565-4c3a-b91b-29fcf680d04d
+
+---
+
+## Human Turn
+**Timestamp**: 2026-09-16T12:49:15Z
+**Event**: HUMAN_TURN
+**Session**: 6478d4b2-5565-4c3a-b91b-29fcf680d04d
+
+---
+
+## Guardrail Loaded
+**Timestamp**: 2026-09-16T12:49:20Z
+**Event**: GUARDRAIL_LOADED
+**Scope**: all
+**Path**: .kiro/steering/
+**Rule count**: 7
+
+---
+
+## Health Check
+**Timestamp**: 2026-09-16T12:49:20Z
+**Event**: HEALTH_CHECKED
+**Request**: /aidlc --doctor
+**Details**: 55 passed, 2 failed
+
+---
+
+## Human Turn
+**Timestamp**: 2026-09-16T12:49:56Z
+**Event**: HUMAN_TURN
+**Session**: 6478d4b2-5565-4c3a-b91b-29fcf680d04d
+
+---
+
+## Human Turn
+**Timestamp**: 2026-09-16T12:51:16Z
+**Event**: HUMAN_TURN
+**Session**: 6478d4b2-5565-4c3a-b91b-29fcf680d04d
+
+---
+
+## Human Turn
+**Timestamp**: 2026-09-16T12:52:03Z
+**Event**: HUMAN_TURN
+**Session**: 6478d4b2-5565-4c3a-b91b-29fcf680d04d
+
+---
+
+## Guardrail Loaded
+**Timestamp**: 2026-09-16T12:52:18Z
+**Event**: GUARDRAIL_LOADED
+**Scope**: all
+**Path**: .kiro/steering/
+**Rule count**: 7
+
+---
+
+## Health Check
+**Timestamp**: 2026-09-16T12:52:18Z
+**Event**: HEALTH_CHECKED
+**Request**: /aidlc --doctor
+**Details**: 60 passed, 1 failed
+
+---
+
+## Guardrail Loaded
+**Timestamp**: 2026-09-16T12:52:30Z
+**Event**: GUARDRAIL_LOADED
+**Scope**: all
+**Path**: .kiro/steering/
+**Rule count**: 7
+
+---
+
+## Health Check
+**Timestamp**: 2026-09-16T12:52:30Z
+**Event**: HEALTH_CHECKED
+**Request**: /aidlc --doctor
+**Details**: 60 passed, 1 failed
+
+---
+
+## Guardrail Loaded
+**Timestamp**: 2026-09-16T12:52:39Z
+**Event**: GUARDRAIL_LOADED
+**Scope**: all
+**Path**: .kiro/steering/
+**Rule count**: 7
+
+---
+
+## Health Check
+**Timestamp**: 2026-09-16T12:52:39Z
+**Event**: HEALTH_CHECKED
+**Request**: /aidlc --doctor
+**Details**: 60 passed, 1 failed
+
+---
+
+## Guardrail Loaded
+**Timestamp**: 2026-09-16T12:55:01Z
+**Event**: GUARDRAIL_LOADED
+**Scope**: all
+**Path**: .kiro/steering/
+**Rule count**: 7
+
+---
+
+## Health Check
+**Timestamp**: 2026-09-16T12:55:01Z
+**Event**: HEALTH_CHECKED
+**Request**: /aidlc --doctor
+**Details**: 60 passed, 1 failed
+
+---
+
+## Guardrail Loaded
+**Timestamp**: 2026-09-16T12:55:16Z
+**Event**: GUARDRAIL_LOADED
+**Scope**: all
+**Path**: .kiro/steering/
+**Rule count**: 7
+
+---
+
+## Health Check
+**Timestamp**: 2026-09-16T12:55:16Z
+**Event**: HEALTH_CHECKED
+**Request**: /aidlc --doctor
+**Details**: 61 passed, 0 failed
+
+---
+
+## Human Turn
+**Timestamp**: 2026-09-16T12:55:40Z
+**Event**: HUMAN_TURN
+**Session**: 6478d4b2-5565-4c3a-b91b-29fcf680d04d
+
+---
+
+## Human Turn
+**Timestamp**: 2026-09-16T12:56:44Z
+**Event**: HUMAN_TURN
+**Session**: 6478d4b2-5565-4c3a-b91b-29fcf680d04d
+
+---
+
+## Guardrail Loaded
+**Timestamp**: 2026-09-16T12:57:11Z
+**Event**: GUARDRAIL_LOADED
+**Scope**: all
+**Path**: .kiro/steering/
+**Rule count**: 7
+
+---
+
+## Health Check
+**Timestamp**: 2026-09-16T12:57:11Z
+**Event**: HEALTH_CHECKED
+**Request**: /aidlc --doctor
+**Details**: 60 passed, 1 failed
+
+---
+
+## Guardrail Loaded
+**Timestamp**: 2026-09-16T12:57:50Z
+**Event**: GUARDRAIL_LOADED
+**Scope**: all
+**Path**: .kiro/steering/
+**Rule count**: 7
+
+---
+
+## Health Check
+**Timestamp**: 2026-09-16T12:57:50Z
+**Event**: HEALTH_CHECKED
+**Request**: /aidlc --doctor
+**Details**: 61 passed, 0 failed
+
+---
+
+## Human Turn
+**Timestamp**: 2026-09-16T12:58:27Z
+**Event**: HUMAN_TURN
+**Session**: 6478d4b2-5565-4c3a-b91b-29fcf680d04d
+
+---

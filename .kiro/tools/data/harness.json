@@ -10,5 +10,11 @@
     "schemaVersion": 1,
     "mcp": "none",
     "completions": "none"
+  },
+  "runtime": {
+    "schemaVersion": 1,
+    "baselinePath": "/bin:/usr/bin",
+    "aidlcPath": "/bin/aidlc",
+    "cliPath": "/home/javi/.local/bin/kiro-cli"
   }
 }
