@@ -9,6 +9,11 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from app.services.data_manager_v2 import DataManagerV2
 from app.services.futmondo_client import FutmondoClient
+from app.services.prizes import (
+    PrizeConfig,
+    RoundTeamEntry,
+    calculate_round_prizes,
+)
 from app.core.config import (
     CHAMPIONSHIP_ID,
     LEAGUE_ID,
@@ -1629,8 +1634,6 @@ class DataSyncService:
                 tid = t.get("teamid") or t.get("id")
                 if tid:
                     all_team_ids.append(tid)
-            
-            total_members = len(all_team_ids)
 
             # Get rounds
             rounds_info = self.client.get_userteam_rounds(self.championship_id, sample_userteam_id) or []
@@ -1764,59 +1767,46 @@ class DataSyncService:
                                         dream_team_counts[tid] = count
                             time.sleep(0.2)
 
-                # Calculate ranking prizes — exclude teams with 0 points
-                members = users_to_rank if users_to_rank > 0 else total_members
-                
-                # Determine active members (those with round_points > 0)
-                active_entries = [e for e in ranking_list if (e.get("points", 0) or 0) > 0]
-                active_members = min(len(active_entries), members)
-                total_pct = active_members * (active_members + 1) // 2
-
-                # Assign positions only among active members (1, 2, 3...)
-                active_position_map = {}
-                for idx, entry in enumerate(active_entries):
-                    eid = entry.get("id") or entry.get("teamid")
-                    pos = idx + 1
-                    if pos <= members:
-                        active_position_map[eid] = pos
-
-                prizes_to_save = []
+                # Materialize the round entries for the pure calculator.
+                # sync_prizes only orchestrates: ingestion (above) and
+                # persistence (below); the prize math (including the tie-split
+                # rule, FR1) lives in app.services.prizes.calculator (NFR4).
+                round_entries = []
                 for entry in ranking_list:
                     team_id = entry.get("id") or entry.get("teamid")
-                    position = entry.get("position", 0)
-                    round_points = entry.get("points", 0) or 0
-                    
                     if not team_id:
                         continue
+                    round_entries.append(RoundTeamEntry(
+                        team_id=team_id,
+                        round_points=entry.get("points", 0) or 0,
+                        api_position=entry.get("position", 0) or 0,
+                    ))
 
-                    # Calculate ranking prize (only for closed rounds, only for active teams)
-                    ranking_prize = 0
-                    active_pos = active_position_map.get(team_id)
-                    if active_pos and money_per_ranking > 0 and award_round_prizes and total_pct > 0:
-                        if ranking_mode == "flop":
-                            ratio = active_pos / total_pct
-                        else:
-                            ratio = (active_members - active_pos + 1) / total_pct
-                        ranking_prize = round(money_per_ranking * ratio)
+                prize_config = PrizeConfig(
+                    money_per_ranking=money_per_ranking,
+                    ranking_mode=ranking_mode,
+                    users_to_rank=users_to_rank,
+                    money_per_point=money_per_point,
+                    mvp_bonus=mvp_bonus,
+                    dream_team_bonus=dream_team_bonus,
+                )
+                computed_prizes = calculate_round_prizes(
+                    config=prize_config,
+                    entries=round_entries,
+                    award_round_prizes=award_round_prizes,
+                    mvp_team_id=mvp_team_id,
+                    dream_team_counts=dream_team_counts,
+                )
 
-                    # MVP prize (only when the round is fully played)
-                    team_mvp_prize = mvp_bonus if (team_id == mvp_team_id and award_round_prizes) else 0
-
-                    # Points prize
-                    points_prize = round(round_points * money_per_point) if money_per_point > 0 else 0
-
-                    # Dream team prize (only when the round is fully played)
-                    dream_team_prize = 0
-                    if dream_team_bonus > 0 and award_round_prizes:
-                        dt_count = dream_team_counts.get(team_id, 0)
-                        dream_team_prize = round(dt_count * dream_team_bonus)
-
-                    # Use original position from ranking for storage
-                    display_position = active_pos if active_pos else position
-
+                # Map each computed TeamRoundPrize to a team_prizes row.
+                # display_position is persisted in the `position` column (R-03).
+                prizes_to_save = []
+                for prize in computed_prizes:
                     prizes_to_save.append((
-                        self.championship_id, team_id, matchday,
-                        ranking_prize, team_mvp_prize, display_position, points_prize, dream_team_prize
+                        self.championship_id, prize.team_id, matchday,
+                        prize.ranking_prize, prize.mvp_prize,
+                        prize.display_position, prize.points_prize,
+                        prize.dream_team_prize,
                     ))
 
                 # Save to DB
