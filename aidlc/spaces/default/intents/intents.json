@@ -47,5 +47,12 @@
     "dirName": "260916-backend-security-hardeni",
     "scope": "security-patch",
     "status": "complete"
+  },
+  {
+    "uuid": "01a0b3bd-ca6e-796a-9a79-4ab57730329a",
+    "slug": "matchday-prizes-calc",
+    "dirName": "260918-matchday-prizes-calc",
+    "scope": "classic",
+    "status": "complete"
   }
 ]

@@ -27,19 +27,43 @@ endpoints operan con las credenciales Futmondo del usuario logado.
 - **Analítica visual**: evolución, estadísticas, clausulables y sub-tabs de analytics con
   gráficos Chart.js.
 
-## Contexto del Intent (Backend Security Hardening)
+## Premios de Jornada (dominio central del intent activo)
 
-Este análisis de ingeniería inversa sirve al intent `260916-backend-security-hardeni`
-(scope `security-patch`), que agrupa cinco mejoras de seguridad de esfuerzo pequeño sobre
-el backend FastAPI. La naturaleza del intent es «verificar y, si aplica, corregir con test
-de regresión»:
+El **cálculo de premios de jornada** (matchday prizes) es la mecánica de negocio que
+reparte el dinero que gana cada equipo en cada jornada de un campeonato. Es la base de las
+vistas de Presupuesto y Finanzas: el saldo y las finanzas de cada usuario se derivan, en
+parte, de la suma de premios acumulados. Los términos de negocio por (equipo, jornada) son:
 
-- **FR6** — validar `price` (rango/positividad) en `market.py::place_bid`; hoy sólo valida
-  el frontend (evadible llamando la API directamente).
+- **points_prize** — pago por los puntos que hace el equipo esa ronda
+  (`round_points * money_per_point`). Se paga SIEMPRE, incluso en jornadas adelantadas.
+- **ranking_prize** — premio por la posición del equipo en el ranking de la ronda, sólo si
+  la ronda se jugó por completo y está cerrada. Reparto proporcional entre miembros activos;
+  el campeonato elige modo `flop` (premia a los peores) u otro modo (premia a los mejores).
+- **mvp_prize** — bonus para el equipo cuya alineación contenía al MVP del dream team.
+- **dream_team_prize** — bonus proporcional al número de jugadores del once ideal presentes
+  en la alineación del equipo.
+
+Estos importes se **precalculan una sola vez por sincronización** y se persisten como fuente
+de verdad; las pantallas de saldos y finanzas sólo leen y suman. El valor de negocio del
+intent `260918-matchday-prizes-calc` es **mejorar la fiabilidad y correción de ese cálculo**
+(gating de ronda completa, jornadas adelantadas, modos de ranking) sin cambiar el stack ni
+salir del presupuesto de coste 0 €. La mecánica técnica exacta, sus entradas y su tabla de
+salida están en `architecture.md` (Diagramas de Interacción) y `code-quality-assessment.md`
+(deuda y riesgos).
+
+## Contexto de Intents Anteriores (Backend Security Hardening)
+
+Un análisis previo de ingeniería inversa sirvió al intent `260916-backend-security-hardeni`
+(scope `security-patch`), que agrupaba cinco mejoras de seguridad de esfuerzo pequeño sobre
+el backend FastAPI. La naturaleza de aquel intent era «verificar y, si aplica, corregir con
+test de regresión»:
+
+- **FR6** — validar `price` (rango/positividad) en `market.py::place_bid`; sólo valida el
+  frontend (evadible llamando la API directamente).
 - **FR7** — confirmar la exposición de `GET /api/v1/photos/{player_id}` (protegido por
   middleware; la ruta pública real es `/static/photos/*`).
 - **FR8** — asegurar que `SSL_VERIFY=0` (sólo en `docker-compose.yml` local) no llega a
-  producción; el flag está huérfano hoy.
+  producción; el flag está huérfano.
 - **FR9** — corregir el bug de precedencia naive/aware en `is_refresh_token_valid`.
 - **FR18** — confirmar la guarda `ENABLE_DB_ADMIN` de `/database/reset|/populate`
   (ya implementada y testeada).

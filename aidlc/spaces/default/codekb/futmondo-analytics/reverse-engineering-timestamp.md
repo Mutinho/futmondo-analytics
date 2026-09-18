@@ -2,32 +2,56 @@
 
 ## Registro del Análisis
 
-- **Fecha**: 2026-09-16
-- **Commit**: git:51a9fd26b1befefde15cbd2040ba574e08a98d3b
-- **Intent**: `260916-backend-security-hardeni` (scope `security-patch`, depth Minimal)
-- **Tipo de scan**: full rescan (reemplazo completo de los 9 artefactos del CodeKB).
-- **Enfoque**: hardening de seguridad del backend FastAPI (FR6, FR7, FR8, FR9, FR18); las
-  áreas de negocio y de durabilidad se cubrieron a nivel directorio (shallow) por scope.
+- **Fecha**: 2026-09-18
+- **Commit**: git:ca0b151d893b0f4ef7ac543739e98f3ed7779779
+- **Intent**: `260918-matchday-prizes-calc` (scope `classic`, depth Standard)
+- **Tipo de scan**: focused scan sobre un store EXISTENTE con veredicto **STALE**. Se
+  actualizó/extiende el área de premios/finanzas y se preservó la prosa previa (área de
+  seguridad del intent `260916-backend-security-hardeni`).
+- **Enfoque**: cálculo de premios de jornada (matchday prizes). La fórmula real vive en
+  `data_sync_service.sync_prizes()` (god-file fuera del snapshot de deep-scan); los endpoints
+  de finanzas/saldos sólo leen/suman la tabla `team_prizes`.
 
 ## Cómo Leer Este Registro
 
 El bloque `## Scope of Analysis` de abajo es leído por `codekb-scope-diff` en el siguiente
 rerun; su exactitud decide si un intent futuro puede reusar la cobertura verificada o debe
 mezclarla/reemplazarla. Los nombres bajo `analyzed.components` coinciden verbatim con los
-encabezados de `component-inventory.md`. La línea `fingerprint:` queda como
-`PENDING_CONDUCTOR_MINT`: el conductor la sustituye por el valor minteado sobre el
-`analyzed.paths` final antes de publicar.
+encabezados de `component-inventory.md`.
+
+Como el store previo estaba **STALE**, `analyzed.paths`/`analyzed.components` recogen SOLO lo
+verificado en profundidad en ESTE run (área de premios/finanzas), en `kind: partial`. La
+cobertura profunda del run anterior (que no pudo re-verificarse) se DEGRADA a `shallow.paths`
+junto con los shallow previos y los nuevos skimmed reportados por el developer.
 
 ## Scope of Analysis
 
 ```yaml
 scope_version: 1
-kind: full
-intent: 260916-backend-security-hardeni
-fingerprint: 51a9fd26b1befefde15cbd2040ba574e08a98d3b
+kind: partial
+intent: 260918-matchday-prizes-calc
+fingerprint: beef86c6baa7e7a137c7b71538ffc8b8007e736e
 analyzed:
   paths:
-    - ./
+    - backend/app/api/v1/endpoints/player_finances.py
+    - backend/app/api/v1/endpoints/matchdays.py
+    - backend/app/api/v1/endpoints/analytics.py
+    - backend/app/api/v1/endpoints/balances.py
+    - backend/app/services/analytics_service.py
+    - backend/app/models/models.py
+    - backend/tests/test_analytics_service.py
+    - backend/tests/test_finance_characterization.py
+    - angular-app/src/app/features/
+  components:
+    - backend-app-api-endpoints
+    - backend-app-services
+    - angular-app
+shallow:
+  paths:
+    - backend/app/services/data_sync_service.py
+    - backend/app/api/v1/endpoints/_helpers.py
+    - backend/pytest.ini
+    - backend/tests/
     - backend/app/main.py
     - backend/app/core/config.py
     - backend/app/core/constants.py
@@ -36,7 +60,6 @@ analyzed:
     - backend/app/auth/routes.py
     - backend/app/api/v1/endpoints/market.py
     - backend/app/api/v1/endpoints/reset_db.py
-    - backend/app/api/v1/endpoints/_helpers.py
     - angular-app/src/app/features/market/bid-dialog.component.ts
     - docker-compose.yml
     - backend/fly.toml
@@ -44,25 +67,11 @@ analyzed:
     - .github/workflows/ci.yml
     - .github/workflows/fly-deploy.yml
     - backend/requirements.txt
-    - backend/pytest.ini
     - backend/ruff.toml
     - angular-app/package.json
     - backend/tests/test_db_admin_guard.py
     - backend/tests/test_jwt_startup.py
     - backend/tests/test_auth_characterization.py
-  components:
-    - backend-app-main
-    - backend-app-auth
-    - backend-app-api-endpoints
-    - backend-app-core
-    - backend-app-services
-    - backend-app-stores
-    - backend-app-security
-    - angular-app
-    - proxy-nginx
-    - cron-worker
-shallow:
-  paths:
     - backend/app/services/
     - backend/app/stores/
     - backend/app/models/

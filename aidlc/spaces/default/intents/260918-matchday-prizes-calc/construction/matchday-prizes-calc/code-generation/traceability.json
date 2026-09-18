@@ -1,0 +1,36 @@
+{
+  "stage": "code-generation",
+  "unit": "matchday-prizes-calc",
+  "upstream_ids": [
+    "FR1", "FR1.1", "FR1.2", "FR1.3", "FR1.4", "FR1.5",
+    "FR2", "FR2.1", "FR2.2",
+    "FR3", "FR3.1", "FR3.2",
+    "NFR1", "NFR2", "NFR3", "NFR4", "NFR5",
+    "BR1.1", "BR1.2", "BR2.1", "BR2.2", "BR3.1", "BR3.2"
+  ],
+  "coverage": [
+    { "id": "FR1", "status": "OK", "target": "backend/app/services/prizes/calculator.py" },
+    { "id": "FR1.1", "status": "OK", "target": "backend/app/services/prizes/calculator.py" },
+    { "id": "FR1.2", "status": "OK", "target": "backend/app/services/prizes/calculator.py" },
+    { "id": "FR1.3", "status": "OK", "target": "backend/tests/test_prizes_calculator.py" },
+    { "id": "FR1.4", "status": "OK", "target": "backend/app/services/prizes/calculator.py" },
+    { "id": "FR1.5", "status": "OK", "target": "backend/app/services/prizes/calculator.py" },
+    { "id": "FR2", "status": "OK", "target": "backend/app/services/prizes/calculator.py" },
+    { "id": "FR2.1", "status": "OK", "target": "backend/app/services/prizes/calculator.py" },
+    { "id": "FR2.2", "status": "OK", "target": "backend/tests/test_prizes_calculator.py" },
+    { "id": "FR3", "status": "OK", "target": "backend/app/services/data_sync_service.py" },
+    { "id": "FR3.1", "status": "OK", "target": "backend/app/services/prizes/calculator.py" },
+    { "id": "FR3.2", "status": "OK", "target": "backend/app/services/data_sync_service.py" },
+    { "id": "NFR1", "status": "OK", "target": "backend/tests/test_prizes_characterization.py" },
+    { "id": "NFR2", "status": "OK", "target": "backend/tests/test_prizes_calculator.py" },
+    { "id": "NFR3", "status": "OK", "target": "backend/tests/test_prizes_characterization.py" },
+    { "id": "NFR4", "status": "OK", "target": "backend/app/services/data_sync_service.py" },
+    { "id": "NFR5", "status": "Deferred", "target": "build-and-test" },
+    { "id": "BR1.1", "status": "OK", "target": "backend/app/services/prizes/calculator.py" },
+    { "id": "BR1.2", "status": "OK", "target": "backend/app/services/prizes/calculator.py" },
+    { "id": "BR2.1", "status": "OK", "target": "backend/app/services/prizes/calculator.py" },
+    { "id": "BR2.2", "status": "OK", "target": "backend/app/services/prizes/calculator.py" },
+    { "id": "BR3.1", "status": "OK", "target": "backend/app/services/prizes/calculator.py" },
+    { "id": "BR3.2", "status": "OK", "target": "backend/app/services/prizes/calculator.py" }
+  ]
+}

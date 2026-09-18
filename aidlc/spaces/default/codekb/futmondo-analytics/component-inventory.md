@@ -23,11 +23,18 @@ están en `api-documentation.md`; los patrones y ubicaciones en `code-structure.
 
 ### backend-app-api-endpoints
 - **Ubicación**: `backend/app/api/v1/endpoints/` (`market.py`, `reset_db.py`, `_helpers.py`,
-  `analytics`, `balances`, `sync`, `roster`, ...)
-- **Responsabilidad**: routers HTTP de la API v1. `market.place_bid` (FR6, sin validación de
-  `price`); `reset_db` con guarda `_require_db_admin`/`ENABLE_DB_ADMIN` (FR18);
-  `_helpers.get_user_futmondo_client`/`get_championship_config` (resolución de cliente y
-  config por usuario, con SQL crudo).
+  `player_finances.py`, `balances.py`, `matchdays.py`, `analytics.py`, `sync`, `roster`, ...)
+- **Responsabilidad**: routers HTTP de la API v1.
+  - **Área de premios/finanzas (intent activo)**: `player_finances.get_player_finances`
+    (agrega finanzas por usuario leyendo `team_prizes` vía `dm.get_prizes_by_team`);
+    `balances.get_balances` y `balances/prizes/{team_id}` (suman/desglosan premios por
+    jornada, con SQL crudo); `matchdays` (equipos/rondas/evolución, DB-first); `analytics`
+    (~12 endpoints derivados, `classification-full` y `watchlist` con SQL inline). **Ninguno
+    recalcula premios**: sólo leen/suman `team_prizes`.
+  - **Área de seguridad**: `market.place_bid` (FR6, sin validación de `price`); `reset_db`
+    con guarda `_require_db_admin`/`ENABLE_DB_ADMIN` (FR18);
+    `_helpers.get_user_futmondo_client`/`get_championship_config` (resolución de cliente y
+    config por usuario, con SQL crudo).
 - **Depende de**: `backend-app-auth`, `backend-app-services`, `backend-app-stores`.
 
 ### backend-app-core
@@ -42,14 +49,23 @@ están en `api-documentation.md`; los patrones y ubicaciones en `code-structure.
   `photo_service.py`, `data_manager_v2.py` ~166 KB, `data_sync_service.py` ~84 KB,
   `assistant_service.py`, `analytics_service.py`)
 - **Responsabilidad**: lógica de negocio y clientes de APIs externas (Futmondo, Sofascore).
-  Contiene los god-files (deuda; ver `code-quality-assessment.md`). No consume `SSL_VERIFY`.
-- **Depende de**: `backend-app-stores`, APIs Futmondo/Sofascore.
+  - **Productor de premios (fórmula del intent)**: `data_sync_service.sync_prizes()`
+    (~1577-1885) calcula todos los términos por (equipo, jornada) —points_prize,
+    ranking_prize (modo flop/top sobre miembros activos), mvp_prize, dream_team_prize— con
+    gating `award_round_prizes = is_closed AND round_fully_played AND NOT pseudo-ronda`, y
+    UPSERTea `team_prizes` (única fuente de verdad) con limpieza defensiva `DELETE ... NOT IN`.
+    Depende fuertemente de la API de Futmondo con `time.sleep()`.
+  - **Analítica derivada**: `analytics_service.py` (media/pstdev con `statistics`), sin
+    escritura de premios.
+  - Contiene los god-files (deuda; ver `code-quality-assessment.md`). No consume `SSL_VERIFY`.
+- **Depende de**: `backend-app-stores`, APIs Futmondo/Sofascore, config en `user_championships`.
 
 ### backend-app-stores
 - **Ubicación**: `backend/app/stores/`, más `session_service.py`, `task_service.py`,
   `task_manager.py`
 - **Responsabilidad**: capa estrecha de repositorios de durabilidad (intent previo). Patrón
-  a seguir para nueva persistencia; no ampliar SQL-en-router.
+  a seguir para nueva persistencia; no ampliar SQL-en-router. Candidato natural para alojar
+  un repositorio estrecho de `team_prizes` si el diseño de premios extrae la persistencia.
 - **Depende de**: Neon PostgreSQL (fallback SQLite/Turso).
 
 ### backend-app-security
@@ -62,8 +78,15 @@ están en `api-documentation.md`; los patrones y ubicaciones en `code-structure.
 
 ### angular-app
 - **Ubicación**: `angular-app/`
-- **Responsabilidad**: SPA/PWA Angular 22. `features/market/bid-dialog.component.ts` valida
-  el precio de la puja SÓLO en frontend (evidencia FR6).
+- **Responsabilidad**: SPA/PWA Angular 22. Features del área de premios/finanzas:
+  `features/finances/finances.component.ts` (presentación de finanzas por usuario),
+  `features/budget/budget-overview/budget-overview.component.ts` y su
+  `prizes-dialog.component.ts` (saldos y desglose de premios por jornada),
+  `features/calculator/calculator.component.ts` (cálculo/simulación) y
+  `features/analytics/*` (gráficos Chart.js). Además,
+  `features/market/bid-dialog.component.ts` valida el precio de la puja SÓLO en frontend
+  (evidencia FR6). Todas consumen la superficie de lectura del backend; ninguna recalcula
+  premios.
 - **Depende de**: backend HTTP `/api/*`, `/auth/*`.
 
 ### proxy-nginx
@@ -74,5 +97,6 @@ están en `api-documentation.md`; los patrones y ubicaciones en `code-structure.
 
 ### cron-worker
 - **Ubicación**: `cron/`, `backend/scripts/`
-- **Responsabilidad**: sync programado (máquinas Fly one-shot). Nunca emite JWT (NFR1.1).
+- **Responsabilidad**: sync programado (máquinas Fly one-shot); dispara la sincronización que
+  ejecuta `sync_prizes`. Nunca emite JWT (NFR1.1).
 - **Depende de**: `backend-app-services`.

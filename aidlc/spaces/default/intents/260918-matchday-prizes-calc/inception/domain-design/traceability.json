@@ -1,0 +1,14 @@
+{
+  "stage": "domain-design",
+  "upstream_ids": ["FR1", "FR2", "FR3", "NFR1", "NFR2", "NFR3", "NFR4", "NFR5"],
+  "coverage": [
+    { "id": "FR1", "status": "OK", "target": "PrizeCalculator" },
+    { "id": "FR2", "status": "OK", "target": "PrizeCalculator" },
+    { "id": "FR3", "status": "OK", "target": "PrizeSyncOrchestrator" },
+    { "id": "NFR1", "status": "OK", "target": "PrizeCalculator" },
+    { "id": "NFR2", "status": "Deferred", "target": "build-and-test" },
+    { "id": "NFR3", "status": "OK", "target": "PrizeCalculator" },
+    { "id": "NFR4", "status": "OK", "target": "PrizeSyncOrchestrator" },
+    { "id": "NFR5", "status": "Deferred", "target": "build-and-test" }
+  ]
+}

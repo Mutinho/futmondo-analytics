@@ -68,6 +68,22 @@ preferencia entre re-autenticación y cifrado en reposo se decide en diseño, no
 
 exige un secreto no-default (NFR1.1; endurecido en `test_jwt_startup.py`). (affirmed 2026-09-15)
 
+- NEVER almacenar la contraseña Futmondo en claro: ni en memoria ni en base de datos. (affirmed 2026-09-18)
+
+- NEVER usar un `JWT_SECRET` por defecto en producción. (affirmed 2026-09-18)
+
+- NEVER ampliar los god-files existentes (`data_sync_service.py` ~84 KB, (affirmed 2026-09-18)
+
+`data_manager_v2.py` ~166 KB) ni el patrón SQL-en-router al tocar el cálculo de premios; (affirmed 2026-09-18)
+
+el código nuevo va tras una capa/función estrecha testeable. (affirmed 2026-09-18)
+
+- NEVER correr `ruff format` masivo sobre archivos brownfield ya modificados (infla diffs, (affirmed 2026-09-18)
+
+expone avisos preexistentes e invalida el pase de revisión en vuelo); formatear solo los (affirmed 2026-09-18)
+
+archivos nuevos o de forma quirúrgica. (affirmed 2026-09-18)
+
 ## Mandated
 
 <!-- Populated by practices-discovery affirmation gate. -->
@@ -89,6 +105,32 @@ fusionar a `main`; un rojo nunca llega a producción. (affirmed 2026-09-15)
 `TaskManager` antes de refactorizarlos hacia durabilidad (characterization-first; (affirmed 2026-09-15)
 
 hoy no tienen cobertura directa). (affirmed 2026-09-15)
+
+- ALWAYS mantener el proyecto a **coste 0 €**: descartar toda mejora o dependencia con (affirmed 2026-09-18)
+
+gasto recurrente; solo soluciones sostenibles en tiers gratuitos (Neon free, Fly.io free (affirmed 2026-09-18)
+
+allowance, GitHub Actions free). (affirmed 2026-09-18)
+
+- ALWAYS pasar el **gate de CI bloqueante** (gitleaks + `pytest` + `ng test`) antes de (affirmed 2026-09-18)
+
+fusionar a `main`; un rojo nunca llega a producción. (affirmed 2026-09-18)
+
+- ALWAYS **caracterizar (congelar con tests) el comportamiento de `sync_prizes` en TODAS (affirmed 2026-09-18)
+
+sus ramas antes de refactorizarlo** hacia la mejora del cálculo de premios (affirmed 2026-09-18)
+
+(characterization-first, Q2=A): `points_prize`, gating `round_fully_played`, ranking (affirmed 2026-09-18)
+
+flop/top, MVP, dream-team, jornada adelantada/negativa y el borrado defensivo (affirmed 2026-09-18)
+
+`DELETE ... NOT IN`. Hoy la producción del premio tiene cobertura directa cero. Extiende a (affirmed 2026-09-18)
+
+este intent el mandato ya afirmado de characterization-first para `SessionStore`/`TaskManager`. (affirmed 2026-09-18)
+
+- ALWAYS exigir un `JWT_SECRET` **no-default** en el arranque del servicio web (NFR1.1; (affirmed 2026-09-18)
+
+endurecido en `test_jwt_startup.py`). (affirmed 2026-09-18)
 
 ## Corrections
 
