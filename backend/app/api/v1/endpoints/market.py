@@ -129,6 +129,16 @@ async def place_bid(
 ) -> Dict:
     """Realiza una puja por un jugador en el mercado de Futmondo."""
     try:
+        # Validate the bid price at the boundary before any side effect
+        # (FR6/NFR1.4-1.5). A non-positive price is a client error, not a server
+        # fault: reject it with 422 and never forward the bid to Futmondo. The
+        # `except HTTPException: raise` below propagates this as 422 (not 500).
+        if price <= 0:
+            raise HTTPException(
+                status_code=422,
+                detail="El precio de la puja debe ser un entero positivo",
+            )
+
         from app.api.v1.endpoints._helpers import get_user_futmondo_client
         client = get_user_futmondo_client(request)
 

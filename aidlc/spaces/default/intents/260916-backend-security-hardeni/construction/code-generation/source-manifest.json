@@ -1,0 +1,80 @@
+{
+  "schema": 1,
+  "stage": "code-generation",
+  "intent": "260916-backend-security-hardeni",
+  "repo": "futmondo-analytics",
+  "unit": "zero-unit",
+  "generated": "2026-09-17T17:18:59Z",
+  "files": [
+    {
+      "path": "backend/app/auth/token_store.py",
+      "change": "modified",
+      "fr": ["FR9"],
+      "sha256": "38319e7f8e8c9558acea0d7aeea081e788d41fdaeba29510ac6a26ac6178004d",
+      "note": "is_refresh_token_valid: replaced ambiguous ternary expiry check with unambiguous aware-UTC normalization + comparison."
+    },
+    {
+      "path": "backend/app/api/v1/endpoints/market.py",
+      "change": "modified",
+      "fr": ["FR6"],
+      "sha256": "08ded29927730fca02f41d6b897fe27a2f3f528aee2b4153ee942b12a5651565",
+      "note": "place_bid: reject non-positive price with 422 at the boundary before any side effect (no Futmondo call)."
+    },
+    {
+      "path": "backend/app/main.py",
+      "change": "modified",
+      "fr": ["FR7"],
+      "sha256": "7c9738b6d3b31b6760d22663093ff47e1b7a52b263fda7a7327558ee25584f2e",
+      "note": "Documented (docstrings/comments, EN) that /api/v1/photos is auth-protected and /static/photos is intentional public surface. No functional change."
+    },
+    {
+      "path": "docker-compose.yml",
+      "change": "modified",
+      "fr": ["FR8"],
+      "sha256": "49b7d81c0a70ca22e3f266173e7d1c5f92407573d5c72b4011479e37bca89a9a",
+      "note": "Removed orphan environment SSL_VERIFY=0 from backend service (and now-empty environment key)."
+    },
+    {
+      "path": "backend/tests/test_auth_characterization.py",
+      "change": "modified",
+      "fr": ["FR9"],
+      "sha256": "d6aa49939d1d0efa7b391c76883f0f416ef52062df31d18b37dafaea99d2bc70",
+      "note": "Traceable update: BUG test renamed and flipped to corrected contract (aware future -> True); added aware-past -> False regression."
+    },
+    {
+      "path": "backend/tests/test_db_admin_guard.py",
+      "change": "modified",
+      "fr": ["FR18"],
+      "sha256": "274b268b0049abb96871eedbeabb8981a0fd1c9c240982c2a4824dad4b75471d",
+      "note": "Consolidated: added alternative affirmative-value case (true) freezing the accepted flag set {1,true,yes,on}. reset_db.py unchanged."
+    },
+    {
+      "path": "backend/tests/test_durable_session_characterization.py",
+      "change": "modified",
+      "fr": ["FR9"],
+      "sha256": "ceb5015f26ff50e6c02b2d212e7b481603bbe725214fd80a513682bf5b93cf71",
+      "note": "Traceable retirement of item (c): former frozen-failure assertion (aware future -> False) flipped to corrected contract (-> True) since FR9 fixes the token_store bug this file previously deferred."
+    },
+    {
+      "path": "backend/tests/test_market_bid_validation.py",
+      "change": "created",
+      "fr": ["FR6"],
+      "sha256": "434091009f6e7aa0383486ea1815e6ccfddf48c2f929a6631848319084000e85",
+      "note": "New: price=0/negative -> 422 and Futmondo client not called; price>0 -> client invoked."
+    },
+    {
+      "path": "backend/tests/test_photos_exposure.py",
+      "change": "created",
+      "fr": ["FR7"],
+      "sha256": "0ec0a52ca423fcb9bea0eac145ec4c7f00335a54f4d5c3d994d08ed8bc8e1558",
+      "note": "New: freezes /api/v1/photos not in AUTH_EXCLUDED_PATHS, unauthenticated -> 401, /static/photos outside protected prefix."
+    },
+    {
+      "path": "backend/tests/test_tls_verification.py",
+      "change": "created",
+      "fr": ["FR8"],
+      "sha256": "9d56aa26b978d046f520cd82624d515f91353305b5d2ae79c3c7311f16088cea",
+      "note": "New: static assertion SSL_VERIFY absent from docker-compose.yml and no verify=False in backend/app/**."
+    }
+  ]
+}

@@ -65,3 +65,24 @@ def test_reset_reachable_when_flag_enabled(monkeypatch):
     resp = _client().post("/api/v1/database/reset")
     assert resp.status_code == 200
     assert resp.json()["status"] == "success"
+
+
+def test_reset_reachable_with_alternative_affirmative_value(monkeypatch):
+    """Un valor afirmativo alternativo ('true') también pasa el guard (FR18).
+
+    Congela el conjunto de valores aceptados por `_db_admin_enabled`
+    ({1, true, yes, on}); documenta que no solo '1' habilita el endpoint. Se
+    sustituye DataManagerV2 por un doble para no tocar ninguna BD real."""
+    monkeypatch.setenv("ENABLE_DB_ADMIN", "true")
+
+    class FakeDM:
+        def __init__(self, *a, **k):
+            pass
+
+        def reset_database(self):
+            return None
+
+    monkeypatch.setattr(reset_db, "DataManagerV2", FakeDM)
+    resp = _client().post("/api/v1/database/reset")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "success"

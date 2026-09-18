@@ -191,7 +191,14 @@ app.include_router(matchdays.router, prefix="/v1/matchdays", tags=["matchdays"])
 photos_dir = Path("static/photos/players")
 photos_dir.mkdir(parents=True, exist_ok=True)
 
-# Mount static files for photos - BEST PRACTICE: serve static files directly
+# Mount static files for photos - BEST PRACTICE: serve static files directly.
+#
+# Security note (FR7/NFR1.6): the `/static/photos/*` mount is an INTENTIONAL
+# public surface. It sits outside the `/api/v1` and `/auth` prefixes, so
+# `AuthMiddleware` does not require a Bearer token for it. This is deliberate:
+# player photos are non-sensitive public images (also served by redirect from
+# the authenticated photo endpoint below), and serving them statically enables
+# browser caching. Do NOT place any sensitive resource under this mount.
 try:
     app.mount("/static/photos", StaticFiles(directory=str(photos_dir)), name="photos")
     logger.info(f"✅ Static photos mounted at /static/photos from {photos_dir}")
@@ -200,7 +207,14 @@ except Exception as e:
 
 @app.get("/api/v1/photos/{player_id}")
 async def get_player_photo(player_id: str, request: Request):
-    """Serve player photo from local storage or fetch from Futmondo API"""
+    """Serve player photo from local storage or fetch from Futmondo API.
+
+    Security note (FR7/NFR1.6): this route lives under the `/api/v1` prefix and
+    is NOT in `AUTH_EXCLUDED_PATHS`, so `AuthMiddleware` requires a valid Bearer
+    access token for it (a request without a token gets 401). It typically
+    redirects (302) to the public `/static/photos/*` mount, which is the
+    intentional unauthenticated surface for the non-sensitive image bytes.
+    """
     from app.services.db_connection import DBConnection
     import requests
     

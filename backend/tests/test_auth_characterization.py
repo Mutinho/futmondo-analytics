@@ -4,10 +4,10 @@ Tests de caracterización de AUTH/JWT (FR7.1, FR1.1, FR1.2).
 Congelan el comportamiento ACTUAL de:
 - `jwt_utils`: emisión/validación de access y refresh tokens, discriminación por
   `type`, expiración y token corrupto.
-- `token_store.is_refresh_token_valid`: se congela el comportamiento OBSERVADO
-  con un doble de conexión (sin BD real). El análisis marcó una posible
-  precedencia dudosa en la expresión de expiración; este test documenta el
-  comportamiento actual y NO lo corrige (eso es un trabajo posterior).
+- `token_store.is_refresh_token_valid`: se ejercita con un doble de conexión
+  (sin BD real). El bug de precedencia en la expresión de expiración YA está
+  corregido (FR9): un token aware futuro ahora se considera válido. Estos tests
+  afirman el contrato CORREGIDO e incluyen la regresión del caso aware pasado.
 
 Prioridad afirmada en team.md: auth es una de las tres áreas prioritarias.
 """
@@ -145,17 +145,31 @@ def test_is_refresh_token_valid_false_when_revoked(patch_db):
     assert token_store.is_refresh_token_valid("h") is False
 
 
-def test_is_refresh_token_valid_BUG_aware_future_token_returns_false(patch_db):
-    """CARACTERIZACIÓN de un BUG (NO corregir aquí).
+def test_is_refresh_token_valid_aware_future_token_returns_true(patch_db):
+    """Contrato CORREGIDO (FR9): un token aware futuro es válido.
 
     Con `expires_at` timezone-aware (lo que produce `.isoformat()` con offset,
-    el caso real de PostgreSQL/Turso), la expresión de expiración de precedencia
-    dudosa evalúa el `else` y devuelve el propio datetime (truthy), disparando
-    `return False`. Resultado: un token ACTIVO y con expiración FUTURA se
-    rechaza. Congelamos ese comportamiento observado; la corrección es un trabajo
-    posterior según el plan (Step 4)."""
+    el caso real de PostgreSQL/Neon), la comparación de expiración ahora
+    normaliza a aware UTC de forma inequívoca. Un token ACTIVO con expiración
+    FUTURA devuelve True.
+
+    CAMBIO DE CONTRATO DELIBERADO: este test antes se llamaba
+    `test_is_refresh_token_valid_BUG_aware_future_token_returns_false` y
+    congelaba el bug de precedencia (devolvía False). Corregido el código en
+    `token_store.is_refresh_token_valid`, el comportamiento esperado cambia a
+    True y el test se actualiza de forma trazable (test-after)."""
     future_aware = (datetime.now(timezone.utc) + timedelta(days=5)).isoformat()
     patch_db((0, future_aware))
+    assert token_store.is_refresh_token_valid("h") is True
+
+
+def test_is_refresh_token_valid_aware_past_token_returns_false(patch_db):
+    """Regresión del contrato corregido (FR9): aware pasado -> False.
+
+    Camino de error del caso real PostgreSQL/Neon: un token con expiración
+    aware ya vencida debe rechazarse."""
+    past_aware = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+    patch_db((0, past_aware))
     assert token_store.is_refresh_token_valid("h") is False
 
 

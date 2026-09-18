@@ -1,0 +1,36 @@
+{
+  "stage": "code-generation",
+  "unit": "zero-unit",
+  "upstream_ids": [
+    "FR6", "FR6.1", "FR6.2", "FR6.3",
+    "FR7", "FR7.1", "FR7.2", "FR7.3",
+    "FR8", "FR8.1", "FR8.2",
+    "FR9", "FR9.1", "FR9.2", "FR9.3",
+    "FR18", "FR18.1", "FR18.2",
+    "NFR1.3", "NFR1.4", "NFR1.5", "NFR1.6", "NFR1.8", "NFR1.9"
+  ],
+  "coverage": [
+    { "id": "FR6.1", "status": "OK", "target": "backend/app/api/v1/endpoints/market.py::place_bid (price<=0 -> 422); backend/tests/test_market_bid_validation.py::test_bid_price_zero_returns_422_and_client_not_called" },
+    { "id": "FR6.2", "status": "OK", "target": "backend/tests/test_market_bid_validation.py::test_bid_price_negative_returns_422_and_client_not_called" },
+    { "id": "FR6.3", "status": "OK", "target": "backend/tests/test_market_bid_validation.py::test_bid_price_positive_invokes_futmondo_client" },
+    { "id": "FR7.1", "status": "OK", "target": "backend/app/main.py get_player_photo docstring (auth-protected); backend/tests/test_photos_exposure.py::test_photos_route_not_in_auth_excluded_paths" },
+    { "id": "FR7.2", "status": "OK", "target": "backend/app/main.py static /static/photos mount comment (intentional public); backend/tests/test_photos_exposure.py::test_static_photos_prefix_is_outside_protected_prefix" },
+    { "id": "FR7.3", "status": "OK", "target": "backend/tests/test_photos_exposure.py::test_photos_endpoint_requires_bearer_returns_401" },
+    { "id": "FR8.1", "status": "OK", "target": "docker-compose.yml (SSL_VERIFY=0 removed); backend/tests/test_tls_verification.py::test_ssl_verify_flag_absent_from_docker_compose" },
+    { "id": "FR8.2", "status": "OK", "target": "backend/tests/test_tls_verification.py::test_no_verify_false_in_production_http_clients" },
+    { "id": "FR9.1", "status": "OK", "target": "backend/app/auth/token_store.py::is_refresh_token_valid (aware-UTC normalized comparison)" },
+    { "id": "FR9.2", "status": "OK", "target": "backend/tests/test_auth_characterization.py::test_is_refresh_token_valid_aware_past_token_returns_false" },
+    { "id": "FR9.3", "status": "OK", "target": "backend/tests/test_auth_characterization.py::test_is_refresh_token_valid_aware_future_token_returns_true (traceable contract update); test_durable_session_characterization.py::test_aware_future_token_accepted_after_fix" },
+    { "id": "FR18.1", "status": "OK", "target": "backend/tests/test_db_admin_guard.py::test_reset_blocked_by_default_returns_404, test_reset_flag_false_value_still_blocked" },
+    { "id": "FR18.2", "status": "OK", "target": "backend/tests/test_db_admin_guard.py::test_reset_reachable_when_flag_enabled, test_reset_reachable_with_alternative_affirmative_value" },
+    { "id": "NFR1.3", "status": "OK", "target": "FR9 fix — refresh-token validity precedence correctness" },
+    { "id": "NFR1.4", "status": "OK", "target": "FR6 — input validation at bid boundary" },
+    { "id": "NFR1.5", "status": "OK", "target": "FR6 — non-positive price rejected before side effect" },
+    { "id": "NFR1.6", "status": "OK", "target": "FR7 — photo endpoint exposure documented and frozen" },
+    { "id": "NFR1.8", "status": "OK", "target": "FR8 — TLS verification not disabled; orphan flag removed" },
+    { "id": "NFR1.9", "status": "OK", "target": "FR18 — destructive DB-admin endpoints guarded (404 by default)" }
+  ],
+  "reverse": [
+    { "id": "backend/app/api/v1/endpoints/reset_db.py", "status": "N/A", "target": "FR18: guard already correct; no code change required, coverage consolidated in tests only" }
+  ]
+}

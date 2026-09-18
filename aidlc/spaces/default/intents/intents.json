@@ -40,5 +40,12 @@
     "dirName": "260914-durabilidad-estado-y-cre",
     "scope": "feature",
     "status": "complete"
+  },
+  {
+    "uuid": "01a0aaa4-fba3-77be-9bdd-d04ee3f5c898",
+    "slug": "backend-security-hardeni",
+    "dirName": "260916-backend-security-hardeni",
+    "scope": "security-patch",
+    "status": "complete"
   }
 ]
