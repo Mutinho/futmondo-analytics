@@ -1,84 +1,55 @@
-# Dependencies — Futmondo Analytics
+# Dependencias — futmondo-analytics
 
-> Artefacto CodeKB (architect). Base: `developer-scan.md`. Store STALE. Las versiones de paquetes se catalogan una sola vez en `technology-stack.md`; aquí se documentan **relaciones** de dependencia. Este run añade el detalle de dependencias internas del backend; la prosa del frontend se preserva.
+## Dependencias Externas
 
-## Dependencias externas (servicios y datos)
+Las versiones concretas de librerías están en `technology-stack.md`; aquí se documentan los
+servicios y relaciones de dependencia, no se repite la tabla de versiones.
 
-| Dependencia | Tipo | Consumidor | Notas |
-|-------------|------|------------|-------|
-| API Futmondo | Servicio externo | `backend`, `cron` | Autenticación y datos de campeonato; se usa la sesión Futmondo del usuario (`token`+`userid` en el cuerpo) |
-| API Sofascore | Servicio externo | `backend`, `cron` | Ratings/tendencia vía `curl_cffi` |
-| Proveedores IA (`google-genai`, `groq`) | Servicio externo | `backend` (`assistant_service`) | Assistant |
-| Neon PostgreSQL | Datastore gestionado | `backend`, `cron` | Serverless, tier free; único almacén durable en uso |
-| Fly.io | Plataforma de despliegue | `angular-app`, `backend`, `cron` | Free allowance |
-| GitHub Actions | CI/CD | Repo | Tier free |
+### Servicios externos (runtime)
 
-## Dependencias cruzadas internas (entre paquetes de despliegue)
+- **API Futmondo** — fuente autoritativa de datos de fantasy y destino de las pujas
+  (`POST {base_url}/1/market/bid`). Consumida por `backend-app-services`
+  (`futmondo_client.py`) con credenciales por usuario resueltas en `_helpers`.
+- **API Sofascore** — ratings de jugadores, consumida por `sofascore_client.py` vía
+  `curl_cffi`.
+- **Neon PostgreSQL** (Frankfurt, free) — persistencia productiva; usada por
+  `backend-app-stores` y por `backend-app-auth` (SQL crudo directo). Fallback SQLite/Turso.
+
+### Plataforma / build
+
+- **Fly.io** — hosting de `futmondo-api` y `futmondo-app`; crons one-shot.
+- **GitHub Actions** — CI/CD (gitleaks, pytest, ng test, deploy). Ver
+  `code-quality-assessment.md`.
+
+## Dependencias Internas (cross-package)
+
+Resumen del grafo (detalle por componente en `component-inventory.md`):
 
 ```mermaid
 graph LR
-  angular_app["angular-app"] -->|"REST /auth/*, /api/v1/*"| backend["backend"]
-  cron["cron"] -->|"reutiliza imagen"| backend
-  proxy["proxy"] -->|"enruta"| angular_app
-  proxy -->|"enruta"| backend
-  backend -->|"SQL"| db["Neon PostgreSQL"]
-  cron -->|"SQL"| db
+    angular["angular-app"] --> proxy["proxy-nginx"]
+    proxy --> main["backend-app-main"]
+    main --> auth["backend-app-auth"]
+    main --> endpoints["backend-app-api-endpoints"]
+    main --> core["backend-app-core"]
+    endpoints --> auth
+    endpoints --> services["backend-app-services"]
+    endpoints --> stores["backend-app-stores"]
+    auth --> stores
+    auth --> services
+    services --> stores
+    security["backend-app-security"] --> core
+    cron["cron-worker"] --> services
 ```
 
-<!-- Text fallback: angular-app depende de backend por REST (/auth/*, /api/v1/*). cron reutiliza la imagen del backend. proxy (local) enruta hacia angular-app y backend. backend y cron dependen de Neon PostgreSQL por SQL. -->
+<!-- Text fallback: angular-app depende de proxy-nginx, que depende de backend-app-main. main depende de auth, api-endpoints y core. api-endpoints depende de auth, services y stores. auth depende de stores y services. services depende de stores. security depende de core. cron-worker depende de services. -->
 
-- **angular-app → backend**: acoplamiento por contrato HTTP (Bearer JWT). Única dependencia de código cruzada del frontend.
-- **cron → backend**: acoplamiento por artefacto de build (comparten `backend/Dockerfile` y `scripts/sync_data.py`). Cambios en el backend afectan al cron.
-- **proxy → {angular-app, backend}**: sólo enrutado local (docker-compose); no afecta a producción Fly.
+## Notas de Dependencias Relevantes al Intent
 
-## Dependencias internas del backend (verificado este run)
-
-Grafo de módulos relevante al foco del intent (auth/sesión y sync):
-
-```mermaid
-graph TD
-  main["app.main (routers + AuthMiddleware)"]
-  routes["app.auth.routes"]
-  ss["app.auth.session_store (SessionStore)"]
-  ts["app.auth.token_store"]
-  jwt["app.auth.jwt_utils"]
-  helpers["api.v1.endpoints._helpers"]
-  sync["api.v1.endpoints.sync"]
-  tm["services.task_manager (TaskManager)"]
-  dss["services.data_sync_service"]
-  fc["services.futmondo_client"]
-  dbc["services.db_connection"]
-  db["Neon PostgreSQL"]
-
-  main --> routes
-  main --> sync
-  routes --> jwt
-  routes --> ss
-  routes --> ts
-  routes --> fc
-  helpers --> ss
-  helpers --> fc
-  sync --> tm
-  sync --> helpers
-  sync --> dss
-  ts --> dbc
-  dss --> dbc
-  dbc --> db
-```
-
-<!-- Text fallback: app.main monta los routers y el AuthMiddleware, y depende de app.auth.routes y api.v1.endpoints.sync. auth.routes depende de jwt_utils (JWT), session_store (SessionStore, memoria), token_store (persistencia) y futmondo_client. _helpers depende de session_store y futmondo_client (de ahi el 403 si la sesion no existe). sync depende de task_manager (memoria), _helpers y data_sync_service. token_store y data_sync_service acceden a Neon a traves de db_connection. -->
-
-- **Acoplamiento a estado en memoria**: `auth.routes` y `_helpers` dependen de `SessionStore`; `sync` depende de `TaskManager`. Ambos almacenes son singletons de proceso no durables → cualquier diseño de durabilidad toca estos bordes.
-- **Acoplamiento al abstractor de datos**: todo acceso durable pasa por `db_connection` (sin ORM); un cambio de esquema (p. ej. persistir sesión) se hace con las migraciones ad-hoc de `token_store` o equivalente.
-- **Imports diferidos / dinámicos**: `auth.routes` (`refresh`) usa `__import__(...)` para obtener `get_db` en runtime — acoplamiento oculto a `db_connection`.
-
-## Deuda de dependencias (resumen; detalle en `code-quality-assessment.md`)
-
-- `libsql-experimental==0.0.55` y `nixpacks.toml` (Railway, `python311`) — posibles restos heredados a confirmar (deploy actual Fly.io + Neon).
-- Divergencia de runtime Python 3.12 (Docker) vs 3.11 (Nixpacks).
-- **Preservado (frontend, intents previos)**: `punycode@1.4.1` transitivo eliminado tras la migración de Karma a Vitest (`DEP0040` resuelto); ESLint tooling referenciado pero no instalado en devDependencies del frontend.
-
-## Referencias cruzadas
-
-- Versiones exactas: `technology-stack.md`.
-- Componentes que participan en cada relación: `component-inventory.md`.
+- **FR8**: `SSL_VERIFY=0` está declarado en `docker-compose.yml` pero ningún módulo Python lo
+  consume (grep sobre `backend/**` = 0 usos); `verify=` en `futmondo_client.py` no lo lee. El
+  flag es una dependencia de configuración huérfana y ausente de `backend/fly.toml [env]`.
+- **FR9**: `backend-app-auth` depende directamente de Neon PostgreSQL con SQL crudo; el tipo
+  de `expires_at` (aware en PostgreSQL vía `.isoformat()` con offset) es el que dispara el
+  bug de precedencia. Evidencia en `code-quality-assessment.md`.
+- **Coste 0 €**: cualquier dependencia nueva debe sostenerse en tiers gratuitos.

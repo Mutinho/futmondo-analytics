@@ -1,78 +1,44 @@
-# API Documentation — Futmondo Analytics
+# Documentación de APIs — futmondo-analytics
 
-> Artefacto CodeKB (architect). Base: `developer-scan.md` (`backend/app/main.py`, `app/auth/routes.py`, `app/api/v1/endpoints/sync.py`). Store STALE. El FOCUSED SCAN de este run reanalizó en profundidad las superficies **auth** y **sync**; el resto de la superficie API se preserva del análisis previo.
+## Modelo de Autenticación
 
-## Superficie de API interna (FastAPI)
+`AuthMiddleware` (en `backend/app/main.py`) protege todo `/api/v1/*` y `/auth/*` salvo las
+rutas de `AUTH_EXCLUDED_PATHS`:
 
-Aplicación `app.main:app`. Dos superficies: **auth sin prefijo** y **API v1 protegida**.
+```
+AUTH_EXCLUDED_PATHS = {"/auth/login","/auth/refresh","/auth/logout","/health","/","/docs","/openapi.json","/redoc"}
+```
 
-### Autenticación — `/auth/*` (sin prefijo `/api/v1`) — verificado este run
+Las rutas protegidas exigen `Authorization: Bearer <access>`, verificado con
+`verify_token(..., expected_type="access")`. Nota de superficie: `/static/photos/*`
+(StaticFiles) NO empieza por `/api/v1` ni `/auth`, así que el middleware la deja pasar sin
+auth; las redirecciones 302 del endpoint de fotos apuntan ahí.
 
-Definida en `app/auth/routes.py`. Rutas excluidas de `AuthMiddleware`.
+## Endpoints Relevantes al Intent
 
-| Endpoint | Método | Contrato / comportamiento |
-|----------|--------|---------------------------|
-| `/auth/login` | POST | Valida credenciales contra Futmondo (`FutmondoClient.login`); upsert de `app_users`; emite access JWT (body) + refresh JWT (cookie HttpOnly `futmondo_refresh_token`); guarda la sesión Futmondo en memoria (`store_session`, con `email`/`password` en claro, TTL 12h); auto-detecta campeonatos. |
-| `/auth/refresh` | POST | Verifica firma + no-revocado del refresh token (cookie) contra `refresh_tokens`; emite nuevo access token. **No reconstruye la sesión Futmondo en memoria** → tras un reinicio el JWT es válido pero los endpoints que necesitan el cliente Futmondo fallan con 403. |
-| `/auth/logout` | POST | Revoca el refresh token (`revoked`), elimina la sesión en memoria y limpia la cookie. |
+Superficie HTTP relevante a las FR (contratos y estado; la evidencia de deuda vive en
+`code-quality-assessment.md`):
 
-### Middleware de auth (`app/main.py` `AuthMiddleware`)
+| Método + Ruta | Handler | Auth | FR | Estado |
+|---|---|---|---|---|
+| `POST /api/v1/market/bid` | `market.place_bid` | Bearer | FR6 | Params query `championship_id, player_id, player_slug, price: int, is_clause`. **NO valida `price`**; proxya a `POST {base_url}/1/market/bid` de Futmondo. |
+| `POST /api/v1/market/cancel` | `market.cancel_bid` | Bearer | — | Cancelación de puja. |
+| `GET /api/v1/market/today` | `market.get_market_today` | Bearer | — | Mercado del día con puja sugerida + Sofascore. |
+| `GET /api/v1/photos/{player_id}` | `get_player_photo` (en `main.py`) | Bearer | FR7 | La ruta `/api/v1/photos/...` NO está en `AUTH_EXCLUDED_PATHS` → el middleware SÍ exige token (no es pública). Redirige 302 a `/static/photos/*` (esa sí sin auth). |
+| `POST /api/v1/database/reset` | `reset_db` | Bearer | FR18 | `_require_db_admin()` lanza 404 salvo `ENABLE_DB_ADMIN ∈ {1,true,yes,on}`. Guard implementado y con test. |
+| `POST /api/v1/database/populate` | `reset_db` | Bearer | FR18 | Misma guarda `ENABLE_DB_ADMIN`. |
+| `POST /auth/refresh` | `auth.routes` | Excluida (usa cookie) | FR9 | Usa `is_refresh_token_valid(token_hash)` de `token_store.py` (bug de precedencia naive/aware). |
+| `POST /auth/login` | `auth.routes` | Excluida | — | Login contra Futmondo; emite JWT + set cookie refresh. |
+| `POST /auth/logout` | `auth.routes` | Excluida | — | Revoca sesión/refresh token. |
+| `GET /health` | app | Excluida | — | Healthcheck de despliegue Fly.io (smoke test). |
 
-- Exige `Authorization: Bearer <access token>` en `/api/v1/*`.
-- Rutas públicas (excluidas): `/auth/login`, `/auth/refresh`, `/auth/logout`, `/health`, `/`, `/docs`, `/openapi.json`, `/redoc`.
-- Inyecta `request.state.user` para los handlers protegidos.
+Todos los routers se montan en `main.py` con prefijos `/api/v1/...`; `matchdays` se monta
+adicionalmente en `/v1/matchdays`. El router de auth no usa prefijo `/api/v1` (vive en
+`/auth/*`). Otros endpoints (`analytics`, `balances`, `sync`, `roster`, etc.) existen pero
+quedan fuera del alcance profundo de este scan (ver `reverse-engineering-timestamp.md`).
 
-### API v1 — `/api/v1/*` (protegida por `AuthMiddleware`, Bearer JWT)
+## APIs Externas Consumidas
 
-Routers montados por dominio en `main.py`: `matchdays`, `initialize`, `database` (reset_db), `statistics`, `player-finances`, `user-stats`, `clausulable-players`, `sync`, `analytics` (+ `balances`, `phantoms`), `championships`, `market`, `roster`, `favorites`, `transactions`, `sofascore` (sync + detail), `user`, `assistant`.
-
-#### Área sync — `/api/v1/sync/*` (verificado este run)
-
-| Endpoint | Método | Contrato / comportamiento |
-|----------|--------|---------------------------|
-| `/api/v1/sync/trigger` | POST | Lanza sync asíncrono en `threading.Thread` (daemon); crea un `Task` en `TaskManager` (memoria); responde **409** si ya hay una tarea activa; usa `get_user_futmondo_client(request)` (puede devolver 403 si la sesión no existe). Devuelve `task_id`. |
-| `/api/v1/sync/task/{task_id}` | GET | Polling del estado/progreso de la tarea, leído desde memoria del `TaskManager` (se pierde al reiniciar). |
-| `/api/v1/sync/status` | GET | Metadatos de sync desde BD (`sync_metadata`). |
-| `/api/v1/sync/last-sync` | GET | Última sync desde BD (`sync_metadata`). |
-
-#### Otros endpoints representativos (evidencia previa + README)
-
-| Endpoint | Método | Descripción |
-|----------|--------|-------------|
-| `/api/v1/user/me` | GET | Info del usuario logado |
-| `/api/v1/user/championships` | GET/POST/DELETE | CRUD de campeonatos del usuario |
-| `/api/v1/championships` | GET | Lista campeonatos del usuario |
-| `/api/v1/analytics/balances` | GET | Presupuestos por equipo |
-| `/api/v1/market/today` | GET | Mercado + puja sugerida + Sofascore |
-| `/api/v1/market/bid` | POST | Pujar por jugador (validación min/max) |
-| `/api/v1/player-finances/` | GET | Finanzas por usuario |
-
-### Endpoints no-API / infraestructura
-
-| Endpoint | Método | Descripción |
-|----------|--------|-------------|
-| `/` | GET | Raíz |
-| `/health` | GET | Healthcheck (usado por smoke test y healthchecks Fly) |
-| `/api/v1/photos/{player_id}` | GET | Fotos de jugador con fallback SVG |
-| `/static/photos` | — | Montaje estático de fotos |
-
-### CORS
-
-Whitelist: `https://futmondo-app.fly.dev`, `http://futmondo.localhost`, `http://localhost:4200`, `http://localhost:3000` (más `EXTRA_CORS_ORIGIN`).
-
-### Contrato de autenticación
-
-Todos los `/api/v1/*` requieren `Authorization: Bearer <access token>`. El access token vive en memoria del navegador (1h); el refresh token (30 días) en cookie HttpOnly. El backend mantiene una sesión Futmondo por usuario (TTL ~12h) **en memoria de proceso**; hoy no se reconstruye tras un reinicio (deuda del intent activo, ver `architecture.md`).
-
-## API externa consumida (backend como cliente)
-
-| Integración | Cliente | Mecanismo |
-|-------------|---------|-----------|
-| API Futmondo (`https://api.futmondo.com`) | `backend/app/services/futmondo_client.py` | HTTP (`requests.Session`) con `token`+`userid` del usuario en el cuerpo. Endpoints: `POST /5/login/with_mail`, `POST /2/user/activechampionships`, `POST /2/championship/teams`, y endpoints de datos (standings, roster, transacciones) usados por `data_sync_service`. |
-| API Sofascore | `backend/app/services/sofascore_client.py` | HTTP vía `curl_cffi` (impersonación de navegador) |
-| IA (assistant) | `backend/app/services/assistant_service.py` | SDKs `google-genai`, `groq` |
-
-## Referencias cruzadas
-
-- Flujos de negocio (login, refresh, sync) como diagramas de secuencia: `architecture.md` → **Interaction Diagrams**.
-- Responsabilidades de cada router/servicio: `component-inventory.md`.
+- **API Futmondo** — proxy autenticado por usuario (`_helpers.get_user_futmondo_client` →
+  `futmondo_client.py`); ejemplo: `POST {base_url}/1/market/bid`.
+- **API Sofascore** — `sofascore_client.py` (vía `curl_cffi`) para ratings de jugadores.

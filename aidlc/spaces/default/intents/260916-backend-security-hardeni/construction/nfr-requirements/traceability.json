@@ -1,0 +1,84 @@
+{
+  "stage": "nfr-requirements",
+  "upstream_ids": [
+    "NFR1",
+    "NFR2",
+    "NFR3",
+    "NFR4",
+    "NFR5"
+  ],
+  "coverage": [
+    {
+      "id": "NFR1",
+      "status": "OK",
+      "target": "NFR1.1, NFR1.2, NFR1.3, NFR1.4, NFR1.5, NFR1.6, NFR1.7, NFR1.8, NFR1.9"
+    },
+    {
+      "id": "NFR2",
+      "status": "OK",
+      "target": "NFR-TECH.1, NFR-SCAL.1, NFR-SCAL.2"
+    },
+    {
+      "id": "NFR3",
+      "status": "OK",
+      "target": "NFR-TECH.1 (coste 0 €), NFR-SCAL.1"
+    },
+    {
+      "id": "NFR4",
+      "status": "OK",
+      "target": "NFR-REL.1"
+    },
+    {
+      "id": "NFR5",
+      "status": "OK",
+      "target": "NFR-REL.3"
+    }
+  ],
+  "reverse": [
+    {
+      "id": "NFR1.1",
+      "status": "OK",
+      "target": "FR7 / NFR1 — middleware Bearer en rutas protegidas (no regresión)"
+    },
+    {
+      "id": "NFR1.2",
+      "status": "OK",
+      "target": "NFR1 — JWT_SECRET no-default en arranque (no regresión)"
+    },
+    {
+      "id": "NFR1.3",
+      "status": "OK",
+      "target": "FR9 — refresh token naive/aware correcto"
+    },
+    {
+      "id": "NFR1.4",
+      "status": "OK",
+      "target": "FR6 — validación de price > 0 en el boundary → 422"
+    },
+    {
+      "id": "NFR1.5",
+      "status": "OK",
+      "target": "FR6 — validación en el boundary sin ampliar SQL-en-router"
+    },
+    {
+      "id": "NFR1.6",
+      "status": "OK",
+      "target": "FR7 — superficie de fotos documentada (protegida + estática pública)"
+    },
+    {
+      "id": "NFR1.7",
+      "status": "OK",
+      "target": "FR5/FR9 — sin password Futmondo en claro"
+    },
+    {
+      "id": "NFR1.8",
+      "status": "OK",
+      "target": "FR8 — verificación TLS activa; SSL_VERIFY huérfano eliminado"
+    },
+    {
+      "id": "NFR1.9",
+      "status": "OK",
+      "target": "FR18 — guarda ENABLE_DB_ADMIN → 404 por defecto"
+    }
+  ]
+}
