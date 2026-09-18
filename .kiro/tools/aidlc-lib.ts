@@ -8541,14 +8541,15 @@ export function readSummaryAuthorization(
     // Reached through no symlinked component and read without following one:
     // a redirected registry is not this record's authorization.
     const registry = recordFileTargetOrThrow(record, SUMMARY_AUTHORIZATION_DIR);
-    const readDir = engineReadDirFor(record, registry, LEGACY_SUMMARY_AUTHORIZATION_DIR);
     const relativePath = summaryAuthorizationRelativePath(stage, unit);
-    const path = recordFileTargetOrThrow(
-      record,
-      readDir === registry
-        ? relativePath
-        : `${LEGACY_SUMMARY_AUTHORIZATION_DIR}${relativePath.slice(SUMMARY_AUTHORIZATION_DIR.length)}`,
-    );
+    const legacyRelativePath = `${LEGACY_SUMMARY_AUTHORIZATION_DIR}${relativePath.slice(SUMMARY_AUTHORIZATION_DIR.length)}`;
+    const enginePath = recordFileTargetOrThrow(record, relativePath);
+    const legacyPath = recordFileTargetOrThrow(record, legacyRelativePath);
+    // Prefer the engine-tree file; fall back to the legacy file per-FILE (not
+    // per-root-dir), so a stage whose confirmation was written to the legacy
+    // tree while the engine tree already exists for other stages is still found.
+    void registry;
+    const path = existsSync(enginePath) ? enginePath : legacyPath;
     parsed = JSON.parse(readRegularFileNoFollowOrThrow(path, "summary authorization", 64 * 1024).toString("utf-8"));
   } catch {
     return null;

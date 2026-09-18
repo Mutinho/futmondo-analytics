@@ -80,3 +80,14 @@ Commit the `aidlc/` workspace tree — the record (state, the per-clone audit sh
 - `aidlc/spaces/*/intents/*/runtime-graph.json` (also covers per-Bolt worktree fragments by relative-path glob)
 - `aidlc/spaces/*/intents/*/.aidlc-*` (the record's `.aidlc-engine/` framework state)
 <!-- END AI-DLC:agents -->
+
+
+<!-- Nota local del proyecto — fuera del bloque gestionado por el framework -->
+## ⚠️ Parche local de AI-DLC (leer al arrancar un intent)
+
+Este proyecto corre AI-DLC **2.9.0 con un parche local** en
+`.kiro/tools/aidlc-lib.ts` que corrige un bug de `summary-authorization` que
+bloqueaba los gates de las etapas con confirmación de resumen
+(`SUMMARY_ARTIFACT_UNAUTHORIZED`). Los intents nuevos lo heredan
+automáticamente. Detalle completo, causa raíz y cómo revertir cuando salga el
+fix oficial: **[`docs/AIDLC-LOCAL-FIX.md`](docs/AIDLC-LOCAL-FIX.md)**.
