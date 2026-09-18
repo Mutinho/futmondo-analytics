@@ -148,13 +148,26 @@ def is_refresh_token_valid(token_hash: str) -> bool:
         if revoked:
             return False
         
-        # Check expiry
+        # Check expiry.
+        # `expires_at` may arrive as an ISO string (SQLite/Turso), a naive
+        # datetime, or a timezone-aware datetime (PostgreSQL/Neon). Normalize it
+        # to an aware UTC datetime before comparing so the precedence is
+        # unambiguous: a stored value with no tzinfo is assumed to be UTC.
         if isinstance(expires_at, str):
             expires_at = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
-        
-        if expires_at and datetime.now(timezone.utc) > expires_at.replace(tzinfo=timezone.utc) if expires_at.tzinfo is None else expires_at:
+
+        if not expires_at:
             return False
-        
+
+        expires_at_aware = (
+            expires_at.replace(tzinfo=timezone.utc)
+            if expires_at.tzinfo is None
+            else expires_at
+        )
+        if datetime.now(timezone.utc) > expires_at_aware:
+            # Token has expired.
+            return False
+
         return True
 
 
