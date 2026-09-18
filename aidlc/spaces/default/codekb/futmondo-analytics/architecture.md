@@ -57,7 +57,41 @@ graph TD
 
 ## Diagramas de Interacción
 
-Cómo se implementan dos transacciones de negocio representativas a través de los componentes.
+Cómo se implementan tres transacciones de negocio representativas a través de los
+componentes.
+
+### Transacción: cálculo y persistencia de premios de jornada (intent activo)
+
+El cálculo de premios NO vive en los endpoints: vive por completo en
+`data_sync_service.sync_prizes()` (un método dentro de un god-file de `services/`), que
+consume la API de Futmondo, calcula todos los términos y UPSERTea la tabla `team_prizes`
+(fuente de verdad). Los routers de finanzas/saldos sólo LEEN y SUMAN de esa tabla.
+
+```mermaid
+sequenceDiagram
+    participant Cron as Cron / trigger de sync
+    participant SP as data_sync_service.sync_prizes
+    participant F as API Futmondo
+    participant Cfg as user_championships (config)
+    participant TP as tabla team_prizes
+    participant EP as balances / player_finances
+    participant U as Navegador
+
+    Cron->>SP: ejecutar sincronización
+    SP->>Cfg: leer money_per_point, money_per_ranking, ranking_mode, mvp_bonus, dream_team_bonus
+    SP->>F: standings, rounds, round_ranking, dream_team, round_lineup, round_matches
+    F-->>SP: datos de la ronda (con time.sleep entre llamadas)
+    SP->>SP: points_prize = round(round_points * money_per_point)
+    SP->>SP: award_round_prizes = is_closed AND round_fully_played AND NOT pseudo_ronda
+    SP->>SP: ranking_prize / mvp_prize / dream_team_prize (solo si award_round_prizes)
+    SP->>TP: UPSERT ON CONFLICT (championship_id, team_id, matchday)
+    SP->>TP: DELETE ... WHERE matchday NOT IN (valid_matchdays) (limpieza defensiva)
+    U->>EP: GET saldos / finanzas
+    EP->>TP: SELECT premios por equipo/jornada
+    EP-->>U: totales agregados (solo lectura + suma)
+```
+
+<!-- Text fallback: un cron o trigger de sync ejecuta data_sync_service.sync_prizes. El método lee la config de premios de user_championships (money_per_point, money_per_ranking, ranking_mode, mvp_bonus, dream_team_bonus) y consulta la API de Futmondo (standings, rounds, round_ranking, dream_team, round_lineup, round_matches) con time.sleep entre llamadas. Calcula points_prize (siempre), y solo si award_round_prizes = is_closed AND round_fully_played AND NOT pseudo-ronda calcula ranking_prize, mvp_prize y dream_team_prize. Hace UPSERT en team_prizes por (championship_id, team_id, matchday) y una limpieza defensiva DELETE de matchdays ya no válidos. Después, los endpoints balances y player_finances solo leen y suman esos premios para presentar los totales al navegador. -->
 
 ### Transacción: puja en el mercado (FR6)
 
@@ -110,6 +144,11 @@ Bearer <access>` salvo rutas en `AUTH_EXCLUDED_PATHS`) → router → `services`
 persistencia (`stores` o SQL crudo) → Neon PostgreSQL o proxy a Futmondo/Sofascore. La
 ruta `/static/photos/*` (StaticFiles) queda fuera del prefijo protegido y se sirve sin auth.
 
+Para los **premios**, el flujo tiene dos mitades desacopladas por la tabla `team_prizes`:
+una **mitad de escritura** batch (`sync_prizes` → `team_prizes`) que sólo corre en la
+sincronización, y una **mitad de lectura** en tiempo de petición (routers de saldos/finanzas
+→ `SELECT` sobre `team_prizes`). No hay recálculo en la ruta de lectura.
+
 ## Decisiones de Diseño Clave
 
 - **Access token en memoria + refresh token en cookie `HttpOnly`**: minimiza exposición del
@@ -119,9 +158,18 @@ ruta `/static/photos/*` (StaticFiles) queda fuera del prefijo protegido y se sir
   contraseña en claro` en las reglas del proyecto.
 - **Persistencia mixta**: coexisten una capa `stores/` (durabilidad reciente) y SQL crudo
   disperso en `auth`/routers (deuda descrita en `code-quality-assessment.md`).
+- **Precálculo de premios como fuente de verdad**: `team_prizes` desacopla el cálculo caro
+  (dependiente de la API externa) de la lectura barata en las pantallas. La contrapartida es
+  que la corrección del importe depende de que `sync_prizes` gatee bien la ronda (completa,
+  cerrada, no pseudo-jornada) y de la limpieza defensiva `DELETE ... NOT IN`.
 
 ## Oportunidades de Mejora
 
+- **Premios (intent activo)**: caracterizar `sync_prizes` (ratios flop/top, gating de ronda
+  completa, MVP, dream-team, pseudo-jornada negativa, limpieza defensiva) ANTES de refactor,
+  y extraer la fórmula a una función/módulo estrecho testeable con dobles de la API de
+  Futmondo, sin ampliar el god-file `data_sync_service.py`. Detalle en
+  `code-quality-assessment.md`.
 - Introducir validación de entrada en el backend para pujas (FR6) tras una capa estrecha,
   sin ampliar el patrón SQL-en-router.
 - Aislar de forma inequívoca `SSL_VERIFY` al entorno local (FR8).

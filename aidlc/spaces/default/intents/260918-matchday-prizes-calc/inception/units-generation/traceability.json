@@ -1,0 +1,9 @@
+{
+  "stage": "units-generation",
+  "upstream_ids": ["FR1", "FR2", "FR3"],
+  "coverage": [
+    { "id": "FR1", "status": "OK", "target": "U1" },
+    { "id": "FR2", "status": "OK", "target": "U1" },
+    { "id": "FR3", "status": "OK", "target": "U1" }
+  ]
+}

@@ -17,7 +17,7 @@ mapa de dependencias externas/internas está en `dependencies.md`.
 |---|---|---|
 | `fastapi` | `>=0.104.0` | Framework web / API. |
 | `uvicorn[standard]` | — | Servidor ASGI. |
-| `pydantic` | `>=2.5.0` | Validación/serialización de modelos. |
+| `pydantic` | `>=2.5.0` | Validación/serialización de modelos (DTOs en `models.py`). |
 | `PyJWT` | `==2.9.0` | Emisión/verificación de JWT. |
 | `requests` | `>=2.31.0` | Cliente HTTP (proxy Futmondo, fotos). |
 | `curl_cffi` | `>=0.16.0` | Cliente HTTP para Sofascore (fingerprint TLS). |
@@ -28,13 +28,18 @@ mapa de dependencias externas/internas está en `dependencies.md`.
 | `pytest` | `>=8.0.0` | Framework de test backend. |
 | `pytest-cov`, `httpx` | — | Cobertura y `TestClient`. |
 
+Nota del área analizada: la analítica y el cálculo de premios usan la librería estándar
+`statistics` (media, pstdev) y SQL crudo (placeholders `?` adaptados con `adapt_params`);
+no introducen dependencias nuevas. Cualquier doble/fake para caracterizar `sync_prizes` debe
+apoyarse en `pytest` + fakes en memoria (patrón `conftest.py`), sin coste.
+
 ### Frontend
 
 | Librería | Versión | Propósito |
 |---|---|---|
 | `@angular/*` | `^22.1.0` | Framework SPA/PWA. |
-| Angular Material | `22` | Componentes UI. |
-| `chart.js`, `ng2-charts` | — | Gráficos (evolución, analytics). |
+| Angular Material | `22` | Componentes UI (`MatTable`, `MatDialog`, signals). |
+| `chart.js`, `ng2-charts` | — | Gráficos (evolución, analytics, finanzas). |
 | `marked` | — | Render de Markdown. |
 | `rxjs` | `~7.8.0` | Programación reactiva. |
 | `vitest` | `^4.0.8` (dev) | Test runner frontend (vía `@angular/build:unit-test`). |

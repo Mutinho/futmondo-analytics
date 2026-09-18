@@ -1,0 +1,27 @@
+{
+  "stage": "functional-design",
+  "unit": "matchday-prizes-calc",
+  "upstream_ids": ["FR1", "FR1.1", "FR1.2", "FR1.3", "FR1.4", "FR1.5", "FR2", "FR2.1", "FR2.2", "FR3", "FR3.1", "FR3.2"],
+  "coverage": [
+    { "id": "FR1", "status": "OK", "target": "BR3.1, BR3.2" },
+    { "id": "FR1.1", "status": "OK", "target": "BR3.1" },
+    { "id": "FR1.2", "status": "OK", "target": "BR3.1" },
+    { "id": "FR1.3", "status": "OK", "target": "BR3.1" },
+    { "id": "FR1.4", "status": "OK", "target": "BR3.2" },
+    { "id": "FR1.5", "status": "OK", "target": "BR2.2" },
+    { "id": "FR2", "status": "OK", "target": "BR2.1, BR2.2" },
+    { "id": "FR2.1", "status": "OK", "target": "BR2.1" },
+    { "id": "FR2.2", "status": "OK", "target": "BR2.1" },
+    { "id": "FR3", "status": "OK", "target": "BR1.1, BR1.2" },
+    { "id": "FR3.1", "status": "OK", "target": "BR1.1, BR1.2" },
+    { "id": "FR3.2", "status": "N/A", "target": "recálculo retroactivo: comportamiento del orquestador (persistencia), no una regla del cálculo puro" }
+  ],
+  "reverse": [
+    { "id": "BR1.1", "status": "OK", "target": "FR3.1" },
+    { "id": "BR1.2", "status": "OK", "target": "FR3.1" },
+    { "id": "BR2.1", "status": "OK", "target": "FR2.1, FR2.2" },
+    { "id": "BR2.2", "status": "OK", "target": "FR1.5" },
+    { "id": "BR3.1", "status": "OK", "target": "FR1.1, FR1.2, FR1.3" },
+    { "id": "BR3.2", "status": "OK", "target": "FR1.4" }
+  ]
+}

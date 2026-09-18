@@ -1,0 +1,26 @@
+{
+  "stage": "code-generation",
+  "unit": "matchday-prizes-calc",
+  "version": 1,
+  "writes": [
+    { "path": "backend/app/services/prizes/__init__.py" },
+    { "path": "backend/app/services/prizes/calculator.py" },
+    { "path": "backend/app/services/data_sync_service.py" },
+    { "path": "backend/tests/test_prizes_characterization.py" },
+    { "path": "backend/tests/test_prizes_calculator.py" },
+    { "path": "backend/__pycache__/" },
+    { "path": "backend/app/__pycache__/" },
+    { "path": "backend/app/api/__pycache__/" },
+    { "path": "backend/app/api/v1/__pycache__/" },
+    { "path": "backend/app/api/v1/endpoints/__pycache__/" },
+    { "path": "backend/app/auth/__pycache__/" },
+    { "path": "backend/app/core/__pycache__/" },
+    { "path": "backend/app/models/__pycache__/" },
+    { "path": "backend/app/security/__pycache__/" },
+    { "path": "backend/app/services/__pycache__/" },
+    { "path": "backend/app/services/prizes/__pycache__/" },
+    { "path": "backend/app/stores/__pycache__/" },
+    { "path": "backend/scripts/__pycache__/" },
+    { "path": "backend/tests/__pycache__/" }
+  ]
+}

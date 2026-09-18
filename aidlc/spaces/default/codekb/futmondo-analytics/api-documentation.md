@@ -14,10 +14,39 @@ Las rutas protegidas exigen `Authorization: Bearer <access>`, verificado con
 (StaticFiles) NO empieza por `/api/v1` ni `/auth`, así que el middleware la deja pasar sin
 auth; las redirecciones 302 del endpoint de fotos apuntan ahí.
 
-## Endpoints Relevantes al Intent
+## Endpoints de Premios y Finanzas (área del intent activo)
 
-Superficie HTTP relevante a las FR (contratos y estado; la evidencia de deuda vive en
-`code-quality-assessment.md`):
+Superficie de LECTURA sobre los premios ya persistidos en `team_prizes`. Ningún endpoint
+recalcula: todos leen y suman lo que produjo `data_sync_service.sync_prizes()` (ver
+`architecture.md`). Contratos observados:
+
+| Método + Ruta | Handler | Auth | Descripción |
+|---|---|---|---|
+| `GET /api/v1/player-finances/` | `player_finances.get_player_finances` | Bearer | Finanzas agregadas por usuario. `total_money = initial_budget + points_money + transaction_profit + (dream_team + mvp) + ranking_money + net_adjustment`. Lee premios vía `dm.get_prizes_by_team` (dict `ranking|mvp|points|dream_team|total`). Orden desc; budget por defecto 200M; 500 en error. |
+| `GET /api/v1/analytics/balances` | `balances.get_balances` | Bearer | Saldos por equipo; suma `ranking_prize + mvp_prize + points_prize + dream_team_prize` de `team_prizes` al balance y expone `prizes` por equipo. |
+| `GET /api/v1/analytics/balances/{team_id}` | `balances` | Bearer | Saldo de un equipo concreto. |
+| `GET /api/v1/analytics/prizes/{team_id}` | `balances` | Bearer | Desglose de premios por jornada de un equipo. Etiqueta las pseudo-jornadas adelantadas (matchday negativo) como "Adelantada" y las ordena al final. |
+| `GET /api/v1/matchdays/teams` | `matchdays` | Bearer | Equipos del campeonato. |
+| `GET /api/v1/matchdays/teams/{team_id}/rounds` | `matchdays` | Bearer | Rondas de un equipo. |
+| `GET /api/v1/matchdays/evolution` | `matchdays` | Bearer | Evolución por jornada; DB-first con fallback a la API de Futmondo. |
+| `GET /api/v1/analytics/*` | `analytics` (~12 endpoints) | Bearer | Analítica avanzada (trends, classification-full, custom-classification, heatmap, players/form, players/value-trend, users/consistency, users/market-activity, market/watchlist, clauses/network, opportunities/streaks, projections/matchday). Delegan en `AnalyticsService`; `classification-full` y `watchlist` llevan **SQL inline** (deuda; ver `code-quality-assessment.md`). |
+
+Notas de montaje: `matchdays` se monta bajo `/api/v1/matchdays` (y adicionalmente `/v1/matchdays`);
+`balances.py` expone rutas bajo el prefijo `analytics` (de ahí `GET /api/v1/analytics/prizes/{team_id}`).
+`player_finances` cuelga de `/api/v1/player-finances`.
+
+### Modelo de datos de premios (fuente de verdad)
+
+Tabla `team_prizes(championship_id, team_id, matchday, ranking_prize, mvp_prize, position,
+points_prize, dream_team_prize, synced_at)`, con UPSERT por
+`ON CONFLICT (championship_id, team_id, matchday)`. Config de premios leída de
+`user_championships`: `money_per_ranking`, `mvp_bonus`, `ranking_mode` (`flop`|otro),
+`users_to_rank`, `money_per_point`, `dream_team_bonus`.
+
+## Endpoints Relevantes a Intents Anteriores (security-hardening)
+
+Superficie HTTP relevante a las FR de seguridad (contratos y estado; la evidencia de deuda
+vive en `code-quality-assessment.md`):
 
 | Método + Ruta | Handler | Auth | FR | Estado |
 |---|---|---|---|---|
@@ -32,13 +61,13 @@ Superficie HTTP relevante a las FR (contratos y estado; la evidencia de deuda vi
 | `POST /auth/logout` | `auth.routes` | Excluida | — | Revoca sesión/refresh token. |
 | `GET /health` | app | Excluida | — | Healthcheck de despliegue Fly.io (smoke test). |
 
-Todos los routers se montan en `main.py` con prefijos `/api/v1/...`; `matchdays` se monta
-adicionalmente en `/v1/matchdays`. El router de auth no usa prefijo `/api/v1` (vive en
-`/auth/*`). Otros endpoints (`analytics`, `balances`, `sync`, `roster`, etc.) existen pero
-quedan fuera del alcance profundo de este scan (ver `reverse-engineering-timestamp.md`).
+Todos los routers se montan en `main.py` con prefijos `/api/v1/...`. El router de auth no
+usa prefijo `/api/v1` (vive en `/auth/*`).
 
 ## APIs Externas Consumidas
 
 - **API Futmondo** — proxy autenticado por usuario (`_helpers.get_user_futmondo_client` →
-  `futmondo_client.py`); ejemplo: `POST {base_url}/1/market/bid`.
+  `futmondo_client.py`); ejemplos: `POST {base_url}/1/market/bid` (pujas) y los endpoints de
+  datos que consume `sync_prizes` (standings, rounds, round_ranking, dream_team,
+  round_lineup, round_matches).
 - **API Sofascore** — `sofascore_client.py` (vía `curl_cffi`) para ratings de jugadores.
