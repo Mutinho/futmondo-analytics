@@ -82,7 +82,13 @@ jobs:
         continue-on-error: true
         run: npx ng lint || echo "ESLint advisory — no bloquea todavia"
 
-      - name: Frontend tests (ng test con Vitest) — BLOQUEANTE
+      - name: Frontend tests (ng test con Vitest + cobertura por metrica) — BLOQUEANTE
+        # FR17.1: `ng test` ejerce la cobertura y sus umbrales por metrica
+        # (lines/branches/functions/statements) declarados en el target `test`
+        # de angular.json (builder @angular/build:unit-test). Si la cobertura
+        # cae por debajo del umbral, el builder sale con codigo != 0 y el job
+        # falla — el enforcement vive DENTRO de `ng test`, sin pasos extra ni
+        # `continue-on-error`. Umbral = trinquete manual (solo sube).
         working-directory: ./angular-app
         run: npx ng test --watch=false
 
