@@ -19,12 +19,45 @@ servicios y relaciones de dependencia, no se repite la tabla de versiones.
   `team_prizes` (fuente de verdad de premios) y `user_championships` (config de premios).
   Fallback SQLite/Turso.
 
-### Plataforma / build
+### Plataforma / build / entrega
 
 - **Fly.io** — hosting de `futmondo-api` y `futmondo-app`; crons one-shot (disparan el sync
   que ejecuta `sync_prizes`).
 - **GitHub Actions** — CI/CD (gitleaks, pytest, ng test, deploy). Ver
   `code-quality-assessment.md`.
+- **npm registry** — dependencias del frontend (`@angular/*`, `vitest`, `jsdom`, `chart.js`,
+  `ng2-charts`, `marked`). Restauradas con `npm ci` en ambos workflows.
+
+## Dependencias del Frontend (intent activo)
+
+Detalle de versiones en `technology-stack.md`. Relaciones de dependencia relevantes:
+
+- **`angular-app` runtime** → `@angular/*` (^22.1.0), `chart.js`/`ng2-charts` (gráficos),
+  `marked` (assistant), `rxjs`, `tslib`. Todas OSS, coste 0 €.
+- **`angular-app` build/test** → `@angular/build` (^22.1.2, builder esbuild/vite),
+  `@angular/cli` (^22.1.2), `@angular/compiler-cli` (^22.1.0), `vitest` (^4.0.8) + `jsdom`
+  (^25.0.1) para `ng test` vía `@angular/build:unit-test`, `typescript` (~6.0.2), `prettier`
+  (^3.8.1).
+- **Dependencia de cobertura AUSENTE**: NO hay `@vitest/coverage-v8` (ni `istanbul`) en
+  devDependencies — sin proveedor no se puede medir cobertura hoy. Añadirlo (OSS, coste 0 €)
+  es un cambio de `package.json`/`package-lock.json` que debe verificarse contra el gate
+  `npm ci` + `ng test` antes de pushear (mandato del proyecto para no romper CI).
+- **Dependencias de ESLint DECLARADAS pero no instaladas**: `eslint.config.js` importa
+  `angular-eslint`/`typescript-eslint`/`@eslint/js`, ausentes de devDependencies; el lint
+  sólo funciona en advisory best-effort. Fuera del alcance de cobertura, pero afecta la
+  superficie del gate.
+
+## Dependencias de CI/CD (intent activo)
+
+- **`ci.yml`** (PR→`main`) depende de: acción de gitleaks (BLOQUEANTE), Python 3.12 +
+  `backend/requirements.txt` (`pytest --cov=app`), Node `'22'` + `npm ci` en `angular-app`
+  (`ng test --watch=false` BLOQUEANTE). `ruff`, `pip-audit`, `ng lint`, `npm audit` advisory.
+- **`fly-deploy.yml`** (push→`main`) depende de: gitleaks@v2 (BLOQUEANTE), `pytest -q` **sin
+  `--cov`** (BLOQUEANTE), Node `'22'` + `npm ci` + `ng test --watch=false` (BLOQUEANTE); y de
+  `flyctl` + tokens Fly.io para `deploy-backend`/`deploy-frontend` y el `smoke-test` a
+  `/health`.
+- **`daily-sync.yml` / `sofascore-sync.yml`** dependen de la imagen cron (`cron-worker`) y de
+  `flyctl` para crear/ejecutar/destruir máquinas Fly one-shot.
 
 ## Dependencias Internas (cross-package)
 
@@ -45,11 +78,15 @@ graph LR
     services --> stores
     security["backend-app-security"] --> core
     cron["cron-worker"] --> services
+    ci["ci-workflow"] --> angular
+    ci --> backendpkg["backend"]
+    fd["fly-deploy-workflow"] --> angular
+    fd --> backendpkg
 ```
 
-<!-- Text fallback: angular-app depende de proxy-nginx, que depende de backend-app-main. main depende de auth, api-endpoints y core. api-endpoints depende de auth, services y stores. auth depende de stores y services. services depende de stores. security depende de core. cron-worker depende de services. -->
+<!-- Text fallback: angular-app depende de proxy-nginx, que depende de backend-app-main. main depende de auth, api-endpoints y core. api-endpoints depende de auth, services y stores. auth depende de stores y services. services depende de stores. security depende de core. cron-worker depende de services. Los workflows ci-workflow y fly-deploy-workflow dependen del build/test de angular-app y del backend. -->
 
-## Notas de Dependencias Relevantes al Intent Activo (premios)
+## Notas de Dependencias Relevantes al Área de Premios
 
 - **Acoplamiento de escritura de premios**: la fórmula (`data_sync_service.sync_prizes`)
   acopla el cálculo a la API de Futmondo y a la BD (`team_prizes`, `user_championships`) en

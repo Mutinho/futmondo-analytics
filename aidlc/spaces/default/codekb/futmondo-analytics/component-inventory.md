@@ -25,7 +25,7 @@ están en `api-documentation.md`; los patrones y ubicaciones en `code-structure.
 - **Ubicación**: `backend/app/api/v1/endpoints/` (`market.py`, `reset_db.py`, `_helpers.py`,
   `player_finances.py`, `balances.py`, `matchdays.py`, `analytics.py`, `sync`, `roster`, ...)
 - **Responsabilidad**: routers HTTP de la API v1.
-  - **Área de premios/finanzas (intent activo)**: `player_finances.get_player_finances`
+  - **Área de premios/finanzas**: `player_finances.get_player_finances`
     (agrega finanzas por usuario leyendo `team_prizes` vía `dm.get_prizes_by_team`);
     `balances.get_balances` y `balances/prizes/{team_id}` (suman/desglosan premios por
     jornada, con SQL crudo); `matchdays` (equipos/rondas/evolución, DB-first); `analytics`
@@ -49,7 +49,7 @@ están en `api-documentation.md`; los patrones y ubicaciones en `code-structure.
   `photo_service.py`, `data_manager_v2.py` ~166 KB, `data_sync_service.py` ~84 KB,
   `assistant_service.py`, `analytics_service.py`)
 - **Responsabilidad**: lógica de negocio y clientes de APIs externas (Futmondo, Sofascore).
-  - **Productor de premios (fórmula del intent)**: `data_sync_service.sync_prizes()`
+  - **Productor de premios (fórmula)**: `data_sync_service.sync_prizes()`
     (~1577-1885) calcula todos los términos por (equipo, jornada) —points_prize,
     ranking_prize (modo flop/top sobre miembros activos), mvp_prize, dream_team_prize— con
     gating `award_round_prizes = is_closed AND round_fully_played AND NOT pseudo-ronda`, y
@@ -78,15 +78,22 @@ están en `api-documentation.md`; los patrones y ubicaciones en `code-structure.
 
 ### angular-app
 - **Ubicación**: `angular-app/`
-- **Responsabilidad**: SPA/PWA Angular 22. Features del área de premios/finanzas:
-  `features/finances/finances.component.ts` (presentación de finanzas por usuario),
-  `features/budget/budget-overview/budget-overview.component.ts` y su
-  `prizes-dialog.component.ts` (saldos y desglose de premios por jornada),
-  `features/calculator/calculator.component.ts` (cálculo/simulación) y
-  `features/analytics/*` (gráficos Chart.js). Además,
-  `features/market/bid-dialog.component.ts` valida el precio de la puja SÓLO en frontend
-  (evidencia FR6). Todas consumen la superficie de lectura del backend; ninguna recalcula
-  premios.
+- **Responsabilidad**: SPA/PWA Angular 22 (componentes standalone, signals, service worker).
+  - **`core/` (transversal)**: 11 servicios HTTP en `core/services/*.service.ts` (`analytics`,
+    `assistant`, `auth`, `budget`, `championship`, `evolution`, `favorites`, `roster`,
+    `stats`, `sync`); `core/interceptors/auth.interceptor.ts` (Bearer + refresh en cola ante
+    401 + `withCredentials` para `/auth/*` — único contrato cubierto por spec);
+    `core/guards/auth.guard.ts` (protección de rutas, SIN spec);
+    `core/preloading/idle-preloading-strategy.ts` (precarga por inactividad, CON spec).
+  - **`features/` (por pantalla)**: `market` (incl. `bid-dialog.component.ts`, que valida el
+    precio de puja SÓLO en frontend — evidencia FR6), `finances`, `budget`
+    (`budget-overview` + `prizes-dialog`), `calculator`, `analytics`, `evolution`,
+    `statistics`. Todas consumen la superficie de lectura del backend; ninguna recalcula
+    premios. SIN spec hoy.
+  - **`shared/`**: UI y utilidades reutilizables (SIN spec).
+- **Estado de tests (intent activo)**: `skipTests: true` global en `angular.json`; sólo 2
+  specs sobre ~90 fuentes; sin infraestructura de cobertura. Detalle en
+  `code-quality-assessment.md`.
 - **Depende de**: backend HTTP `/api/*`, `/auth/*`.
 
 ### proxy-nginx
@@ -100,3 +107,33 @@ están en `api-documentation.md`; los patrones y ubicaciones en `code-structure.
 - **Responsabilidad**: sync programado (máquinas Fly one-shot); dispara la sincronización que
   ejecuta `sync_prizes`. Nunca emite JWT (NFR1.1).
 - **Depende de**: `backend-app-services`.
+
+## Componentes de Entrega / CI-CD (`.github/workflows/`)
+
+Componentes de pipeline; su estado de calidad y las deudas de cobertura/paridad viven en
+`code-quality-assessment.md` (artefacto propietario del intent activo).
+
+### ci-workflow
+- **Ubicación**: `.github/workflows/ci.yml`
+- **Responsabilidad**: gate de Pull Request a `main` (job `quality`): gitleaks (BLOQUEANTE),
+  `pytest tests -q --cov=app --cov-report=term-missing` (BLOQUEANTE, CON cobertura), `ruff`
+  y `pip-audit` (advisory), `npm ci` + `ng test --watch=false` (BLOQUEANTE), `ng lint` y
+  `npm audit` (advisory). Node fijado a `'22'`.
+- **Depende de**: `backend` (pytest), `angular-app` (`npm ci`/`ng test`).
+
+### fly-deploy-workflow
+- **Ubicación**: `.github/workflows/fly-deploy.yml`
+- **Responsabilidad**: despliegue por push a `main` (+ `workflow_dispatch`). Job `verify` =
+  gitleaks@v2 (BLOQUEANTE) + `pytest tests -q` (BLOQUEANTE, **SIN `--cov`**) + `npm ci` +
+  `ng test --watch=false` (BLOQUEANTE). Luego `deploy-backend` → `deploy-frontend` (Fly.io,
+  `needs:` en cadena) → `smoke-test` contra `/health` (5 reintentos, HTTP 200). Objetivo del
+  hueco FR17.1: los tests de `verify` se ejecutan pero no imponen cobertura.
+- **Depende de**: `backend`, `angular-app`, Fly.io.
+
+### cron-sync-workflows
+- **Ubicación**: `.github/workflows/daily-sync.yml`, `.github/workflows/sofascore-sync.yml`
+- **Responsabilidad**: sync programado a coste ~0 en máquinas Fly one-shot. `daily-sync.yml`
+  (04:30 UTC + manual): despliega imagen cron, ejecuta sync completo, poll hasta `stopped`,
+  verifica exit code. `sofascore-sync.yml` (05:00 UTC + manual): reutiliza la imagen cron,
+  corre `scripts/sync_sofascore_local.py`, destrucción garantizada (`trap cleanup EXIT`).
+- **Depende de**: imagen cron (`cron-worker`), Fly.io.

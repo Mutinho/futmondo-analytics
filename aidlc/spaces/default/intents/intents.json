@@ -54,5 +54,12 @@
     "dirName": "260918-matchday-prizes-calc",
     "scope": "classic",
     "status": "complete"
+  },
+  {
+    "uuid": "01a0b486-9199-7bc5-a428-ad88b32b7af5",
+    "slug": "frontend-coverage-gate",
+    "dirName": "260918-frontend-coverage-gate",
+    "scope": "classic",
+    "status": "complete"
   }
 ]

@@ -1,0 +1,23 @@
+{
+  "stage": "code-generation",
+  "unit": "frontend-coverage-gate",
+  "upstream_ids": ["FR10.1", "FR10.2", "FR10.2.1", "FR10.2.2", "FR10.2.3", "FR10.3", "FR10.3.1", "FR10.3.2", "FR17.1", "FR17.1.1", "FR17.1.2", "NFR1.1", "NFR1.3", "NFR3", "NFR4", "NFR5"],
+  "coverage": [
+    { "id": "FR10.1", "status": "OK", "target": "angular-app/angular.json" },
+    { "id": "FR10.2", "status": "OK", "target": "angular-app/package.json" },
+    { "id": "FR10.2.1", "status": "OK", "target": "angular-app/angular.json" },
+    { "id": "FR10.2.2", "status": "OK", "target": "angular-app/angular.json" },
+    { "id": "FR10.2.3", "status": "OK", "target": "angular-app/angular.json" },
+    { "id": "FR10.3", "status": "OK", "target": "angular-app/src/app/core/guards/auth.guard.spec.ts" },
+    { "id": "FR10.3.1", "status": "OK", "target": "angular-app/src/app/core/services/auth.service.spec.ts" },
+    { "id": "FR10.3.2", "status": "OK", "target": "angular-app/src/app/features/market/bid-dialog.component.spec.ts" },
+    { "id": "FR17.1", "status": "OK", "target": ".github/workflows/ci.yml" },
+    { "id": "FR17.1.1", "status": "OK", "target": "angular-app/angular.json" },
+    { "id": "FR17.1.2", "status": "OK", "target": ".github/workflows/fly-deploy.yml" },
+    { "id": "NFR1.1", "status": "OK", "target": "angular-app/package.json" },
+    { "id": "NFR1.3", "status": "OK", "target": "angular-app/src/app/core/services/auth.service.spec.ts" },
+    { "id": "NFR3", "status": "OK", "target": "angular-app/angular.json" },
+    { "id": "NFR4", "status": "OK", "target": "angular-app/src/app/core/services/assistant.service.spec.ts" },
+    { "id": "NFR5", "status": "OK", "target": "angular-app/package-lock.json" }
+  ]
+}

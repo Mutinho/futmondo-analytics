@@ -84,6 +84,18 @@ expone avisos preexistentes e invalida el pase de revisión en vuelo); formatear
 
 archivos nuevos o de forma quirúrgica. (affirmed 2026-09-18)
 
+- NEVER bajar/relajar un umbral de cobertura para pasar el gate; el ratcheting solo sube. (Q7-A) (affirmed 2026-09-18)
+
+- NEVER hardcodear secretos/tokens reales en specs; los tests de auth usan fakes/dobles (gitleaks escanea `*.spec.ts`). (Q7-C) (affirmed 2026-09-18)
+
+- NEVER reintroducir `skipTests: true` en los schematics donde se retire. (Q7-E) (affirmed 2026-09-18)
+
+- NEVER almacenar la contraseña Futmondo en claro (ni en memoria ni en base de datos). (affirmed 2026-09-18)
+
+- NEVER ampliar los god-files existentes (`data_sync_service.py`, `data_manager_v2.py`) ni el patrón SQL-en-router. (affirmed 2026-09-18)
+
+- NEVER correr `ruff format` masivo sobre archivos brownfield ya modificados; formatear solo los archivos nuevos o de forma quirúrgica. (affirmed 2026-09-18)
+
 ## Mandated
 
 <!-- Populated by practices-discovery affirmation gate. -->
@@ -131,6 +143,20 @@ este intent el mandato ya afirmado de characterization-first para `SessionStore`
 - ALWAYS exigir un `JWT_SECRET` **no-default** en el arranque del servicio web (NFR1.1; (affirmed 2026-09-18)
 
 endurecido en `test_jwt_startup.py`). (affirmed 2026-09-18)
+
+Afirmadas en la entrevista de ESTE intent (Q7): (affirmed 2026-09-18)
+
+- ALWAYS verificar `npm ci` + `ng test` en contenedor `node:22.22.3` antes de pushear cambios de devDependencies del frontend. (Q7-B) (affirmed 2026-09-18)
+
+- ALWAYS fijar versión exacta (pin) del proveedor de cobertura `@vitest/coverage-v8` (OSS, coste 0 €); nada de rangos abiertos en un gate bloqueante. (Q7-D) (affirmed 2026-09-18)
+
+Arrastradas (ya afirmadas, siguen vigentes): (affirmed 2026-09-18)
+
+- ALWAYS mantener el proyecto a coste 0 €: descartar toda mejora o dependencia con gasto recurrente; solo soluciones sostenibles en tiers gratuitos (Neon free, Fly.io free allowance, GitHub Actions free). (affirmed 2026-09-18)
+
+- ALWAYS pasar el gate de CI bloqueante (gitleaks + `pytest` + `ng test`) antes de fusionar a `main`; un rojo nunca llega a producción. (affirmed 2026-09-18)
+
+- ALWAYS exigir un `JWT_SECRET` no-default en el arranque del servicio web (NFR1.1; endurecido en `test_jwt_startup.py`). (affirmed 2026-09-18)
 
 ## Corrections
 
