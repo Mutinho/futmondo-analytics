@@ -1,0 +1,12 @@
+{
+  "stage": "nfr-design",
+  "unit": "frontend-coverage-gate",
+  "upstream_ids": ["NFR1.1", "NFR1.2", "NFR1.3", "NFR1.4", "NFR1.5"],
+  "coverage": [
+    { "id": "NFR1.1", "status": "OK", "target": "security-design: cadena de suministro (pin exacto @vitest/coverage-v8)" },
+    { "id": "NFR1.2", "status": "OK", "target": "security-design: verificacion reproducible en node:22.22.3" },
+    { "id": "NFR1.3", "status": "OK", "target": "security-design: no-filtracion de secretos en specs (fakes + gitleaks)" },
+    { "id": "NFR1.4", "status": "OK", "target": "security-design: integridad del gate (ng test bloqueante en ci.yml y verify)" },
+    { "id": "NFR1.5", "status": "OK", "target": "security-design: reporte de cobertura solo observabilidad, sin continue-on-error sustitutivo" }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "stage": "nfr-requirements",
+  "unit": "frontend-coverage-gate",
+  "upstream_ids": ["NFR1", "NFR2", "NFR3", "NFR4", "NFR5"],
+  "coverage": [
+    { "id": "NFR1", "status": "OK", "target": "NFR1.1, TS1" },
+    { "id": "NFR2", "status": "OK", "target": "TS1, TS2, TS6" },
+    { "id": "NFR3", "status": "OK", "target": "NFR1.4, TS3" },
+    { "id": "NFR4", "status": "OK", "target": "NFR1.3, TS5" },
+    { "id": "NFR5", "status": "OK", "target": "NFR1.2, TS5" }
+  ],
+  "reverse": [
+    { "id": "performance-requirements", "status": "N/A", "target": "kind packaging: no runtime performance surface (tooling/CI config)" },
+    { "id": "scalability-requirements", "status": "N/A", "target": "kind packaging: no scalable service" },
+    { "id": "reliability-requirements", "status": "N/A", "target": "kind packaging: no deployed runtime with availability target" },
+    { "id": "observability-requirements", "status": "N/A", "target": "kind packaging: coverage reporting is CI observability, no service SLI/SLO" }
+  ]
+}

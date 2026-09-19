@@ -10,30 +10,21 @@
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
-          "style": "scss",
-          "skipTests": true
+          "style": "scss"
         },
-        "@schematics/angular:class": {
-          "skipTests": true
-        },
+        "@schematics/angular:class": {},
         "@schematics/angular:directive": {
           "skipTests": true
         },
-        "@schematics/angular:guard": {
-          "skipTests": true
-        },
-        "@schematics/angular:interceptor": {
-          "skipTests": true
-        },
+        "@schematics/angular:guard": {},
+        "@schematics/angular:interceptor": {},
         "@schematics/angular:pipe": {
           "skipTests": true
         },
         "@schematics/angular:resolver": {
           "skipTests": true
         },
-        "@schematics/angular:service": {
-          "skipTests": true
-        }
+        "@schematics/angular:service": {}
       },
       "root": "",
       "sourceRoot": "src",
@@ -107,7 +98,32 @@
           "options": {
             "tsConfig": "tsconfig.spec.json",
             "runner": "vitest",
-            "buildTarget": "angular-app:build:development"
+            "buildTarget": "angular-app:build:development",
+            "coverage": true,
+            "coverageInclude": [
+              "src/app/**/*.ts"
+            ],
+            "coverageExclude": [
+              "**/*.spec.ts",
+              "**/*.test.ts",
+              "src/main.ts",
+              "**/*.config.ts",
+              "src/environments/**",
+              "**/*.d.ts",
+              "**/*.model.ts",
+              "**/*.routes.ts",
+              "**/index.ts"
+            ],
+            "coverageReporters": [
+              "text-summary",
+              "lcovonly"
+            ],
+            "coverageThresholds": {
+              "statements": 15,
+              "branches": 15,
+              "functions": 13,
+              "lines": 14
+            }
           }
         }
       }

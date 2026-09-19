@@ -3372,3 +3372,130 @@
 **Session**: 5cc1923a-2ec4-4f65-93eb-753cb16b1645
 
 ---
+
+## Human Turn
+**Timestamp**: 2026-09-18T12:12:19Z
+**Event**: HUMAN_TURN
+**Session**: 5cc1923a-2ec4-4f65-93eb-753cb16b1645
+
+---
+
+## Human Turn
+**Timestamp**: 2026-09-18T12:14:07Z
+**Event**: HUMAN_TURN
+**Session**: 5cc1923a-2ec4-4f65-93eb-753cb16b1645
+
+---
+
+## Human Turn
+**Timestamp**: 2026-09-18T12:23:22Z
+**Event**: HUMAN_TURN
+**Session**: 5cc1923a-2ec4-4f65-93eb-753cb16b1645
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-09-18T12:24:07Z
+**Event**: SENSOR_FIRED
+**Fire id**: 45241bbd
+**Sensor ID**: type-check
+**Stage slug**: build-and-test
+**Output path**: angular-app/src/app/version.ts
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-09-18T12:24:13Z
+**Event**: SENSOR_PASSED
+**Fire id**: 45241bbd
+**Sensor ID**: type-check
+**Stage slug**: build-and-test
+**Output path**: angular-app/src/app/version.ts
+**Duration ms**: 6268
+
+---
+
+## Human Turn
+**Timestamp**: 2026-09-18T12:27:19Z
+**Event**: HUMAN_TURN
+**Session**: 5cc1923a-2ec4-4f65-93eb-753cb16b1645
+
+---
+
+## Human Turn
+**Timestamp**: 2026-09-18T12:27:45Z
+**Event**: HUMAN_TURN
+**Session**: 5cc1923a-2ec4-4f65-93eb-753cb16b1645
+
+---
+
+## Human Turn
+**Timestamp**: 2026-09-18T12:28:47Z
+**Event**: HUMAN_TURN
+**Session**: 5cc1923a-2ec4-4f65-93eb-753cb16b1645
+
+---
+
+## Human Turn
+**Timestamp**: 2026-09-18T12:31:14Z
+**Event**: HUMAN_TURN
+**Session**: 5cc1923a-2ec4-4f65-93eb-753cb16b1645
+
+---
+
+## Human Turn
+**Timestamp**: 2026-09-18T12:31:35Z
+**Event**: HUMAN_TURN
+**Session**: 5cc1923a-2ec4-4f65-93eb-753cb16b1645
+
+---
+
+## Human Turn
+**Timestamp**: 2026-09-18T12:32:13Z
+**Event**: HUMAN_TURN
+**Session**: 5cc1923a-2ec4-4f65-93eb-753cb16b1645
+
+---
+
+## Human Turn
+**Timestamp**: 2026-09-18T12:32:48Z
+**Event**: HUMAN_TURN
+**Session**: 5cc1923a-2ec4-4f65-93eb-753cb16b1645
+
+---
+
+## Human Turn
+**Timestamp**: 2026-09-18T12:33:57Z
+**Event**: HUMAN_TURN
+**Session**: 5cc1923a-2ec4-4f65-93eb-753cb16b1645
+
+---
+
+## Session Start
+**Timestamp**: 2026-09-18T12:34:32Z
+**Event**: SESSION_STARTED
+**Source**: startup
+**Session**: cc4d0849-3d74-422d-a8f8-9c477c8f5c8a
+
+---
+
+## Human Turn
+**Timestamp**: 2026-09-18T12:34:44Z
+**Event**: HUMAN_TURN
+**Session**: cc4d0849-3d74-422d-a8f8-9c477c8f5c8a
+
+---
+
+## Human Turn
+**Timestamp**: 2026-09-18T12:36:57Z
+**Event**: HUMAN_TURN
+**Session**: cc4d0849-3d74-422d-a8f8-9c477c8f5c8a
+
+---
+
+## Human Turn
+**Timestamp**: 2026-09-18T12:37:25Z
+**Event**: HUMAN_TURN
+**Session**: cc4d0849-3d74-422d-a8f8-9c477c8f5c8a
+
+---

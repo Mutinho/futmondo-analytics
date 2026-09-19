@@ -62,7 +62,11 @@ jobs:
         working-directory: ./angular-app
         run: npm ci
 
-      - name: Frontend tests (ng test con Vitest) — BLOQUEANTE
+      - name: Frontend tests (ng test con Vitest + cobertura por metrica) — BLOQUEANTE
+        # FR17.1: paridad con el gate de PR. `ng test` ejerce los umbrales de
+        # cobertura por metrica del target `test` de angular.json (fuente unica
+        # de umbral). Un rojo de cobertura hace fallar `verify`, del que
+        # dependen los deploys via `needs:` — un rojo nunca llega a produccion.
         working-directory: ./angular-app
         run: npx ng test --watch=false
 

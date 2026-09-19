@@ -1,0 +1,46 @@
+**Collaborator:** aidlc-quality-agent
+
+## Contribution
+
+Inspección ciega desde la lente de CALIDAD (posture de tests, tooling de cobertura, gates de CI, patrones de test y huecos para la entrevista) sobre el borrador del lead para FR10 (cobertura frontend Angular) y FR17.1 (significatividad de los tests de frontend en el job `verify`). Verifiqué las afirmaciones del lead contra la evidencia primaria: `.github/workflows/ci.yml`, `.github/workflows/fly-deploy.yml`, `angular-app/angular.json`, `angular-app/package.json`, `angular-app/tsconfig.spec.json` y `code-quality-assessment.md`. Coincido con el encuadre general; aporto correcciones de precisión y huecos que la entrevista DEBE cerrar.
+
+### Correcciones de precisión (integrables al borrador)
+
+1. **Conteo exacto de servicios y fuentes (cerrar la horquilla del RE).** El borrador y el codekb citan "11 servicios" y "~71-90 fuentes". El estado real medido hoy: **10** servicios HTTP en `core/services/*` (`analytics`, `assistant`, `auth`, `budget`, `championship`, `evolution`, `favorites`, `roster`, `stats`, `sync`), **1** guard (`core/guards/auth.guard.ts`, SIN spec), **1** interceptor (`core/interceptors/auth.interceptor.ts`, CON spec), y **2** specs sobre **71** fuentes `*.ts` (excluyendo `*.spec.ts`). Recomiendo fijar "10 servicios / 71 fuentes / 2 specs" como cifras de partida para que el umbral inicial se calcule sin ambigüedad.
+
+2. **HUECO CRÍTICO no cubierto por el borrador — `tsconfig.spec.json` sólo incluye specs.** El `tsconfig.spec.json` actual declara `"include": ["src/**/*.d.ts", "src/**/*.spec.ts"]`: SÓLO compila los ficheros de test. Con `@vitest/coverage-v8` y la configuración por defecto, la cobertura se reporta **únicamente sobre los ficheros que un test ejecuta** (`coverage.all` desactivado o sin `coverage.include` que abarque `src/app/**`). Consecuencia directa y peligrosa: **un umbral fijado sobre "sólo lo tocado" es engañosamente alto** (con 2 specs bien hechos podrías ver 80-90% de líneas *de los 2-3 ficheros probados*), y al sembrar más specs el denominador crece y la cobertura **cae**, rompiendo un trinquete mal calibrado. La entrevista DEBE decidir: (a) activar `coverage.all: true` + `coverage.include: ['src/app/**/*.ts']` con `coverage.exclude` para `*.spec.ts`, `main.ts`, `*.d.ts`, `environments/*` y barrels, de modo que el denominador sea el código de app COMPLETO desde el día 1; o (b) documentar explícitamente que el umbral es "cobertura de lo probado" (mucho menos útil como señal). Recomiendo (a): sin denominador estable, "trinquete que sólo sube" no es medible ni seguro.
+
+3. **`--cov=app` en PR ≠ `ng test` en verify (matiz de paridad frontend).** El borrador dice que este intent "cierra la paridad de cobertura del frontend en `verify`". Correcto en la dirección, con un matiz: hoy la cobertura backend (`--cov=app`) sólo corre en `ci.yml`, no en `verify`. Para el FRONTEND, en cambio, la exigencia SÍ queda pareja en ambos caminos porque el umbral vive dentro de `ng test` y ese comando ya corre idéntico (`npx ng test --watch=false`) en `ci.yml` y en `verify`. Sugiero redactarlo como "paridad de cobertura FRONTEND: SÍ (herencia vía `ng test`); paridad de cobertura BACKEND: DIFERIDA (Q5=A)", para que no se lea como que se cierra toda la asimetría de `verify`.
+
+### Additions (integrables)
+
+4. **Umbral por-métrica, no global único, con arranque asimétrico.** Recomiendo `coverage.thresholds` **por métrica** (`lines`, `statements`, `functions`, `branches`) en `vitest.config`, no un único número global. Razón de calidad: `branches` y `functions` son las métricas que detectan tests-espejo sin aserciones (el anti-patrón de "cobertura alta, aserciones vacías"). Arranque asimétrico defendible: `lines`/`statements` iguales y ligeramente por debajo de la medición real post-siembra; `branches`/`functions` con margen mayor (más volátiles al añadir ramas de error). Valores exactos → medir tras la siembra (ver Positions).
+
+5. **Cómo derivar el umbral inicial de forma segura (procedimiento, no valor).** El valor NO debe afirmarse a ciegas. Procedimiento recomendado: (1) sembrar specs de fase 1; (2) correr `ng test --watch=false` con `coverage.all: true` y `coverage.include` sobre `src/app/**`; (3) leer los cuatro porcentajes reales; (4) fijar cada threshold **N puntos por debajo** del real (colchón sugerido 2-5 pts, para absorber flakiness de medición V8 y variaciones de árbol) redondeando hacia abajo. Ese es el piso que "la línea base ya supera" y que el trinquete sube después. Sin este paso de medición, cualquier número es especulación.
+
+6. **Prioridad de siembra por valor/coste (medible, determinista, sin red).** Concuerdo con "guard + servicios HTTP primero". Orden fino recomendado, priorizando lógica ramificada y determinismo:
+   - **P0 `core/guards/auth.guard.ts`** — transversal, decide navegación; ramas claras (autenticado/no, redirect); testeable con `Router`/`AuthService` dobles, sin red. Máximo valor/coste.
+   - **P0 `core/services/auth.service.ts`** — login/refresh/logout/estado de sesión; lógica no trivial; `HttpTestingController` (`provideHttpClientTesting`) evita red real.
+   - **P1 servicios HTTP CRUD de `core/services/*`** (`budget`, `sync`, `championship`, `roster`, `stats`, `analytics`, `evolution`, `favorites`) — patrón repetido con `HttpTestingController`; alto rendimiento de cobertura por spec, todos deterministas y sin red.
+   - **P2 `assistant.service.ts`** — probable dependencia de streaming/marked; dejar para después si introduce no-determinismo.
+   - Reutilizar el patrón ya establecido por `auth.interceptor.spec.ts` (Vitest + `@angular/*/testing` + colas de refresh) e `idle-preloading-strategy.spec.ts` (fake timers). NO sembrar `features/*`/`shared/*` (componentes con `TestBed` pesado) en fase 1: menor cobertura/coste y más flakiness; entran cuando el trinquete lo exija.
+
+7. **`skipTests` — política diferenciada por schematic.** Coincido en retirar `skipTests: true` de `component`, `guard`, `interceptor`, `service`, `directive`, `class`. Para `pipe` y `resolver` (specs a menudo triviales), la entrevista puede optar por conservarlos o cubrirlos con el `coverage.exclude` en vez de forzar specs vacíos; lo importante es que el **denominador de cobertura** (punto 2) los trate de forma coherente con esa decisión (si se excluyen del spec pero cuentan en `coverage.include`, aparecerán como 0% y arrastrarán el umbral).
+
+8. **Definición de "hecho" (testing) reforzada — anti tests-espejo.** Añadir a la posture: los specs sembrados deben tener aserciones significativas (verificar payload/headers/estado, no sólo "se llamó"); PROHIBIR el patrón `expect(true).toBe(true)` y equivalentes. La cobertura es guía, no meta: 80% con aserciones vacías es peor que 60% con aserciones reales. Esto es exactamente la brecha de MEANINGFULNESS de FR17.1 a nivel de spec, complementaria a la de gate.
+
+### Confirmaciones de la lente de calidad
+
+- **FR17.1 es brecha de significatividad, no de ejecución**: CONFIRMADO contra evidencia. Ambos caminos ya corren `ng test --watch=false` bloqueante; hoy no hay threshold que rompa. Activar el umbral dentro de `ng test` propaga la exigencia a `ci.yml` y `verify` sin editar dos sitios ni tocar `needs:`. El umbral debe vivir SÓLO en `vitest.config` como fuente única (con la salvedad del punto 2 sobre el denominador). No hace falta cablearlo explícitamente en los workflows.
+- **`@vitest/coverage-v8` como proveedor por defecto**: adecuado (OSS, coste 0 €, nativo V8, rápido, alineado con Vitest 4). `istanbul` sólo si se necesita instrumentación más precisa de branches; para este intent V8 basta.
+- **Orden FR10 → FR17.1 y siembra-antes-de-umbral**: CONFIRMADO como seguro. Un umbral por encima de la cobertura real rompería el gate BLOQUEANTE de inmediato.
+
+## Positions
+
+AGREE: `test-after` es la methodology correcta aquí — el intent añade infraestructura de cobertura a un frontend casi sin specs, no congela un artefacto único; no es characterization-first.
+AGREE: umbral único en `vitest.config` heredado por `ci.yml` y `verify` vía `ng test`, sin doble cableado ni cambio de `needs:`.
+AGREE: `@vitest/coverage-v8` (OSS, coste 0 €) como proveedor de cobertura por defecto.
+AGREE: trinquete sólo-sube y prohibición de bajar el piso para hacer pasar el gate; siembra de `auth.guard.ts` + servicios `core/services/*` antes de activar el umbral.
+OBJECT: el borrador NO fija cómo se define el DENOMINADOR de cobertura — con el `tsconfig.spec.json` actual (`include` sólo de `*.spec.ts`) y sin `coverage.all`/`coverage.include`, un umbral sobre "sólo lo probado" es engañoso y CAERÁ al sembrar más specs, rompiendo el trinquete; la entrevista debe fijar `coverage.all: true` + `coverage.include: src/app/**` + `coverage.exclude` explícito.
+OBJECT: el borrador propone umbral "bajo pero creciente" sin especificar per-métrica vs global; recomiendo per-métrica (`lines`/`statements`/`functions`/`branches`) porque `branches`/`functions` son las que detectan tests sin aserciones (la propia brecha de meaningfulness de FR17.1).
+OBJECT (menor): "cierra la paridad de cobertura del frontend en `verify`" debe matizarse — la paridad FRONTEND sí queda pareja vía `ng test`, pero la BACKEND (`--cov` en `verify`) sigue DIFERIDA; redactarlo separado para no dar a entender que se cierra toda la asimetría.

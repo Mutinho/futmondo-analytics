@@ -1,0 +1,17 @@
+{
+  "stage": "units-generation",
+  "upstream_ids": ["FR10.1", "FR10.2", "FR10.2.1", "FR10.2.2", "FR10.2.3", "FR10.3", "FR10.3.1", "FR10.3.2", "FR17.1", "FR17.1.1", "FR17.1.2"],
+  "coverage": [
+    { "id": "FR10.1", "status": "OK", "target": "U1" },
+    { "id": "FR10.2", "status": "OK", "target": "U1" },
+    { "id": "FR10.2.1", "status": "OK", "target": "U1" },
+    { "id": "FR10.2.2", "status": "OK", "target": "U1" },
+    { "id": "FR10.2.3", "status": "OK", "target": "U1" },
+    { "id": "FR10.3", "status": "OK", "target": "U1" },
+    { "id": "FR10.3.1", "status": "OK", "target": "U1" },
+    { "id": "FR10.3.2", "status": "OK", "target": "U1" },
+    { "id": "FR17.1", "status": "OK", "target": "U1" },
+    { "id": "FR17.1.1", "status": "OK", "target": "U1" },
+    { "id": "FR17.1.2", "status": "OK", "target": "U1" }
+  ]
+}

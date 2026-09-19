@@ -1,0 +1,24 @@
+{
+  "stage": "code-generation",
+  "unit": "frontend-coverage-gate",
+  "version": 1,
+  "writes": [
+    { "path": "angular-app/angular.json" },
+    { "path": "angular-app/package.json" },
+    { "path": "angular-app/package-lock.json" },
+    { "path": "angular-app/src/app/core/guards/auth.guard.spec.ts" },
+    { "path": "angular-app/src/app/core/services/auth.service.spec.ts" },
+    { "path": "angular-app/src/app/core/services/budget.service.spec.ts" },
+    { "path": "angular-app/src/app/core/services/roster.service.spec.ts" },
+    { "path": "angular-app/src/app/core/services/favorites.service.spec.ts" },
+    { "path": "angular-app/src/app/core/services/championship.service.spec.ts" },
+    { "path": "angular-app/src/app/core/services/evolution.service.spec.ts" },
+    { "path": "angular-app/src/app/core/services/stats.service.spec.ts" },
+    { "path": "angular-app/src/app/core/services/sync.service.spec.ts" },
+    { "path": "angular-app/src/app/core/services/analytics.service.spec.ts" },
+    { "path": "angular-app/src/app/core/services/assistant.service.spec.ts" },
+    { "path": "angular-app/src/app/features/market/bid-dialog.component.spec.ts" },
+    { "path": ".github/workflows/ci.yml" },
+    { "path": ".github/workflows/fly-deploy.yml" }
+  ]
+}

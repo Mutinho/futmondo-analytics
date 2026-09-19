@@ -14,7 +14,26 @@ Las rutas protegidas exigen `Authorization: Bearer <access>`, verificado con
 (StaticFiles) NO empieza por `/api/v1` ni `/auth`, así que el middleware la deja pasar sin
 auth; las redirecciones 302 del endpoint de fotos apuntan ahí.
 
-## Endpoints de Premios y Finanzas (área del intent activo)
+## Cliente HTTP del Frontend (Angular 22)
+
+El frontend consume la superficie backend mediante servicios `HttpClient` en
+`angular-app/src/app/core/services/*.service.ts` (11 servicios: `analytics`, `assistant`,
+`auth`, `budget`, `championship`, `evolution`, `favorites`, `roster`, `stats`, `sync`).
+Todas las peticiones pasan por `core/interceptors/auth.interceptor.ts`, que implementa el
+lado cliente del modelo de auth:
+
+- Añade `Authorization: Bearer <access>` a las peticiones a `/api/*`.
+- EXCLUYE `/auth/*` del Bearer y usa `withCredentials: true` para enviar la cookie
+  `HttpOnly` de refresh.
+- Ante `401`, ENCOLA las peticiones en vuelo mientras dispara un único refresh; al resolver,
+  reintenta las encoladas con el nuevo token.
+- Ante fallo de refresh o `403`, fuerza logout.
+
+Este comportamiento está caracterizado por `auth.interceptor.spec.ts` (único contrato de
+cliente hoy cubierto por test; ver `code-quality-assessment.md`). El resto de servicios
+`core/services/*` NO tienen spec.
+
+## Endpoints de Premios y Finanzas
 
 Superficie de LECTURA sobre los premios ya persistidos en `team_prizes`. Ningún endpoint
 recalcula: todos leen y suman lo que produjo `data_sync_service.sync_prizes()` (ver

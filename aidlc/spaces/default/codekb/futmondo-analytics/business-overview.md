@@ -27,7 +27,7 @@ endpoints operan con las credenciales Futmondo del usuario logado.
 - **Analítica visual**: evolución, estadísticas, clausulables y sub-tabs de analytics con
   gráficos Chart.js.
 
-## Premios de Jornada (dominio central del intent activo)
+## Premios de Jornada (dominio central de un intent previo)
 
 El **cálculo de premios de jornada** (matchday prizes) es la mecánica de negocio que
 reparte el dinero que gana cada equipo en cada jornada de un campeonato. Es la base de las
@@ -44,12 +44,9 @@ parte, de la suma de premios acumulados. Los términos de negocio por (equipo, j
   en la alineación del equipo.
 
 Estos importes se **precalculan una sola vez por sincronización** y se persisten como fuente
-de verdad; las pantallas de saldos y finanzas sólo leen y suman. El valor de negocio del
-intent `260918-matchday-prizes-calc` es **mejorar la fiabilidad y correción de ese cálculo**
-(gating de ronda completa, jornadas adelantadas, modos de ranking) sin cambiar el stack ni
-salir del presupuesto de coste 0 €. La mecánica técnica exacta, sus entradas y su tabla de
-salida están en `architecture.md` (Diagramas de Interacción) y `code-quality-assessment.md`
-(deuda y riesgos).
+de verdad; las pantallas de saldos y finanzas sólo leen y suman. La mecánica técnica exacta,
+sus entradas y su tabla de salida están en `architecture.md` (Diagramas de Interacción) y
+`code-quality-assessment.md` (deuda y riesgos).
 
 ## Contexto de Intents Anteriores (Backend Security Hardening)
 
@@ -72,3 +69,15 @@ El detalle técnico de cada hallazgo y su evidencia vive en `code-quality-assess
 (deuda técnica) y `api-documentation.md` (superficie afectada); aquí sólo se enmarca el
 valor de negocio: reducir la superficie de abuso de las pujas, el acceso de administración
 y la sesión de refresco sin salir del stack ni del presupuesto de coste 0 €.
+
+## Contexto del Intent Activo (Frontend Coverage Gate)
+
+El intent activo `260918-frontend-coverage-gate` (scope `classic`) NO añade comportamiento
+de dominio nuevo: es una intervención de **calidad e ingeniería de entrega** sobre el
+frontend Angular y el pipeline CI/CD. Su valor de negocio es de **protección**: hacer que
+los cambios de código del frontend estén respaldados por tests significativos que impidan
+que una regresión en lógica cubierta (p. ej. el `auth.interceptor` o los servicios `core`)
+llegue a producción. Los hallazgos y el estado actual de cobertura viven en
+`code-quality-assessment.md` (artefacto propietario de este intent); la superficie afectada
+(schematics, tooling de test, workflows) se describe en `code-structure.md`,
+`technology-stack.md` y `component-inventory.md`.

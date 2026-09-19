@@ -1,0 +1,14 @@
+{
+  "stage": "infrastructure-design",
+  "unit": "frontend-coverage-gate",
+  "upstream_ids": ["NFR1.4", "NFR1.5", "NFR1"],
+  "coverage": [
+    { "id": "NFR1.4", "status": "OK", "target": "cicd-pipeline: ng test bloqueante en ci.yml y verify, gate no debilitado" },
+    { "id": "NFR1.5", "status": "OK", "target": "cicd-pipeline + monitoring-design: reporte de cobertura solo observabilidad, sin continue-on-error sustitutivo" },
+    { "id": "NFR1", "status": "OK", "target": "infrastructure-specification: coste 0 EUR, sin recursos nuevos de pago" }
+  ],
+  "reverse": [
+    { "id": "infrastructure-specification", "status": "N/A", "target": "kind packaging: no hay infraestructura desplegable nueva (IaC/AWS N/A); solo workflows existentes" },
+    { "id": "monitoring-design", "status": "N/A", "target": "kind packaging: sin runtime; SLO/tracing formales N/A por coste 0 EUR; la observabilidad es el reporte de cobertura de CI" }
+  ]
+}
