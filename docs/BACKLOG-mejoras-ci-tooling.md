@@ -55,3 +55,9 @@ modificar sus artefactos.
 - Al abordarlas, respetar la regla de proyecto de coste 0€ (solo tiers gratuitos).
 - Si se convierten en trabajo formal, abrir un intent AI-DLC (scope `refactor` o
   similar) que las priorice y las trace.
+
+## Relacionado
+- Estado verificado de FR10 (cobertura frontend) y FR17 (fiabilidad del
+  pipeline): ver `docs/BACKLOG-cobertura-frontend-y-pipeline.md` (2026-09-18).
+  El punto nº4 de arriba (Karma → Vitest) ya quedó resuelto según esa
+  verificación.
