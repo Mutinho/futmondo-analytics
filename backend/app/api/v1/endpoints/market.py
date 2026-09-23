@@ -11,6 +11,13 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+# Sanity ceiling for a bid price (FR6). This is NOT the real market limit (that
+# is validated by Futmondo); it is a generous multiple of a high-but-plausible
+# championship budget, acting as a backend guardrail against an unbounded /
+# overflowing integer or abuse before the bid is ever proxied to Futmondo.
+PRICE_SANITY_CAP = 5_000_000_000  # ~10x a high plausible championship budget
+
+
 from app.api.v1.endpoints._helpers import clean_float as _clean_avg
 
 
@@ -137,6 +144,15 @@ async def place_bid(
             raise HTTPException(
                 status_code=422,
                 detail="El precio de la puja debe ser un entero positivo",
+            )
+
+        # Upper bound sanity check (FR6): reject an absurd/overflowing price at
+        # the boundary before proxying to Futmondo. This is a backend guardrail,
+        # not the real market limit (Futmondo validates that).
+        if price > PRICE_SANITY_CAP:
+            raise HTTPException(
+                status_code=422,
+                detail="El precio de la puja excede el límite permitido",
             )
 
         from app.api.v1.endpoints._helpers import get_user_futmondo_client

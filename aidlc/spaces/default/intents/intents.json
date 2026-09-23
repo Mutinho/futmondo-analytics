@@ -61,5 +61,12 @@
     "dirName": "260918-frontend-coverage-gate",
     "scope": "classic",
     "status": "complete"
+  },
+  {
+    "uuid": "01a0c2c3-50a8-746c-b690-2b4e34976925",
+    "slug": "grupo-a-backend-fiabilid",
+    "dirName": "260921-grupo-a-backend-fiabilid",
+    "scope": "feature",
+    "status": "complete"
   }
 ]

@@ -1,0 +1,14 @@
+{
+  "stage": "domain-design",
+  "upstream_ids": ["FR3.1", "FR3.2", "FR6", "NFR1", "NFR2", "NFR3", "NFR4", "NFR5"],
+  "coverage": [
+    { "id": "FR3.1", "status": "OK", "target": "C1-DEGRADED / C2-record_degraded_step / C3-cableado" },
+    { "id": "FR3.2", "status": "OK", "target": "C4-politica-except" },
+    { "id": "FR6", "status": "OK", "target": "C5-PRICE_SANITY_CAP" },
+    { "id": "NFR1", "status": "OK", "target": "C1-DEGRADED" },
+    { "id": "NFR2", "status": "OK", "target": "C2-helper-fuera-god-file" },
+    { "id": "NFR3", "status": "Deferred", "target": "build-and-test" },
+    { "id": "NFR4", "status": "OK", "target": "C2/C5-sin-dependencias-nuevas" },
+    { "id": "NFR5", "status": "OK", "target": "C5-PRICE_SANITY_CAP" }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "stage": "code-generation",
+  "unit": "sync-reliability",
+  "upstream_ids": ["FR3.1", "FR3.2", "FR6", "NFR1", "NFR2", "NFR3", "NFR4", "NFR5"],
+  "coverage": [
+    { "id": "FR3.1", "status": "OK", "target": "backend/app/services/sync_step_status.py" },
+    { "id": "FR3.2", "status": "OK", "target": "backend/tests/test_token_store_migrations.py" },
+    { "id": "FR6", "status": "OK", "target": "backend/app/api/v1/endpoints/market.py" },
+    { "id": "NFR1", "status": "OK", "target": "backend/app/api/v1/endpoints/sync.py" },
+    { "id": "NFR2", "status": "OK", "target": "backend/app/services/sync_step_status.py" },
+    { "id": "NFR3", "status": "OK", "target": "backend/tests/test_sync_step_status.py" },
+    { "id": "NFR4", "status": "OK", "target": "backend/tests/test_market_bid_sanity_cap.py" },
+    { "id": "NFR5", "status": "OK", "target": "backend/app/services/db_connection.py" }
+  ]
+}

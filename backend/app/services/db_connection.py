@@ -185,7 +185,13 @@ class DBConnection:
                         try:
                             self._pool.putconn(conn, close=True)
                         except Exception:
-                            pass
+                            logger.debug(
+                                "failed to return dead connection to pool "
+                                "(attempt %d/%d); discarding",
+                                attempt + 1,
+                                max_attempts,
+                                exc_info=True,
+                            )
                         conn = None
                         if attempt == max_attempts - 1:
                             # All pool connections dead — recreate pool
@@ -193,7 +199,11 @@ class DBConnection:
                             try:
                                 self._pool.closeall()
                             except Exception:
-                                pass
+                                logger.warning(
+                                    "failed to close exhausted pool before "
+                                    "recreating; proceeding with a fresh pool",
+                                    exc_info=True,
+                                )
                             import psycopg2.pool
                             self._pool = psycopg2.pool.ThreadedConnectionPool(
                                 5, 20, self.connection_string

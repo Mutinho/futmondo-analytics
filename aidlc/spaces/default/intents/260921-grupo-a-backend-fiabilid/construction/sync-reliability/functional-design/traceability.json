@@ -1,0 +1,15 @@
+{
+  "stage": "functional-design",
+  "unit": "sync-reliability",
+  "upstream_ids": ["FR3.1", "FR3.2", "FR6", "NFR1", "NFR2", "NFR3", "NFR4", "NFR5"],
+  "coverage": [
+    { "id": "FR3.1", "status": "OK", "target": "FS1-helper / FS2-cableado / BR1-BR2" },
+    { "id": "FR3.2", "status": "OK", "target": "FS4-except / BR5" },
+    { "id": "FR6", "status": "OK", "target": "FS3-PRICE_SANITY_CAP / BR4" },
+    { "id": "NFR1", "status": "OK", "target": "BR3-status-por-paso" },
+    { "id": "NFR2", "status": "OK", "target": "FS1-modulo-estrecho" },
+    { "id": "NFR3", "status": "Deferred", "target": "code-generation / build-and-test (specs)" },
+    { "id": "NFR4", "status": "OK", "target": "sin-dependencias-nuevas" },
+    { "id": "NFR5", "status": "OK", "target": "FS3-techo-price" }
+  ]
+}
