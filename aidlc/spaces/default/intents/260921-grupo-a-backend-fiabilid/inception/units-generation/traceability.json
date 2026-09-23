@@ -1,0 +1,14 @@
+{
+  "stage": "units-generation",
+  "upstream_ids": ["FR3.1", "FR3.2", "FR6", "NFR1", "NFR2", "NFR3", "NFR4", "NFR5"],
+  "coverage": [
+    { "id": "FR3.1", "status": "OK", "target": "U1-sync-reliability" },
+    { "id": "FR3.2", "status": "OK", "target": "U1-sync-reliability" },
+    { "id": "FR6", "status": "OK", "target": "U1-sync-reliability" },
+    { "id": "NFR1", "status": "OK", "target": "U1-sync-reliability" },
+    { "id": "NFR2", "status": "OK", "target": "U1-sync-reliability" },
+    { "id": "NFR3", "status": "OK", "target": "U1-sync-reliability" },
+    { "id": "NFR4", "status": "OK", "target": "U1-sync-reliability" },
+    { "id": "NFR5", "status": "OK", "target": "U1-sync-reliability" }
+  ]
+}

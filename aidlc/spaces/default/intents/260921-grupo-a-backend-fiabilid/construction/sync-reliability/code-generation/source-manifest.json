@@ -1,0 +1,34 @@
+{
+  "stage": "code-generation",
+  "unit": "sync-reliability",
+  "version": 1,
+  "writes": [
+    {
+      "path": "backend/app/services/sync_step_status.py"
+    },
+    {
+      "path": "backend/app/api/v1/endpoints/sync.py"
+    },
+    {
+      "path": "backend/app/api/v1/endpoints/market.py"
+    },
+    {
+      "path": "backend/app/auth/token_store.py"
+    },
+    {
+      "path": "backend/app/services/db_connection.py"
+    },
+    {
+      "path": "backend/tests/test_sync_step_status.py"
+    },
+    {
+      "path": "backend/tests/test_sync_degraded_steps.py"
+    },
+    {
+      "path": "backend/tests/test_market_bid_sanity_cap.py"
+    },
+    {
+      "path": "backend/tests/test_token_store_migrations.py"
+    }
+  ]
+}
