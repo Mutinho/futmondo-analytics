@@ -3827,7 +3827,21 @@ function verifyReviewerPrecondition(
       if (!baseline.has(pathKey)) baselineChanged.add(pathKey);
     }
     const claimModels = [...receipts.freshUnitClaims.values()];
+    // AIDLC local patch (2026-09-23): Python bytecode caches are generated,
+    // gitignored output — never application source. The stage's source baseline
+    // snapshot was captured by a filesystem-mode walk that did not exclude
+    // __pycache__/*.pyc, so a later pytest run (which regenerates or removes
+    // bytecode) surfaces dozens of phantom "unclaimed source" paths that block
+    // the gate and cannot be reverted (regenerated hashes) or sanely claimed in
+    // a unit manifest. Filter bytecode out of the unclaimed delta here — it is
+    // never application source on either side of the diff. See the intent's
+    // GATE-BLOCK-DIAGNOSIS.md. Revert when the upstream fix ships.
+    const isPythonBytecode = (pathKey: string): boolean =>
+      pathKey.split("/").includes("__pycache__") ||
+      pathKey.endsWith(".pyc") ||
+      pathKey.endsWith(".pyo");
     baselineUnclaimed = [...baselineChanged]
+      .filter((pathKey) => !isPythonBytecode(pathKey))
       .filter((pathKey) => !claimModels.some((claims) => sourceClaimCovers(pathKey, claims)))
       .sort();
   }

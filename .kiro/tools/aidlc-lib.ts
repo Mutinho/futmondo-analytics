@@ -14126,6 +14126,14 @@ const SOURCE_FINGERPRINT_HARD_EXCLUDED_NAMES = [
   ".ruff_cache",
   ".tox",
   ".venv",
+  // AIDLC local patch (2026-09-23): Python bytecode caches are generated,
+  // gitignored output — never application source. Without this entry the
+  // filesystem-mode source walk captured __pycache__/*.pyc into the stage
+  // baseline, so a later run of pytest (which regenerates bytecode with
+  // different hashes) made the completion guard reject the gate with dozens
+  // of "unclaimed source change" paths. See the intent's
+  // GATE-BLOCK-DIAGNOSIS.md. Revert when the upstream fix ships.
+  "__pycache__",
   "node_modules",
   "venv",
 ] as const;
