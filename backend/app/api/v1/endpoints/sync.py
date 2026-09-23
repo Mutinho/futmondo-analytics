@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 from app.services.data_manager_v2 import DataManagerV2
 from app.services.data_sync_service import DataSyncService
 from app.services.task_service import TaskConflictError, TaskPersistenceError, get_task_service
+from app.services.sync_step_status import record_degraded_step
 from app.services.db_connection import get_db
 from app.core.config import CHAMPIONSHIP_ID
 
@@ -148,8 +149,10 @@ def _run_sync_in_background(task_id: str, sync_type: str, championship_id: str, 
                 tm.update_progress(task_id, "prizes", {"status": "done", **prizes_result})
                 results["prizes"] = prizes_result
             except Exception as pr_err:
-                logger.warning(f"Prizes sync failed (non-critical): {pr_err}")
-                tm.update_progress(task_id, "prizes", {"status": "done", "records_synced": 0, "error": str(pr_err)})
+                # Non-critical step: record it as DEGRADED (not "done") with a
+                # reason and a structured log, so a reliability consumer can tell
+                # a real success from a buried failure (FR3.1/BR1).
+                record_degraded_step(tm, task_id, "prizes", str(pr_err), {"records_synced": 0})
                 results["prizes"] = {"records_synced": 0}
 
             # --- Check phantoms ---
@@ -159,8 +162,9 @@ def _run_sync_in_background(task_id: str, sync_type: str, championship_id: str, 
                 tm.update_progress(task_id, "phantoms", {"status": "done", **phantoms_result})
                 results["phantoms"] = phantoms_result
             except Exception as ph_err:
-                logger.warning(f"Phantom check failed (non-critical): {ph_err}")
-                tm.update_progress(task_id, "phantoms", {"status": "done", "total_phantoms": 0, "error": str(ph_err)})
+                # Non-critical step: record it as DEGRADED (not "done") with a
+                # reason and a structured log (FR3.1/BR1).
+                record_degraded_step(tm, task_id, "phantoms", str(ph_err), {"total_phantoms": 0})
                 results["phantoms"] = {"total_phantoms": 0}
         elif sync_type == "transactions":
             tm.update_progress(task_id, "transactions", {"status": "running"})

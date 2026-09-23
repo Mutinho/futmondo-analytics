@@ -3,6 +3,7 @@ Refresh token storage — persists tokens in DB for revocation support.
 """
 
 import logging
+import sqlite3
 from datetime import datetime, timezone
 from typing import Optional
 from app.services.db_connection import get_db
@@ -99,14 +100,38 @@ def init_auth_tables():
         "ALTER TABLE user_championships ADD COLUMN is_pro BOOLEAN DEFAULT FALSE",
         "ALTER TABLE user_championships ADD COLUMN futmondo_team_id TEXT",
     ]
+    # Expected "already exists" errors when a column/object is present from a
+    # prior run. Narrow the catch to EXACTLY those subclasses so a REAL migration
+    # failure (bad SQL, undefined table, missing privileges, connection loss) is
+    # never swallowed — it re-raises (FR3.2/BR5). We deliberately do NOT catch the
+    # broad psycopg2.ProgrammingError superclass: it also covers SyntaxError,
+    # UndefinedTable and InsufficientPrivilege, which are fatal migration errors
+    # that must propagate. psycopg2 is imported lazily and defensively: on a
+    # SQLite-only test environment it may be absent, and the sqlite3.OperationalError
+    # branch must still work (the tuple then contains only sqlite3.OperationalError).
+    duplicate_errors: tuple = (sqlite3.OperationalError,)
+    try:
+        from psycopg2 import errors as psycopg2_errors
+
+        duplicate_errors = (
+            psycopg2_errors.DuplicateColumn,
+            psycopg2_errors.DuplicateObject,
+            sqlite3.OperationalError,
+        )
+    except Exception:
+        # psycopg2 not importable (e.g. SQLite-only test env): keep the sqlite3
+        # branch only. This is an environment probe, not a migration failure.
+        pass
+
     for sql in migrations:
         try:
             with db.get_connection() as conn2:
                 cursor2 = db.get_cursor(conn2)
                 cursor2.execute(sql)
                 conn2.commit()
-        except Exception:
-            pass  # Column already exists
+        except duplicate_errors:
+            # Column/object already exists — expected and benign on re-run.
+            logger.debug("Migration skipped, column/object already exists: %s", sql)
 
     logger.info("Auth tables ensured")
 
