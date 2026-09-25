@@ -1,10 +1,20 @@
 """
-Tests de caracterización de la capa de acceso a datos MULTI-MOTOR (FR7.1, C4).
+Characterization tests for the PostgreSQL/Neon data-access layer (FR7.1, FR14.1.5).
 
-`DBConnection` abstrae SQLite, PostgreSQL y Turso. Este test congela la
-SELECCIÓN de motor y la adaptación de placeholders/DDL SIN conectar a ninguna BD
-real: se construye la instancia evitando el `__init__` (que abriría conexiones) y
-se ejercitan los métodos puros de adaptación. Marca la capa antes de refactorizarla.
+After FR14.1 (limpieza de configuración), ``DBConnection`` targets a SINGLE
+production engine: PostgreSQL/Neon via ``DATABASE_URL``. The removed SQLite and
+Turso (LibSQL) production branches are dead code; this suite freezes the
+placeholder/DDL adaptation and cursor-selection contract of the engine that
+REMAINS, without connecting to any real database: the instance is built bypassing
+``__init__`` (which would open connections) and only the pure adaptation methods
+are exercised. Characterization-first: this file is updated in lockstep with the
+Turso/SQLite retirement so the suite stays green (R-01/R-03).
+
+Note on the in-memory test fake: ``conftest.py``'s ``_FakeInMemoryDB`` uses
+``db_type="sqlite"`` and is INDEPENDENT of the production SQLite branch removed
+here — it is a self-contained persistence double for repositories, not the
+production connector. Removing the production SQLite/Turso branches does not
+affect it.
 """
 
 import os
@@ -15,7 +25,7 @@ from app.services.db_connection import DBConnection  # noqa: E402
 
 
 def _make_conn(db_type):
-    """Crea un DBConnection con un db_type fijado, sin abrir conexiones reales."""
+    """Build a DBConnection with a fixed db_type, without opening real connections."""
     conn = DBConnection.__new__(DBConnection)
     conn.db_type = db_type
     conn.db_path = ":memory:"
@@ -29,23 +39,16 @@ def test_adapt_params_postgres_converts_qmark_to_percent_s():
         "SELECT * FROM t WHERE id = %s"
 
 
-def test_adapt_params_sqlite_keeps_qmark():
-    conn = _make_conn("sqlite")
-    assert conn.adapt_params("SELECT * FROM t WHERE id = ?") == \
-        "SELECT * FROM t WHERE id = ?"
-
-
-def test_adapt_params_turso_keeps_qmark():
-    """Turso es compatible SQLite: no se adaptan placeholders."""
-    conn = _make_conn("turso")
-    assert conn.adapt_params("SELECT * FROM t WHERE id = ?") == \
-        "SELECT * FROM t WHERE id = ?"
-
-
 def test_adapt_params_postgres_leaves_already_percent_s():
     conn = _make_conn("postgresql")
     assert conn.adapt_params("SELECT * FROM t WHERE id = %s") == \
         "SELECT * FROM t WHERE id = %s"
+
+
+def test_adapt_params_postgres_leaves_parameterless_sql():
+    """No placeholders means nothing to rewrite for the Neon path."""
+    conn = _make_conn("postgresql")
+    assert conn.adapt_params("SELECT 1") == "SELECT 1"
 
 
 def test_adapt_sql_postgres_rewrites_autoincrement():
@@ -55,17 +58,9 @@ def test_adapt_sql_postgres_rewrites_autoincrement():
     assert "AUTOINCREMENT" not in out
 
 
-def test_adapt_sql_sqlite_is_noop():
-    conn = _make_conn("sqlite")
-    sql = "id INTEGER PRIMARY KEY AUTOINCREMENT"
-    assert conn.adapt_sql(sql) == sql
-
-
-def test_get_cursor_wraps_turso_cursor_only():
-    """Para Turso el cursor se envuelve (auto-conversión de datetime); para el
-    resto se devuelve el cursor tal cual. Congela la selección por motor."""
-    from app.services.db_connection import _TursoCursorWrapper
-
+def test_get_cursor_returns_raw_cursor_for_postgres():
+    """After the Turso retirement, get_cursor always returns the raw DB cursor
+    unchanged (no wrapper); this freezes the single-engine selection (R-03)."""
     class _RawCursor:
         pass
 
@@ -73,10 +68,27 @@ def test_get_cursor_wraps_turso_cursor_only():
         def cursor(self):
             return _RawCursor()
 
-    turso = _make_conn("turso")
-    wrapped = turso.get_cursor(_Conn())
-    assert isinstance(wrapped, _TursoCursorWrapper)
-
-    sqlite = _make_conn("sqlite")
-    raw = sqlite.get_cursor(_Conn())
+    pg = _make_conn("postgresql")
+    raw = pg.get_cursor(_Conn())
     assert isinstance(raw, _RawCursor)
+
+
+def test_get_last_insert_id_postgres_reads_returning_row():
+    """PostgreSQL/Neon returns the id via a RETURNING row (fetchone), not lastrowid."""
+    class _CursorWithReturning:
+        description = [("id",)]
+
+        def fetchone(self):
+            return (42,)
+
+    conn = _make_conn("postgresql")
+    assert conn.get_last_insert_id(_CursorWithReturning(), "players") == 42
+
+
+def test_get_last_insert_id_postgres_none_without_description():
+    """No RETURNING clause (no description) yields None on the Neon path."""
+    class _CursorNoDescription:
+        description = None
+
+    conn = _make_conn("postgresql")
+    assert conn.get_last_insert_id(_CursorNoDescription(), "players") is None

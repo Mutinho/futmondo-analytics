@@ -14,6 +14,11 @@ state assertion (Q1):
 In-memory doubles only: no network, no real DB, no credentials. The DBConnection
 is built without ``__init__`` (which would open real connections), mirroring the
 existing ``test_db_engine_characterization`` pattern.
+
+Note (FR14.1): production now targets PostgreSQL/Neon only, so these specs
+exercise the single remaining engine path. The recoverable/fatal semantics they
+freeze are unchanged by the SQLite/Turso retirement — they moved with the code,
+not away from it.
 """
 
 import os
@@ -25,12 +30,13 @@ import pytest  # noqa: E402
 from app.services.db_connection import DBConnection  # noqa: E402
 
 
-def _make_conn(db_type):
-    """Build a DBConnection with a fixed db_type without opening real connections."""
+def _make_conn():
+    """Build a DBConnection (PostgreSQL/Neon) without opening real connections."""
     conn = DBConnection.__new__(DBConnection)
-    conn.db_type = db_type
+    conn.db_type = "postgresql"
     conn.db_path = ":memory:"
     conn._pool = None
+    conn.connection_string = "postgresql://x"
     return conn
 
 
@@ -98,7 +104,7 @@ def test_test_connection_propagates_on_dead_db_fatal():
     Effect asserted: the exception is raised (not degraded to a warning) AND the
     failing connection was rolled back — no silent success.
     """
-    conn = _make_conn("sqlite")
+    conn = _make_conn()
     dead = _RecordingConn(fail_on_cursor_execute=True)
     conn.connector = _Connector(dead)
 
@@ -112,7 +118,7 @@ def test_test_connection_propagates_on_dead_db_fatal():
 
 def test_test_connection_succeeds_on_live_db():
     """Characterization: a live DB probe commits and does not raise."""
-    conn = _make_conn("sqlite")
+    conn = _make_conn()
     live = _RecordingConn(fail_on_cursor_execute=False)
     conn.connector = _Connector(live)
 
@@ -131,7 +137,7 @@ def test_get_connection_rolls_back_and_raises_on_error_no_partial_commit():
     Effect asserted: the exception propagates, the connection was rolled back,
     and it was NEVER committed — so no half-written data survives (NFR2, BR1.5).
     """
-    conn = _make_conn("sqlite")
+    conn = _make_conn()
     tx_conn = _RecordingConn()
     conn.connector = _Connector(tx_conn)
 
@@ -146,7 +152,7 @@ def test_get_connection_rolls_back_and_raises_on_error_no_partial_commit():
 
 def test_get_connection_commits_on_success():
     """Characterization: the happy path commits and does not roll back."""
-    conn = _make_conn("sqlite")
+    conn = _make_conn()
     tx_conn = _RecordingConn()
     conn.connector = _Connector(tx_conn)
 
@@ -167,7 +173,7 @@ def test_pool_creation_failure_degrades_to_direct_connections(monkeypatch):
     ``_pool`` ends as ``None`` (direct-connection mode), and boot continues to
     the liveness probe (which here succeeds).
     """
-    conn = _make_conn("postgresql")
+    conn = _make_conn()
     live = _RecordingConn(fail_on_cursor_execute=False)
 
     class _FailingPoolModule:
@@ -188,7 +194,7 @@ def test_pool_creation_failure_degrades_to_direct_connections(monkeypatch):
     monkeypatch.setitem(sys.modules, "psycopg2.pool", _FailingPoolModule.pool)
 
     # Should degrade (not raise) and reach the successful liveness probe.
-    conn._init_postgresql("postgresql://x", None, None, None, None, None)
+    conn._init_postgresql("postgresql://x")
 
     assert conn._pool is None  # recoverable: fell back to direct connections
     assert live.committed is True  # liveness probe ran and succeeded
