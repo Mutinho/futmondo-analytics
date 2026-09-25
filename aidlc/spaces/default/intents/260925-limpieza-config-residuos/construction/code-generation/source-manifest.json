@@ -1,0 +1,122 @@
+{
+  "stage": "code-generation",
+  "unit": null,
+  "version": 1,
+  "writes": [
+    {
+      "path": "backend/app/core/config.py",
+      "action": "modified",
+      "reason": "FR14.1.1 remove Turso/DATABASE_TYPE/POSTGRES dead-path cascade, resolve DATABASE_URL directly; FR14.2 neutralize hardcoded CHAMPIONSHIP_ID/LEAGUE_ID defaults to empty; keep DATABASE_PATH marked as local cache (R-02)."
+    },
+    {
+      "path": "backend/app/services/db_connection.py",
+      "action": "modified",
+      "reason": "FR14.1.2 prune to PostgreSQL/Neon-only; remove _init_turso, _init_sqlite, _TursoCursorWrapper, _convert_params; rewrite __init__ in lockstep with config.py (R-03) resolving DATABASE_URL; new _init_postgresql(database_url) signature."
+    },
+    {
+      "path": "backend/app/main.py",
+      "action": "modified",
+      "reason": "FR15.1.1/FR15.1.2 remove the non-canonical /v1/matchdays duplicate router mount, keep only /api/v1/matchdays."
+    },
+    {
+      "path": "backend/requirements.txt",
+      "action": "modified",
+      "reason": "FR14.1.3 remove dead dependency libsql-experimental==0.0.55."
+    },
+    {
+      "path": ".gitignore",
+      "action": "modified",
+      "reason": "FR15.2.2 harden with *:Zone.Identifier and stitch_*/ rules."
+    },
+    {
+      "path": "backend/tests/test_db_engine_characterization.py",
+      "action": "modified",
+      "reason": "FR14.1.5 / R-01 / Step 3-3bis: freeze PostgreSQL/Neon cursor/adapt contract; drop retired Turso/SQLite-production assertions in lockstep so the suite stays green."
+    },
+    {
+      "path": "backend/tests/test_error_layer_hardening.py",
+      "action": "modified",
+      "reason": "Lockstep update with the single-engine prune: use postgresql db_type and the new _init_postgresql(database_url) signature; recoverable/fatal semantics unchanged."
+    },
+    {
+      "path": "backend/tests/test_config_hardcoded_ids.py",
+      "action": "created",
+      "reason": "FR14.2.1/FR14.2.2 assert legacy hardcoded IDs are gone (by value and in source) and the fallback resolves to empty, never the legacy literal."
+    },
+    {
+      "path": "backend/tests/test_matchdays_mount.py",
+      "action": "created",
+      "reason": "FR15.1.1/FR15.1.2 assert the canonical /api/v1/matchdays route exists (401 auth-gated) and the retired /v1/matchdays prefix returns 404."
+    },
+    {
+      "path": "backend/nixpacks.toml",
+      "action": "deleted",
+      "reason": "FR14.1.4 orphan build config, no live refs (verified in Dockerfile*/fly.toml/docker-compose.yml/.github)."
+    },
+    {
+      "path": "backend/entrypoint.sh",
+      "action": "deleted",
+      "reason": "FR14.1.4 orphan entrypoint, no live refs."
+    },
+    {
+      "path": "backend/scripts/migrate_to_turso.py",
+      "action": "deleted",
+      "reason": "FR14.1.4 dead Turso migration script, no live refs (only self-referential docstring)."
+    },
+    {
+      "path": "backend/scripts/migrate_data_to_turso.py",
+      "action": "deleted",
+      "reason": "FR14.1.4 dead Turso data-migration script, no live refs (only self-referential docstring)."
+    },
+    {
+      "path": "30825.jpg:Zone.Identifier",
+      "action": "deleted",
+      "reason": "FR15.2.1 tracked Windows Zone.Identifier residue (git rm)."
+    },
+    {
+      "path": "42874.jpg",
+      "action": "deleted",
+      "reason": "FR15.2.1 tracked stray image residue (git rm)."
+    },
+    {
+      "path": "42874.jpg:Zone.Identifier",
+      "action": "deleted",
+      "reason": "FR15.2.1 tracked Windows Zone.Identifier residue (git rm)."
+    },
+    {
+      "path": "IMG_9904.PNG:Zone.Identifier",
+      "action": "deleted",
+      "reason": "FR15.2.1 tracked Windows Zone.Identifier residue (git rm)."
+    },
+    {
+      "path": "stitch_angular_material_card_redesign/DESIGN.md",
+      "action": "deleted",
+      "reason": "FR15.2.1 tracked design-mockup scratch residue (git rm --cached; working-tree file is root-owned and left on disk, now gitignored)."
+    },
+    {
+      "path": "stitch_angular_material_card_redesign/code.html",
+      "action": "deleted",
+      "reason": "FR15.2.1 tracked design-mockup scratch residue (git rm --cached; root-owned working-tree file left on disk, now gitignored)."
+    },
+    {
+      "path": "stitch_angular_material_card_redesign/screen.png",
+      "action": "deleted",
+      "reason": "FR15.2.1 tracked design-mockup scratch residue (git rm --cached; root-owned working-tree file left on disk, now gitignored)."
+    },
+    {
+      "path": "stitch_team_card_dashboard/DESIGN.md",
+      "action": "deleted",
+      "reason": "FR15.2.1 tracked design-mockup scratch residue (git rm --cached; root-owned working-tree file left on disk, now gitignored)."
+    },
+    {
+      "path": "stitch_team_card_dashboard/code.html",
+      "action": "deleted",
+      "reason": "FR15.2.1 tracked design-mockup scratch residue (git rm --cached; root-owned working-tree file left on disk, now gitignored)."
+    },
+    {
+      "path": "stitch_team_card_dashboard/screen.png",
+      "action": "deleted",
+      "reason": "FR15.2.1 tracked design-mockup scratch residue (git rm --cached; root-owned working-tree file left on disk, now gitignored)."
+    }
+  ]
+}
