@@ -191,10 +191,6 @@ app.include_router(sofascore_detail_router, prefix="/api/v1/sofascore", tags=["s
 app.include_router(user_router, prefix="/api/v1/user", tags=["user"])
 app.include_router(assistant_router, prefix="/api/v1/assistant", tags=["assistant"])
 
-# Also serve routes without /api prefix (to avoid redirect loops)
-# Include the same router with the old prefix
-app.include_router(matchdays.router, prefix="/v1/matchdays", tags=["matchdays"])
-
 # Serve static photos
 photos_dir = Path("static/photos/players")
 photos_dir.mkdir(parents=True, exist_ok=True)
