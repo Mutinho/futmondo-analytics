@@ -46,6 +46,11 @@ angular-app/.angular/
 # OS
 .DS_Store
 Thumbs.db
+# Windows "mark of the web" alternate-data-stream residues (FR15.2)
+*:Zone.Identifier
+
+# Design mockup scratch dirs (FR15.2) — not source, kept out of the repo
+stitch_*/
 
 # Docker
 .docker/

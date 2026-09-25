@@ -1,138 +1,50 @@
 #!/usr/bin/env python3
 """
-Database Connection Manager - Abstracts SQLite, PostgreSQL, and Turso (LibSQL) connections
+Database Connection Manager - PostgreSQL/Neon connection abstraction.
+
+Historical note (FR14.1): this manager previously abstracted SQLite, Turso
+(LibSQL) and PostgreSQL. Production now targets a single engine — PostgreSQL/Neon
+via ``DATABASE_URL`` — so the SQLite and Turso branches were removed as dead code.
+The in-memory SQLite test fake in ``conftest.py`` is a separate, self-contained
+double and is unaffected by this cleanup.
 """
 
-import os
 import logging
 from typing import Optional, Any
 from contextlib import contextmanager
-from datetime import datetime, date
 
 logger = logging.getLogger(__name__)
 
 
-def _convert_params(params):
-    """Convert unsupported parameter types (datetime, etc.) to strings for libsql."""
-    if params is None:
-        return None
-    converted = []
-    for p in params:
-        if isinstance(p, datetime):
-            converted.append(p.isoformat())
-        elif isinstance(p, date):
-            converted.append(p.isoformat())
-        else:
-            converted.append(p)
-    return tuple(converted)
-
-class _TursoCursorWrapper:
-    """Wraps a libsql cursor to auto-convert datetime params to ISO strings."""
-    
-    def __init__(self, cursor):
-        self._cursor = cursor
-    
-    def execute(self, sql, params=None):
-        if params is not None:
-            params = _convert_params(params)
-        return self._cursor.execute(sql, params) if params else self._cursor.execute(sql)
-    
-    def executemany(self, sql, params_list):
-        converted = [_convert_params(p) for p in params_list]
-        return self._cursor.executemany(sql, converted)
-    
-    def fetchone(self):
-        return self._cursor.fetchone()
-    
-    def fetchall(self):
-        return self._cursor.fetchall()
-    
-    def fetchmany(self, size=None):
-        return self._cursor.fetchmany(size) if size else self._cursor.fetchmany()
-    
-    @property
-    def lastrowid(self):
-        return self._cursor.lastrowid
-    
-    @property
-    def description(self):
-        return self._cursor.description
-    
-    @property
-    def rowcount(self):
-        return self._cursor.rowcount
-
-
 class DBConnection:
-    """Database connection manager supporting SQLite, PostgreSQL, and Turso"""
-    
+    """Database connection manager for PostgreSQL/Neon."""
+
     def __init__(self):
-        from app.core.config import (
-            DATABASE_TYPE, DATABASE_PATH,
-            POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD, DATABASE_URL
-        )
-        
-        # If DATABASE_URL is provided (Railway), use it and set type to postgresql
-        if DATABASE_URL:
-            self.db_type = "postgresql"
-        else:
-            self.db_type = DATABASE_TYPE.lower() if DATABASE_TYPE else "sqlite"
-        
-        if self.db_type == "postgres":
-            self.db_type = "postgresql"
-        
+        from app.core.config import DATABASE_URL, DATABASE_PATH
+
+        # Production targets PostgreSQL/Neon exclusively (resolved from
+        # DATABASE_URL). db_type is retained as a stable attribute because
+        # callers and the SQL-adaptation helpers still read it.
+        self.db_type = "postgresql"
+
+        # Local cache path (kept for photo_service / data_manager_v2 which read
+        # DATABASE_PATH); not a database engine selector.
         self.db_path = DATABASE_PATH
         self._pool = None  # Connection pool for PostgreSQL
-        
-        if self.db_type == "turso":
-            self._init_turso()
-        elif self.db_type == "postgresql" or self.db_type == "postgres":
-            self._init_postgresql(DATABASE_URL, POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD)
-        else:
-            self._init_sqlite()
-    
-    def _init_turso(self):
-        """Initialize Turso via libsql embedded replica (local reads, remote writes)"""
-        from app.core.config import TURSO_DATABASE_URL, TURSO_AUTH_TOKEN
-        import libsql_experimental as libsql
-        
-        self.connector = libsql
-        self.turso_url = TURSO_DATABASE_URL
-        self.turso_token = TURSO_AUTH_TOKEN
-        
-        # Local replica file inside the data volume
-        self._local_replica_path = "/app/data/turso_replica.db"
-        
-        # Create persistent connection with embedded replica
-        self._turso_conn = libsql.connect(
-            self._local_replica_path,
-            sync_url=self.turso_url,
-            auth_token=self.turso_token
-        )
-        
-        # Initial sync: pull remote data into local replica
-        self._turso_conn.sync()
-        logger.info(f"✅ Using Turso embedded replica: {self.turso_url} → {self._local_replica_path}")
-    
-    def _init_postgresql(self, database_url, host, port, db, user, password):
-        """Initialize PostgreSQL connection with connection pool"""
+
+        self._init_postgresql(DATABASE_URL)
+
+    def _init_postgresql(self, database_url):
+        """Initialize PostgreSQL connection with a threaded connection pool."""
         import psycopg2
         from psycopg2 import pool
-        
-        if database_url:
-            connection_string = database_url
-        else:
-            connection_string = (
-                f"host={host} port={port} "
-                f"dbname={db} user={user} password={password}"
-            )
-        
-        self.connection_string = connection_string
+
+        self.connection_string = database_url
         self.connector = psycopg2
-        
+
         try:
             self._pool = psycopg2.pool.ThreadedConnectionPool(
-                5, 20, connection_string
+                5, 20, database_url
             )
             logger.info("✅ PostgreSQL threaded connection pool created (5-20 connections)")
         except Exception as e:
@@ -145,13 +57,7 @@ class DBConnection:
 
         self._test_connection()
         logger.info("✅ Using PostgreSQL database")
-    
-    def _init_sqlite(self):
-        """Initialize SQLite connection"""
-        import sqlite3
-        self.connector = sqlite3
-        logger.info(f"✅ Using SQLite database: {self.db_path}")
-    
+
     def _test_connection(self):
         """Test database connection"""
         try:
@@ -165,7 +71,7 @@ class DBConnection:
             # never degrade to a warning. Behaviour preserved from the original.
             logger.error(f"❌ {self.db_type.upper()} connection failed: {e}")
             raise
-    
+
     @contextmanager
     def get_connection(self):
         """Get a database connection (context manager).
@@ -176,75 +82,53 @@ class DBConnection:
         data survives (NFR2). This rollback()+raise semantics is pre-existing and
         deliberately UNCHANGED by the error-layer hardening.
         """
-        if self.db_type == "turso":
-            # Embedded replica: use persistent connection
-            # Reads are local (fast), writes go to remote automatically
-            try:
-                yield self._turso_conn
-                self._turso_conn.commit()
-            except Exception as e:
-                self._turso_conn.rollback()
-                raise
-        elif self.db_type in ["postgresql", "postgres"]:
-            if self._pool:
-                max_attempts = 3
-                conn = None
-                for attempt in range(max_attempts):
-                    conn = self._pool.getconn()
+        if self._pool:
+            max_attempts = 3
+            conn = None
+            for attempt in range(max_attempts):
+                conn = self._pool.getconn()
+                try:
+                    conn.cursor().execute("SELECT 1")
+                    break  # Connection is alive
+                except Exception:
+                    # Connection is dead — discard and retry
                     try:
-                        conn.cursor().execute("SELECT 1")
-                        break  # Connection is alive
+                        self._pool.putconn(conn, close=True)
                     except Exception:
-                        # Connection is dead — discard and retry
+                        logger.debug(
+                            "failed to return dead connection to pool "
+                            "(attempt %d/%d); discarding",
+                            attempt + 1,
+                            max_attempts,
+                            exc_info=True,
+                        )
+                    conn = None
+                    if attempt == max_attempts - 1:
+                        # All pool connections dead — recreate pool
+                        logger.warning("All pool connections dead, recreating pool...")
                         try:
-                            self._pool.putconn(conn, close=True)
+                            self._pool.closeall()
                         except Exception:
-                            logger.debug(
-                                "failed to return dead connection to pool "
-                                "(attempt %d/%d); discarding",
-                                attempt + 1,
-                                max_attempts,
+                            logger.warning(
+                                "failed to close exhausted pool before "
+                                "recreating; proceeding with a fresh pool",
                                 exc_info=True,
                             )
-                        conn = None
-                        if attempt == max_attempts - 1:
-                            # All pool connections dead — recreate pool
-                            logger.warning("All pool connections dead, recreating pool...")
-                            try:
-                                self._pool.closeall()
-                            except Exception:
-                                logger.warning(
-                                    "failed to close exhausted pool before "
-                                    "recreating; proceeding with a fresh pool",
-                                    exc_info=True,
-                                )
-                            import psycopg2.pool
-                            self._pool = psycopg2.pool.ThreadedConnectionPool(
-                                5, 20, self.connection_string
-                            )
-                            conn = self._pool.getconn()
-                try:
-                    yield conn
-                    conn.commit()
-                except Exception as e:
-                    conn.rollback()
-                    raise
-                finally:
-                    self._pool.putconn(conn)
-            else:
-                conn = self.connector.connect(self.connection_string)
-                try:
-                    yield conn
-                    conn.commit()
-                except Exception as e:
-                    conn.rollback()
-                    raise
-                finally:
-                    conn.close()
+                        import psycopg2.pool
+                        self._pool = psycopg2.pool.ThreadedConnectionPool(
+                            5, 20, self.connection_string
+                        )
+                        conn = self._pool.getconn()
+            try:
+                yield conn
+                conn.commit()
+            except Exception as e:
+                conn.rollback()
+                raise
+            finally:
+                self._pool.putconn(conn)
         else:
-            # SQLite
-            conn = self.connector.connect(self.db_path)
-            conn.execute("PRAGMA journal_mode=WAL;")
+            conn = self.connector.connect(self.connection_string)
             try:
                 yield conn
                 conn.commit()
@@ -253,14 +137,11 @@ class DBConnection:
                 raise
             finally:
                 conn.close()
-    
+
     def get_cursor(self, conn):
         """Get a cursor from a connection"""
-        cursor = conn.cursor()
-        if self.db_type == "turso":
-            return _TursoCursorWrapper(cursor)
-        return cursor
-    
+        return conn.cursor()
+
     def execute_sql(self, sql: str, params: Optional[tuple] = None):
         """Execute SQL and return cursor (for compatibility)"""
         with self.get_connection() as conn:
@@ -270,39 +151,27 @@ class DBConnection:
             else:
                 cursor.execute(sql)
             return cursor
-    
-    def adapt_sql(self, sql: str) -> str:
-        """Adapt SQL syntax differences between databases"""
-        if self.db_type in ["postgresql", "postgres"]:
-            sql = sql.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
-            sql = sql.replace("AUTOINCREMENT", "")
-            sql = sql.replace("INTEGER PRIMARY KEY", "SERIAL PRIMARY KEY")
-        # Turso is SQLite-compatible — no adaptation needed
-        return sql
-    
-    def get_last_insert_id(self, cursor, table_name: str) -> Any:
-        """Get last inserted ID (database-specific)"""
-        if self.db_type in ["postgresql", "postgres"]:
-            return cursor.fetchone()[0] if cursor.description else None
-        else:
-            # SQLite and Turso both support lastrowid
-            return cursor.lastrowid
-    
-    def adapt_params(self, sql: str) -> str:
-        """Adapt SQL parameter placeholders (? for SQLite/Turso, %s for PostgreSQL)"""
-        if self.db_type in ["postgresql", "postgres"]:
-            if "%s" in sql or sql.count("?") == 0:
-                return sql
-            return sql.replace("?", "%s")
-        # SQLite and Turso both use ?
-        return sql
-    
-    def sync(self):
-        """Sync Turso embedded replica with remote (no-op for other backends)"""
-        if self.db_type == "turso" and hasattr(self, '_turso_conn'):
-            self._turso_conn.sync()
-            logger.info("🔄 Turso replica synced")
 
+    def adapt_sql(self, sql: str) -> str:
+        """Adapt SQL DDL syntax for PostgreSQL"""
+        sql = sql.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
+        sql = sql.replace("AUTOINCREMENT", "")
+        sql = sql.replace("INTEGER PRIMARY KEY", "SERIAL PRIMARY KEY")
+        return sql
+
+    def get_last_insert_id(self, cursor, table_name: str) -> Any:
+        """Get last inserted ID via the RETURNING row (PostgreSQL)"""
+        return cursor.fetchone()[0] if cursor.description else None
+
+    def adapt_params(self, sql: str) -> str:
+        """Adapt SQL parameter placeholders (? → %s for PostgreSQL)"""
+        if "%s" in sql or sql.count("?") == 0:
+            return sql
+        return sql.replace("?", "%s")
+
+    def sync(self):
+        """No-op retained for API compatibility with prior multi-engine callers."""
+        return None
 
 
 # --- Singleton ---

@@ -75,5 +75,12 @@
     "dirName": "260923-backend-fiabilidad-error",
     "scope": "feature",
     "status": "complete"
+  },
+  {
+    "uuid": "01a0d796-8c81-7c98-9335-3e6976200054",
+    "slug": "limpieza-config-residuos",
+    "dirName": "260925-limpieza-config-residuos",
+    "scope": "refactor",
+    "status": "complete"
   }
 ]
