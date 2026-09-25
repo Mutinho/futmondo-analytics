@@ -9,6 +9,11 @@ import time
 from typing import Dict, List, Optional
 import logging
 from app.core.config import BASE_URL, REQUEST_DELAY_SECONDS
+from app.services.integration_errors import (
+    IntegrationRequestError,
+    IntegrationTimeoutError,
+    IntegrationUnparseableError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -140,24 +145,47 @@ class FutmondoClient:
             return False
     
     def _make_request(self, endpoint: str, data: Dict) -> Optional[Dict]:
-        """Make authenticated API request"""
+        """Make an authenticated API request.
+
+        Contract (U2, FR4.2/FR4.3): a failure is NEVER masked as a silent
+        ``None``. On a network/parse failure this raises the matching typed
+        ``IntegrationError`` subtype so the sync capture point can classify it
+        (recoverable -> DEGRADED / continue; fatal -> abort clean) instead of
+        consuming a ``None`` that would corrupt or omit synced data.
+
+        The not-authenticated case is NOT a network failure and stays explicit:
+        it returns ``None`` (no login yet), it does not raise an integration
+        error.
+
+        The typed ``except`` clauses come BEFORE any generic handler and the
+        exceptions carry only non-sensitive context (``endpoint``); never a
+        token or password (NFR3, BR4.2). ``Timeout`` is a subclass of
+        ``RequestException`` and is handled first.
+
+        Raises:
+            IntegrationTimeoutError: request timed out (recoverable).
+            IntegrationRequestError: connection/request error (recoverable by
+                default; the capture point may escalate at a write point).
+            IntegrationUnparseableError: response body was not valid JSON
+                (recoverable).
+        """
         if not self.token or not self.user_id:
             logger.error("Not authenticated. Please login first.")
             return None
-        
+
         try:
             response = self.session.post(f"{self.base_url}{endpoint}", json=data, timeout=15)
             response.raise_for_status()
             return response.json()
-        except requests.exceptions.Timeout:
+        except requests.exceptions.Timeout as exc:
             logger.error(f"API request timed out: {endpoint}")
-            return None
-        except requests.exceptions.RequestException as e:
-            logger.error(f"API request failed: {e}")
-            return None
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse API response: {e}")
-            return None
+            raise IntegrationTimeoutError(status=None, endpoint=endpoint) from exc
+        except requests.exceptions.RequestException as exc:
+            logger.error(f"API request failed: {exc}")
+            raise IntegrationRequestError(endpoint=endpoint) from exc
+        except json.JSONDecodeError as exc:
+            logger.error(f"Failed to parse API response: {exc}")
+            raise IntegrationUnparseableError(endpoint=endpoint) from exc
     
     def get_championship_players(self, championship_id: str) -> Optional[Dict]:
         """Fetch all championship players with their clause information

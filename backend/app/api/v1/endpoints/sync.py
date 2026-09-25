@@ -13,6 +13,12 @@ from app.services.data_manager_v2 import DataManagerV2
 from app.services.data_sync_service import DataSyncService
 from app.services.task_service import TaskConflictError, TaskPersistenceError, get_task_service
 from app.services.sync_step_status import record_degraded_step
+from app.services.integration_errors import (
+    IntegrationBanError,
+    IntegrationRequestError,
+    IntegrationTimeoutError,
+    IntegrationUnparseableError,
+)
 from app.services.db_connection import get_db
 from app.core.config import CHAMPIONSHIP_ID
 
@@ -148,10 +154,30 @@ def _run_sync_in_background(task_id: str, sync_type: str, championship_id: str, 
                 prizes_result = sync_service.sync_prizes()
                 tm.update_progress(task_id, "prizes", {"status": "done", **prizes_result})
                 results["prizes"] = prizes_result
+            except IntegrationBanError:
+                # FATAL (BR2.2/BR3.2): a ban propagates to abort the sync clean;
+                # the atomic team_prizes writer guarantees no half-written data.
+                # Re-raise into the task-level handler (marks the task failed).
+                raise
+            except (
+                IntegrationTimeoutError,
+                IntegrationUnparseableError,
+                IntegrationRequestError,
+            ) as rec_err:
+                # RECOVERABLE (BR2.1/BR3.1): a non-write-point integration failure
+                # for a non-critical step degrades and continues; the sync does
+                # not fail. (A recoverable failure that reached the team_prizes
+                # write point was already escalated to fatal upstream — BR2.3 —
+                # and propagated as such, so it does not arrive here.)
+                record_degraded_step(
+                    tm, task_id, "prizes", str(rec_err), {"records_synced": 0}
+                )
+                results["prizes"] = {"records_synced": 0}
             except Exception as pr_err:
-                # Non-critical step: record it as DEGRADED (not "done") with a
-                # reason and a structured log, so a reliability consumer can tell
-                # a real success from a buried failure (FR3.1/BR1).
+                # Non-critical step, non-integration failure: record it as
+                # DEGRADED (not "done") with a reason and a structured log, so a
+                # reliability consumer can tell a real success from a buried
+                # failure (FR3.1/BR1). Final safety net after the typed branches.
                 record_degraded_step(tm, task_id, "prizes", str(pr_err), {"records_synced": 0})
                 results["prizes"] = {"records_synced": 0}
 
