@@ -1,0 +1,24 @@
+{
+  "stage": "nfr-design",
+  "unit": "u2-integrations",
+  "upstream_ids": ["NFR1.1", "NFR1.2", "NFR1.3", "NFR1.4", "NFR1.5", "NFR2.1", "NFR2.2", "NFR2.3", "NFR3.1", "NFR3.2", "NFR3.3", "NFR3.4", "NFR4.1", "NFR-perf.1", "NFR-perf.2", "NFR-scale.1", "NFR-rel.1"],
+  "coverage": [
+    { "id": "NFR1.1", "status": "OK", "target": "logging estructurado clave=valor (observability-design)" },
+    { "id": "NFR1.2", "status": "OK", "target": "niveles WARNING/ERROR por modo de fallo (observability-design)" },
+    { "id": "NFR1.3", "status": "OK", "target": "logging stdlib, sin dependencia nueva (observability-design)" },
+    { "id": "NFR1.4", "status": "OK", "target": "helper de campos permitidos, sin credenciales (observability-design, security-design)" },
+    { "id": "NFR1.5", "status": "OK", "target": "correlacion por task_id (observability-design)" },
+    { "id": "NFR2.1", "status": "OK", "target": "reemplazo transaccional atomico de team_prizes (reliability-design)" },
+    { "id": "NFR2.2", "status": "OK", "target": "degradacion DEGRADED via SyncStepStatus (reliability-design)" },
+    { "id": "NFR2.3", "status": "OK", "target": "fatal limpio: excepcion propagada sin datos a medias (reliability-design)" },
+    { "id": "NFR3.1", "status": "OK", "target": "excepciones construidas sin password/token (security-design)" },
+    { "id": "NFR3.2", "status": "OK", "target": "helper de log de campos permitidos, gitleaks (security-design)" },
+    { "id": "NFR3.3", "status": "OK", "target": "HTTPException.detail generica en el borde; mensajes internos EN (security-design)" },
+    { "id": "NFR3.4", "status": "OK", "target": "secretos via fly secrets / GitHub secrets (security-design)" },
+    { "id": "NFR4.1", "status": "OK", "target": "endurecimiento aditivo tras capa/funcion estrecha testeable + specs de caracterizacion; suite pytest en verde y gate CI bloqueante antes de merge (performance-design NFR-perf.2, reliability-design; no se amplian god-files)" },
+    { "id": "NFR-perf.1", "status": "OK", "target": "timeout connect ~5s / read ~30s por peticion (performance-design, reliability-design)" },
+    { "id": "NFR-perf.2", "status": "OK", "target": "coste despreciable del endurecimiento; suite en verde (performance-design)" },
+    { "id": "NFR-scale.1", "status": "OK", "target": "sin cambio de topologia ni modelo de carga (scalability-design)" },
+    { "id": "NFR-rel.1", "status": "OK", "target": "timeout acotado clasificado recuperable (reliability-design)" }
+  ]
+}

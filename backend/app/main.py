@@ -128,6 +128,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
 app.add_middleware(AuthMiddleware)
 
 # Initialize auth tables on startup
+# Reclassified (FR3.2.2 / BR1.6): RECOVERABLE. Auth-table init is idempotent
+# (CREATE TABLE IF NOT EXISTS); a transient DB hiccup at import time must NOT
+# crash the web process — degrade to a warning and continue boot. The tables are
+# re-ensured on demand. This preserves the pre-existing boot behaviour.
 try:
     init_auth_tables()
 except Exception as e:
@@ -135,6 +139,8 @@ except Exception as e:
 
 # Ensure durable-session schema on startup (u1-durable-session, infra Q1-A).
 # Idempotent CREATE TABLE IF NOT EXISTS; safe to run on every boot.
+# Reclassified (FR3.2.2 / BR1.6): RECOVERABLE — degrade to a warning and continue
+# boot; the schema is idempotent and re-ensured on demand.
 from app.stores.session_repository import ensure_durable_session_schema
 
 try:
@@ -146,6 +152,8 @@ except Exception as e:
 # (u2-durable-sync-tasks, FR1.4/FR1.5). Idempotent CREATE TABLE IF NOT EXISTS;
 # the sweep marks any pending/running task orphaned by the previous process as
 # interrupted-by-restart (it does NOT resume them).
+# Reclassified (FR3.2.2 / BR1.6): RECOVERABLE — degrade to a warning and continue
+# boot; schema is idempotent and the sweep is best-effort at import time.
 from app.stores.task_repository import ensure_durable_task_schema
 from app.services.task_service import get_task_service
 

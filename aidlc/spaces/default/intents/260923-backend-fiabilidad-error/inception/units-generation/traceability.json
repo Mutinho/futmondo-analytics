@@ -1,0 +1,19 @@
+{
+  "stage": "units-generation",
+  "upstream_ids": ["FR3.2.1", "FR3.2.2", "FR3.2.3", "FR4.1", "FR4.2", "FR4.3", "FR4.4", "FR4.5", "NFR1", "NFR2", "NFR3", "NFR4", "NFR5"],
+  "coverage": [
+    { "id": "FR3.2.1", "status": "OK", "target": "U1" },
+    { "id": "FR3.2.2", "status": "OK", "target": "U1" },
+    { "id": "FR3.2.3", "status": "OK", "target": "U1" },
+    { "id": "FR4.1", "status": "OK", "target": "U1" },
+    { "id": "FR4.2", "status": "OK", "target": "U2" },
+    { "id": "FR4.3", "status": "OK", "target": "U2" },
+    { "id": "FR4.4", "status": "OK", "target": "U2" },
+    { "id": "FR4.5", "status": "OK", "target": "U2" },
+    { "id": "NFR1", "status": "OK", "target": "U2" },
+    { "id": "NFR2", "status": "OK", "target": "U2" },
+    { "id": "NFR3", "status": "OK", "target": "U1" },
+    { "id": "NFR4", "status": "N/A", "target": "gate CI transversal; no es una unidad" },
+    { "id": "NFR5", "status": "N/A", "target": "restricción de coste transversal; no es una unidad" }
+  ]
+}

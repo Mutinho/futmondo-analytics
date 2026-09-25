@@ -1,0 +1,15 @@
+{
+  "stage": "code-generation",
+  "unit": "u1-error-layer",
+  "version": 1,
+  "writes": [
+    { "path": "backend/app/services/integration_errors.py" },
+    { "path": "backend/app/services/sofascore_client.py" },
+    { "path": "backend/app/main.py" },
+    { "path": "backend/app/services/db_connection.py" },
+    { "path": "backend/scripts/migrate_to_turso.py" },
+    { "path": "backend/ruff.toml" },
+    { "path": "backend/tests/test_integration_errors.py" },
+    { "path": "backend/tests/test_error_layer_hardening.py" }
+  ]
+}

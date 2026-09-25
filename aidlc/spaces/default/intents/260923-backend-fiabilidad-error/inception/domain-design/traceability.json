@@ -1,0 +1,27 @@
+{
+  "stage": "domain-design",
+  "upstream_ids": ["FR3.2.1", "FR3.2.2", "FR3.2.3", "FR4.1", "FR4.2", "FR4.3", "FR4.4", "FR4.5", "NFR1", "NFR2", "NFR3", "NFR4", "NFR5"],
+  "coverage": [
+    { "id": "FR3.2.1", "status": "OK", "target": "SyncService" },
+    { "id": "FR3.2.2", "status": "OK", "target": "DbConnection" },
+    { "id": "FR3.2.3", "status": "N/A", "target": "config-only (ruff.toml E722); no component" },
+    { "id": "FR4.1", "status": "OK", "target": "IntegrationErrors" },
+    { "id": "FR4.2", "status": "OK", "target": "FutmondoClient" },
+    { "id": "FR4.3", "status": "Deferred", "target": "design artifact (caller inventory), realizado en construcción" },
+    { "id": "FR4.4", "status": "OK", "target": "SyncService" },
+    { "id": "FR4.5", "status": "N/A", "target": "documentación de contratos; no component" },
+    { "id": "NFR1", "status": "OK", "target": "SyncService" },
+    { "id": "NFR2", "status": "OK", "target": "SyncService" },
+    { "id": "NFR3", "status": "OK", "target": "IntegrationErrors" },
+    { "id": "NFR4", "status": "N/A", "target": "gate CI; no component de este intent" },
+    { "id": "NFR5", "status": "N/A", "target": "restricción de coste; no component" }
+  ],
+  "reverse": [
+    { "id": "IntegrationErrors", "status": "OK", "target": "FR4.1, NFR3" },
+    { "id": "FutmondoClient", "status": "OK", "target": "FR4.2" },
+    { "id": "SofascoreClient", "status": "OK", "target": "FR4.4 (baneo)" },
+    { "id": "SyncService", "status": "OK", "target": "FR3.2.1, FR4.4, NFR1, NFR2" },
+    { "id": "DbConnection", "status": "OK", "target": "FR3.2.2" },
+    { "id": "SyncStepStatus", "status": "OK", "target": "FR3.2.1 (reuso FR3.1)" }
+  ]
+}

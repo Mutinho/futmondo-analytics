@@ -1,0 +1,11 @@
+{
+  "stage": "nfr-design",
+  "unit": "u1-error-layer",
+  "upstream_ids": ["NFR3"],
+  "coverage": [
+    { "id": "NFR3", "status": "OK", "target": "No-filtración por construcción: constructor sólo acepta failure_mode + contexto no sensible (security-design.md); spec de defensa asvera ausencia en str/repr/args" }
+  ],
+  "reverse": [
+    { "id": "SR1", "status": "OK", "target": "NFR3 — diseño de no-filtración por construcción" }
+  ]
+}

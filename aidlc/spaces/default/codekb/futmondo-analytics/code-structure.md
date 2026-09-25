@@ -10,21 +10,26 @@ organización física y los patrones de código.
 futmondo-analytics/
 ├── backend/                    # Servicio web FastAPI (Python 3.12)
 │   ├── app/
-│   │   ├── main.py             # App FastAPI, AuthMiddleware, montaje de routers, /photos, /health
+│   │   ├── main.py             # App FastAPI, AuthMiddleware, montaje de routers, /photos, /health,
+│   │   │                       #   arranque resiliente (init tablas → warning, no abort)
 │   │   ├── api/v1/endpoints/   # Routers HTTP (market, reset_db, analytics, balances, matchdays,
 │   │   │                       #   player_finances, sync, _helpers, ...)
 │   │   ├── auth/               # JWT + sesión: routes.py, token_store.py, session_store.py
 │   │   ├── core/               # config.py (entorno, JWT guard NFR1.1), constants.py
 │   │   ├── services/           # Lógica de negocio + clientes externos (god-files, ver más abajo);
-│   │   │                       #   data_sync_service.sync_prizes() = fórmula de premios
-│   │   ├── stores/             # Repositorios de durabilidad (intent previo)
+│   │   │                       #   data_sync_service.sync_prizes() = fórmula de premios;
+│   │   │                       #   db_connection, sofascore_client, futmondo_client, sync_step_status,
+│   │   │                       #   task_manager, task_service (área de fiabilidad, intent activo)
+│   │   ├── stores/             # Repositorios de durabilidad (task_repository, session_repository)
 │   │   ├── security/           # Protección de credenciales
 │   │   └── models/             # Modelos de dominio/datos (DTOs Pydantic; sin modelo de premios)
-│   ├── scripts/                # Scripts one-shot (sync, migraciones, exportaciones) — no web
-│   ├── tests/                  # pytest (test_db_admin_guard, test_jwt_startup,
+│   ├── scripts/                # Scripts one-shot (sync, migraciones migrate_*_to_turso, exports) — no web
+│   ├── tests/                  # pytest (~27 ficheros: test_db_admin_guard, test_jwt_startup,
 │   │                           #   test_auth_characterization, test_finance_characterization,
-│   │                           #   test_analytics_service)
-│   ├── requirements.txt, pytest.ini, ruff.toml, fly.toml, Dockerfile, nixpacks.toml
+│   │                           #   test_analytics_service, test_sync_degraded_steps,
+│   │                           #   test_sync_step_status, test_sofascore_sync_characterization,
+│   │                           #   test_durable_task_*, test_prizes_*; conftest fakes en memoria)
+│   ├── requirements.txt, pytest.ini, ruff.toml, fly.toml, Dockerfile, nixpacks.toml, entrypoint.sh, run.py
 ├── angular-app/                # Frontend Angular 22 (PWA); ver detalle abajo
 ├── proxy/, angular-app/nginx*.conf   # Reverse proxy nginx (local y prod)
 ├── cron/                       # Config Fly.io del worker cron (sync; nunca emite JWT)
@@ -33,7 +38,30 @@ futmondo-analytics/
 └── .github/workflows/          # ci.yml, fly-deploy.yml, daily-sync.yml, sofascore-sync.yml
 ```
 
-### Estructura del frontend `angular-app/` (intent activo)
+### Área de fiabilidad del backend `backend/app/services/` (intent activo)
+
+Ficheros del camino de sync y sus clientes, analizados en profundidad para FR3.2/FR4. El
+estado de manejo de errores por fichero y su evidencia viven en `code-quality-assessment.md`.
+
+```
+backend/app/services/
+├── data_sync_service.py    # ~1915 líneas (god-file); worker de sync; 29 ramas except Exception
+│                           #   (L42,116,198,223,233,273,355,379,407,502,531,623,685,757,784,
+│                           #    965,1007,1068,1128,1157,1281,1314,1461,1467,1478,1506,1564,1859,1875);
+│                           #   puntos de escritura: UPDATE transactions (L269,L350),
+│                           #   DELETE/INSERT player_favorites (L1367/L1378/L1385),
+│                           #   premios: INSERT ON CONFLICT (L1816) + commit (L1825),
+│                           #   DELETE ... NOT IN team_prizes (L1846) con except→warning (L1859)
+├── data_manager_v2.py      # ~166 KB (god-file, SKIMMED); 23 except amplias, 3 except: pass (L57-58,L68-69,L672-673)
+├── sofascore_client.py     # cliente Sofascore (curl_cffi); SofascoreIPBanError re-lanzado antes del genérico
+├── futmondo_client.py      # cliente Futmondo (requests); _make_request traga a None (hueco FR4)
+├── db_connection.py        # DBConnection; get_connection → rollback+raise; pool retry x3, recrea pool
+├── sync_step_status.py     # StepStatus/record_degraded_step (FR3.1): marca DEGRADED, no re-lanza
+├── task_manager.py         # caché best-effort de tareas (traga y loguea, nunca falla la operación)
+└── task_service.py         # TaskService; _cache_call separa autoridad-DB (TaskPersistenceError) de best-effort
+```
+
+### Estructura del frontend `angular-app/`
 
 ```
 angular-app/
@@ -43,27 +71,22 @@ angular-app/
 │   │   ├── services/*.service.ts   # 11 clientes HTTP: analytics, assistant, auth, budget,
 │   │   │                           #   championship, evolution, favorites, roster, stats, sync
 │   │   ├── interceptors/auth.interceptor.ts       # Bearer + refresh en cola ante 401 (+ .spec.ts)
-│   │   ├── guards/auth.guard.ts                    # Protección de rutas (SIN spec)
+│   │   ├── guards/auth.guard.ts                    # Protección de rutas
 │   │   └── preloading/idle-preloading-strategy.ts  # Precarga por inactividad (+ .spec.ts)
 │   ├── features/{market,finances,budget,calculator,analytics,evolution,statistics,...}/
-│   │                                # Componentes standalone por pantalla (SIN spec)
-│   └── shared/                      # UI/utilidades reutilizables (SIN spec)
-├── angular.json                     # Builder @angular/build; architect.test.runner: vitest;
-│                                    #   schematics con skipTests: true (deuda FR10.1)
-├── package.json                     # name angular-app, v2.1.8, packageManager npm@11.12.1
+│   │                                # Componentes standalone por pantalla
+│   └── shared/                      # UI/utilidades reutilizables
+├── angular.json                     # Builder @angular/build; architect.test.runner: vitest
+├── package.json                     # name angular-app, packageManager npm@11.12.1
 ├── tsconfig.json / tsconfig.app.json / tsconfig.spec.json  # spec: types ["vitest/globals"]
 ├── eslint.config.js (flat) / .prettierrc
-├── ngsw-config.json / proxy.conf.json / Dockerfile / fly.toml
-└── node_modules.old-1789382239/     # árbol residual (ruido de repo; no dependencia activa)
+└── ngsw-config.json / proxy.conf.json / Dockerfile / fly.toml
 ```
 
-Estado de tests del frontend (detalle y evidencia en `code-quality-assessment.md`): SOLO
-existen **2** specs sobre ~90 fuentes en `src/app/` —
-`core/interceptors/auth.interceptor.spec.ts` y
-`core/preloading/idle-preloading-strategy.spec.ts`. NO hay `vitest.config.*` ni proveedor de
-cobertura instalado. NO quedan restos Karma/Jasmine (`karma.conf.js`/`src/test.ts` ausentes).
+El estado de tests/cobertura del frontend (línea base y su evolución en intents previos) se
+detalla en `code-quality-assessment.md`.
 
-### Estructura de `.github/workflows/` (intent activo)
+### Estructura de `.github/workflows/`
 
 ```
 .github/workflows/
@@ -87,19 +110,26 @@ cobertura instalado. NO quedan restos Karma/Jasmine (`karma.conf.js`/`src/test.t
   `fly.toml`, `docker-compose.yml`, `.nvmrc`; frontend `angular.json`, `tsconfig*.json`,
   `eslint.config.js`, `.prettierrc`, `ngsw-config.json`, `proxy.conf.json`.
 - **Superficie HTTP (backend)**: `backend/app/api/v1/endpoints/*` (incl.
-  `player_finances.py`, `balances.py`, `matchdays.py`, `analytics.py`),
+  `player_finances.py`, `balances.py`, `matchdays.py`, `analytics.py`, `sync.py`),
   `backend/app/auth/routes.py`.
 - **Cliente HTTP (frontend)**: `angular-app/src/app/core/services/*.service.ts` +
   `core/interceptors/auth.interceptor.ts`.
+- **Camino de sync y clientes externos (área de fiabilidad, intent activo)**:
+  `services/data_sync_service.py` (worker + fórmula de premios), `services/db_connection.py`
+  (conexión/pool), `services/sofascore_client.py`, `services/futmondo_client.py`
+  (clientes externos), `services/sync_step_status.py` (helper de degradación),
+  `services/task_manager.py` / `services/task_service.py` (durabilidad de tareas).
 - **Lógica de premios (fórmula)**: `backend/app/services/data_sync_service.py::sync_prizes`
-  (~líneas 1577-1885) — productor de la tabla `team_prizes`. Los routers de finanzas/saldos
-  sólo leen/suman.
+  (~líneas 1577-1885) — productor de la tabla `team_prizes`.
 - **Persistencia**: `backend/app/stores/*` (capa nueva estrecha) y SQL crudo en
   `auth/token_store.py`, `_helpers.py`, `balances.py`, `analytics.py`,
   `routes._auto_detect_championships`.
 - **Integración externa**: `services/futmondo_client.py`, `sofascore_client.py`,
   `photo_service.py`.
-- **Tests**: `backend/tests/*.py`, `angular-app/**/*.spec.ts` (hoy sólo 2).
+- **Scripts one-shot**: `backend/scripts/migrate_to_turso.py`,
+  `backend/scripts/migrate_data_to_turso.py`, `sync_sofascore_local.py`, `sync_data.py`,
+  `fetch_user_finances_data.py` — utilidades, NO parte del servicio web.
+- **Tests**: `backend/tests/*.py` (~27), `angular-app/**/*.spec.ts`.
 - **Entrega/CI**: `.github/workflows/*.yml`.
 - **Datos estáticos (no código)**: `backend/static/photos/players/**` (~800 PNG).
 
@@ -111,20 +141,42 @@ cobertura instalado. NO quedan restos Karma/Jasmine (`karma.conf.js`/`src/test.t
   vez de dependencias por endpoint; ver `api-documentation.md`.
 - **Proxy a APIs externas** desde `services/`, con cliente por usuario resuelto en
   `_helpers.get_user_futmondo_client`.
+- **Señalización recuperable-vs-fatal (patrón de referencia y su hueco)**: `sofascore_client`
+  define `SofascoreIPBanError` y hace `except SofascoreIPBanError: raise` ANTES del
+  `except Exception` genérico (fatal se propaga tipado; recuperable → `None`). Es el patrón
+  que FR4 debe replicar en `futmondo_client._make_request`, que hoy NO lo sigue (traga
+  `Timeout`/`RequestException`/`JSONDecodeError` a `None`). Detalle en
+  `code-quality-assessment.md`.
+- **Rollback+raise en la capa de conexión**: `db_connection.get_connection()` hace
+  `rollback()` + `raise` ante cualquier `Exception` (fatal, no traga); el
+  `ThreadedConnectionPool` (5-20) reintenta 3 veces conexiones muertas y recrea el pool.
+- **Degradación de pasos no críticos**: `sync_step_status.record_degraded_step` marca
+  `StepStatus.DEGRADED` (registra, NO re-lanza), consumido por `sync.py` en `prizes`/
+  `phantoms` para que un fallo no crítico NO tumbe la tarea (FR3.1).
+- **Autoridad-DB vs. caché best-effort**: `task_service._cache_call` distingue la operación
+  que debe tener éxito (DB → `TaskPersistenceError`) de la best-effort (`task_manager`, caché
+  que traga y loguea sin fallar).
+- **Excepciones amplias heredadas**: los god-files concentran ramas `except Exception`
+  (29 en `data_sync_service.py`) y `except: pass` desnudos (3 en `data_manager_v2.py`); el
+  linter NO los vigila hoy (`E722` en `ignore`). Anti-patrón a acotar sin ampliar el
+  god-file. Detalle y conteos en `code-quality-assessment.md`.
+- **Reemplazo transaccional atómico** (DELETE+INSERT en la misma transacción) en el caché de
+  Sofascore, frente a la secuencia commit-luego-`DELETE` del bloque de premios (punto de
+  corromper-datos). Ver `architecture.md`.
 - **Precálculo batch + lectura barata**: la fórmula de premios se ejecuta una vez en
   `sync_prizes` y persiste en `team_prizes`; los endpoints sólo hacen `SELECT`/suma. UPSERT
   con `ON CONFLICT (championship_id, team_id, matchday)` y limpieza defensiva
   `DELETE ... WHERE matchday NOT IN (...)`.
-- **Matchday sintético negativo** para las pseudo-jornadas adelantadas de Futmondo (número
-  no entero, p. ej. `0.5 -> -5`), evitando colisión con jornadas reales 1..38 en una columna
-  entera.
+- **Matchday sintético negativo** para las pseudo-jornadas adelantadas de Futmondo.
 - **Persistencia mixta**: capa `stores/` estrecha (patrón recomendado) conviviendo con SQL
   crudo disperso (anti-patrón a no ampliar; detalle en `code-quality-assessment.md`).
 - **God-files en `services/`**: `data_manager_v2.py` (~166 KB), `data_sync_service.py`
-  (~84 KB, aloja la fórmula de premios), `assistant_service.py` (~51 KB); no deben crecer.
-- **Imports dinámicos dentro de funciones** (p. ej. `import requests` en `get_player_photo`);
-  preferir import estático. **Idioma en el código**: identificadores/docstrings/comentarios
-  en inglés; texto de usuario (`HTTPException.detail`) en castellano.
+  (~84 KB / 1915 líneas, aloja la fórmula de premios y el worker de sync),
+  `assistant_service.py` (~51 KB); no deben crecer.
+- **Imports dinámicos dentro de funciones**; preferir import estático. **Idioma en el
+  código**: identificadores/docstrings/comentarios en inglés; texto de usuario
+  (`HTTPException.detail`) en castellano. Docstrings ricos con trazas a FR/BR en los ficheros
+  nuevos/tocados (`sync_step_status.py`, `task_service.py`, `sofascore_client.py`).
 
 ### Frontend (Angular 22)
 
@@ -135,8 +187,6 @@ cobertura instalado. NO quedan restos Karma/Jasmine (`karma.conf.js`/`src/test.t
   (usa `withCredentials`), encola peticiones y refresca ante 401, fuerza logout ante
   403/refresh fallido. Es el patrón de referencia de spec Vitest ya existente.
 - **Servicios por dominio** en `core/services/*.service.ts` (un servicio por área de la API).
-- **`skipTests: true` en TODOS los schematics de `angular.json`** (anti-patrón; el código
-  nuevo nace sin spec — deuda FR10.1, detalle en `code-quality-assessment.md`).
 - **Tests con Vitest**: los specs importan de `vitest` (`vi`, `describe`, `it`, `expect`) y
   usan `@angular/core/testing` + `@angular/common/http/testing`; `tsconfig.spec.json` incluye
   `types: ["vitest/globals"]`.
@@ -145,6 +195,6 @@ cobertura instalado. NO quedan restos Karma/Jasmine (`karma.conf.js`/`src/test.t
 
 - **Doble gate bloqueante** (`ci.yml` PR + `verify` en `fly-deploy.yml`) con `gitleaks`,
   `pytest` y `ng test` bloqueantes; `ruff`/ESLint/`pip-audit`/`npm audit` advisory
-  (`continue-on-error`).
+  (`continue-on-error`). Asimetría preexistente: `verify` corre `pytest -q` SIN `--cov`.
 - **Crons de coste ~0**: máquinas Fly one-shot que se crean, ejecutan y destruyen
   (`trap cleanup EXIT` en `sofascore-sync.yml`).

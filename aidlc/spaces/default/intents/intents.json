@@ -68,5 +68,12 @@
     "dirName": "260921-grupo-a-backend-fiabilid",
     "scope": "feature",
     "status": "complete"
+  },
+  {
+    "uuid": "01a0cdfb-5c6e-7633-b6f5-a8b21b438673",
+    "slug": "backend-fiabilidad-error",
+    "dirName": "260923-backend-fiabilidad-error",
+    "scope": "feature",
+    "status": "complete"
   }
 ]

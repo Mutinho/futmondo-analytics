@@ -1,0 +1,42 @@
+{
+  "stage": "code-generation",
+  "unit": "u2-integrations",
+  "upstream_ids": [
+    "FR3.2.1", "FR3.2.3", "FR4.2", "FR4.3", "FR4.4", "FR4.5",
+    "NFR1", "NFR2", "NFR3",
+    "BR1.1", "BR1.2", "BR2.1", "BR2.2", "BR2.3", "BR3.1", "BR3.2",
+    "BR4.1", "BR4.2", "BR5.1", "BR5.2", "BR6.1", "BR7.1"
+  ],
+  "coverage": [
+    { "id": "FR4.2", "status": "OK", "target": "app/services/futmondo_client.py::_make_request raises typed IntegrationError subtypes (no silent None); tests/test_futmondo_client_typed_failures.py" },
+    { "id": "FR4.3", "status": "OK", "target": "tests/test_futmondo_client_characterization.py (characterization + verifiable callers inventory, core vs debt)" },
+    { "id": "FR4.4", "status": "OK", "target": "app/services/data_sync_service.py::sync_prizes typed fatal/recoverable branches + app/api/v1/endpoints/sync.py route capture; tests/test_sync_integration_failure_effect.py" },
+    { "id": "FR4.5", "status": "OK", "target": "code-summary.md 'Contratos y modos de fallo (Sofascore / Futmondo)' section" },
+    { "id": "FR3.2.1", "status": "OK", "target": "sync capture point: recoverable vs fatal branches (data_sync_service.py + sync.py); tests/test_sync_integration_failure_effect.py" },
+    { "id": "FR3.2.3", "status": "OK", "target": "backend/ruff.toml E722 removed from ignore (advisory, not blocking)" },
+    { "id": "NFR1", "status": "OK", "target": "app/services/data_sync_service.py::_log_integration_failure (key=value structured log, WARNING recoverable / ERROR fatal)" },
+    { "id": "NFR2", "status": "OK", "target": "app/services/prizes/team_prizes_writer.py::replace_team_prizes (single atomic transaction); tests/test_team_prizes_atomic_replacement.py" },
+    { "id": "NFR3", "status": "OK", "target": "integration_errors.py constructors accept only non-sensitive fields; _log_integration_failure never logs credentials; tests/test_futmondo_client_typed_failures.py::_assert_no_credentials" },
+    { "id": "BR1.1", "status": "OK", "target": "futmondo_client._make_request raises typed subtype instead of None" },
+    { "id": "BR1.2", "status": "N/A", "target": "SofascoreClient 403->IntegrationBanError / 404->None unchanged in U2 (shipped by prior work); consumed by the capture point" },
+    { "id": "BR2.1", "status": "OK", "target": "integration_errors.py subtype classification (IntegrationRequestError recoverable by default)" },
+    { "id": "BR2.2", "status": "OK", "target": "two explicit except branches (fatal, recoverable) before generic except in sync_prizes and sync.py route" },
+    { "id": "BR2.3", "status": "OK", "target": "sync_prizes escalates recoverable-at-write-point to fatal (propagates); tests/test_sync_integration_failure_effect.py fatal-ban path" },
+    { "id": "BR3.1", "status": "OK", "target": "recoverable -> record_degraded_step + continue; tests/test_sync_integration_failure_effect.py recoverable path" },
+    { "id": "BR3.2", "status": "OK", "target": "fatal -> propagate + atomic writer guarantees no half-written data; tests/test_team_prizes_atomic_replacement.py" },
+    { "id": "BR4.1", "status": "OK", "target": "_log_integration_failure structured key=value fields" },
+    { "id": "BR4.2", "status": "OK", "target": "no credentials in exception/log; tests/test_futmondo_client_typed_failures.py" },
+    { "id": "BR5.1", "status": "OK", "target": "team_prizes_writer.replace_team_prizes single transaction" },
+    { "id": "BR5.2", "status": "OK", "target": "tests/test_team_prizes_atomic_replacement.py force-failure-inside-txn asserts previous set intact" },
+    { "id": "BR6.1", "status": "OK", "target": "tests/test_futmondo_client_characterization.py inventory + characterization before migration" },
+    { "id": "BR7.1", "status": "OK", "target": "code-summary.md contracts/failure-modes documentation section" }
+  ],
+  "reverse": [
+    { "id": "app/services/integration_errors.py::IntegrationRequestError", "status": "OK", "target": "BR2.1, FR4.2 (request_exception failure mode)" },
+    { "id": "app/services/futmondo_client.py::_make_request", "status": "OK", "target": "FR4.2, BR1.1" },
+    { "id": "app/services/prizes/team_prizes_writer.py::replace_team_prizes", "status": "OK", "target": "NFR2, BR5.1, BR5.2" },
+    { "id": "app/services/data_sync_service.py::_log_integration_failure", "status": "OK", "target": "NFR1, BR4.1, BR4.2" },
+    { "id": "app/api/v1/endpoints/sync.py::_run_sync_in_background prizes handler", "status": "OK", "target": "FR3.2.1, FR4.4, BR2.2, BR3.1, BR3.2" },
+    { "id": "backend/ruff.toml", "status": "OK", "target": "FR3.2.3 (E722 advisory)" }
+  ]
+}

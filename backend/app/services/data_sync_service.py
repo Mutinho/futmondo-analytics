@@ -14,6 +14,14 @@ from app.services.prizes import (
     RoundTeamEntry,
     calculate_round_prizes,
 )
+from app.services.prizes.team_prizes_writer import replace_team_prizes
+from app.services.integration_errors import (
+    IntegrationBanError,
+    IntegrationError,
+    IntegrationRequestError,
+    IntegrationTimeoutError,
+    IntegrationUnparseableError,
+)
 from app.core.config import (
     CHAMPIONSHIP_ID,
     LEAGUE_ID,
@@ -22,6 +30,38 @@ from app.core.config import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _log_integration_failure(
+    level: int,
+    sync_step: str,
+    exc: "IntegrationError",
+    *,
+    task_id: Optional[str] = None,
+) -> None:
+    """Emit a single-line structured key=value integration-failure log (NFR1).
+
+    Fields: ``sync_step``, ``failure_mode``, ``status``, ``endpoint``,
+    ``task_id``, ``reason`` — the non-sensitive context carried by the typed
+    exception. It NEVER receives or emits a password/token (BR4.2/NFR3): the
+    exception itself only holds ``failure_mode``/``status``/``endpoint`` by
+    construction, and ``reason`` is ``str(exc)``, which is composed from those
+    fields alone. WARNING for recoverable, ERROR for fatal (caller-chosen).
+    """
+    status = "" if exc.status is None else exc.status
+    endpoint = "" if exc.endpoint is None else exc.endpoint
+    tid = "" if task_id is None else task_id
+    logger.log(
+        level,
+        "integration failure "
+        "sync_step=%s failure_mode=%s status=%s endpoint=%s task_id=%s reason=%r",
+        sync_step,
+        exc.failure_mode,
+        status,
+        endpoint,
+        tid,
+        str(exc),
+    )
 
 
 class DataSyncService:
@@ -1651,6 +1691,7 @@ class DataSyncService:
             records_synced = 0
             rounds_processed = 0
             valid_matchdays = set()
+            all_prizes_to_save = []
 
             for round_info in all_rounds:
                 raw_number = round_info.get("number")
@@ -1809,55 +1850,29 @@ class DataSyncService:
                         prize.dream_team_prize,
                     ))
 
-                # Save to DB
+                # Accumulate rows for a single atomic replacement (NFR2, BR5.1):
+                # the persistence happens once, after the loop, inside one
+                # transaction via team_prizes_writer.replace_team_prizes.
                 if prizes_to_save:
-                    with db.get_connection() as conn:
-                        cursor = db.get_cursor(conn)
-                        sql = """INSERT INTO team_prizes (championship_id, team_id, matchday, ranking_prize, mvp_prize, position, points_prize, dream_team_prize, synced_at)
-                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
-                                 ON CONFLICT (championship_id, team_id, matchday) DO UPDATE SET
-                                 ranking_prize = EXCLUDED.ranking_prize, mvp_prize = EXCLUDED.mvp_prize,
-                                 position = EXCLUDED.position, points_prize = EXCLUDED.points_prize,
-                                 dream_team_prize = EXCLUDED.dream_team_prize, synced_at = NOW()"""
-                        sql = db.adapt_params(sql)
-                        for row in prizes_to_save:
-                            cursor.execute(sql, row)
-                        conn.commit()
-                    
+                    all_prizes_to_save.extend(prizes_to_save)
                     records_synced += len(prizes_to_save)
                     rounds_processed += 1
                     valid_matchdays.add(matchday)
-                    logger.info(f"Round {matchday}: saved {len(prizes_to_save)} prize records")
+                    logger.info(f"Round {matchday}: computed {len(prizes_to_save)} prize records")
 
                 time.sleep(0.3)
 
-            # Defensive cleanup: remove prize rows for matchdays that are no
-            # longer valid (e.g. a round that was previously processed while it
-            # still had postponed matches, or that Futmondo no longer reports).
-            # This clears stale ranking prizes such as a matchday counted before
-            # all its games were played.
+            # Atomic replacement (NFR2, BR5.1): upsert every computed row AND
+            # delete stale matchdays in a SINGLE transaction behind a narrow,
+            # testable function outside this god-file. A failure rolls back the
+            # whole thing (all-or-nothing) and PROPAGATES — the previous set stays
+            # intact and the write-point failure is fatal (BR2.3/BR3.2), no longer
+            # swallowed by a warning that left a mixed state.
             stale_deleted = 0
-            if valid_matchdays:
-                try:
-                    with db.get_connection() as conn:
-                        cursor = db.get_cursor(conn)
-                        placeholders = ",".join(["?"] * len(valid_matchdays))
-                        sql = (
-                            f"DELETE FROM team_prizes WHERE championship_id = ? "
-                            f"AND matchday NOT IN ({placeholders})"
-                        )
-                        sql = db.adapt_params(sql)
-                        cursor.execute(sql, (self.championship_id, *valid_matchdays))
-                        stale_deleted = cursor.rowcount if cursor.rowcount is not None else 0
-                        conn.commit()
-                    if stale_deleted:
-                        logger.info(
-                            "Removed %s stale prize rows for matchdays not in %s",
-                            stale_deleted,
-                            sorted(valid_matchdays),
-                        )
-                except Exception as cleanup_err:
-                    logger.warning(f"Failed to clean up stale prizes: {cleanup_err}")
+            if all_prizes_to_save or valid_matchdays:
+                stale_deleted = replace_team_prizes(
+                    db, self.championship_id, all_prizes_to_save, valid_matchdays
+                )
 
             duration = time.time() - start_time
             status = "success" if rounds_processed > 0 else "no_new_data"
@@ -1872,7 +1887,32 @@ class DataSyncService:
                 "duration_seconds": duration
             }
 
+        except IntegrationBanError as ban_err:
+            # FATAL (BR2.2/BR3.2): a ban aborts the step clean and PROPAGATES;
+            # no half-written data (the atomic writer guarantees all-or-nothing).
+            duration = time.time() - start_time
+            _log_integration_failure(
+                logging.ERROR, "prizes", ban_err, task_id=self.user_id or None
+            )
+            raise
+        except (
+            IntegrationTimeoutError,
+            IntegrationUnparseableError,
+            IntegrationRequestError,
+        ) as rec_err:
+            # RECOVERABLE by default (BR2.1). Inside sync_prizes the integration
+            # calls that reach here happen at/around the team_prizes write point,
+            # so BR2.3 (escalation-at-write) applies: PROPAGATE so the sync route
+            # aborts clean rather than degrade-and-continue over a write that
+            # could corrupt data. The structured WARNING records the recoverable
+            # nature; the route decides DEGRADED vs abort with the step context.
+            duration = time.time() - start_time
+            _log_integration_failure(
+                logging.WARNING, "prizes", rec_err, task_id=self.user_id or None
+            )
+            raise
         except Exception as e:
+            # Final safety net (BR2.2): never masks the typed branches above.
             duration = time.time() - start_time
             logger.error(f"Prizes sync failed: {e}", exc_info=True)
             return {

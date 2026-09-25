@@ -16,8 +16,10 @@ select = ["E", "F", "I"]
 # Silencios pragmáticos para la base heredada (se reducirán con el tiempo):
 #  E501 line-too-long — muchas líneas largas heredadas; se formatea gradualmente.
 #  E402 module-import-not-at-top — patrón de imports diferidos existente.
-#  E722 bare-except — try/except amplios heredados en la capa de datos.
-ignore = ["E501", "E402", "E722"]
+# E722 (bare-except) re-habilitado como ADVISORY por trinquete (FR3.2.3, Q2):
+# se quita del ignore para que `ruff check` lo reporte; ruff SIGUE advisory (no
+# bloqueante). Cambio de config aislado, sin `--fix` ni `ruff format`.
+ignore = ["E501", "E402"]
 
 [lint.per-file-ignores]
 # Los tests pueden usar imports tras setear variables de entorno (E402) y

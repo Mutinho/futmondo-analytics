@@ -14,134 +14,72 @@ con **gate de CI obligatorio** (`.github/workflows/ci.yml`, disparo `pull_reques
 `fly-deploy.yml` antes de desplegar.
 
 - **Estrategia de merge**: **squash-merge** a `main`. Cada MR aterriza como un único
-  commit sobre la historia lineal de `main`. (Línea base afirmada; alineada con `org.md`.)
-- **Base y destino de worktree**: base `main`, destino `main`.
+  commit sobre la historia lineal de `main`. Base de worktree `main`, destino `main`.
+  (Línea base afirmada; alineada con `org.md`.)
 - **Conventional Commits** con scope entre paréntesis y en castellano
-  (`feat(frontend)`, `test(frontend)`, `chore(ci)`, `chore(aidlc)`).
-- **Matiz de este intent (cobertura de frontend + pipeline)**: la intervención es
-  **acotada y aditiva sobre configuración y specs**, no una reescritura. Retira
-  `skipTests: true` de los schematics de lógica en `angular.json` (FR10.1), declara la
-  cobertura y sus umbrales en el **target `test` de `angular.json`** (opciones del
-  builder `@angular/build:unit-test`, FR10.2), añade el proveedor OSS
-  `@vitest/coverage-v8` a versión fijada, siembra specs de la capa `core/` crítica más
-  un componente `features/*` de alto valor, y cablea el umbral corrigiendo el comando
-  `ng test` en el gate de CI (`ci.yml`) y en el job `verify` (`fly-deploy.yml`, FR17.1).
-  NO se reescriben componentes ni servicios de negocio; el objetivo es que la cobertura
-  sea **medible y creciente (ratcheting)**, no perfecta de golpe.
+  (`fix(backend)`, `test(backend)`, `chore(ci)`, `chore(aidlc)`).
+- **Matiz de este intent (fiabilidad backend, FR3.2 + FR4)**: la intervención es
+  **acotada y aditiva**, no una reescritura. Sigue la secuenciación de dependencia
+  del scope-document: **capa de errores (FR3.2) → clientes (FR4) → estado degradado**,
+  priorizando dentro de FR4 los puntos de corrupción de datos. El código nuevo vive
+  **tras una capa/función estrecha y testeable**; NO se amplían los god-files
+  (`data_sync_service.py`, `data_manager_v2.py`) ni el patrón SQL-en-router. El
+  cambio de contrato de `futmondo_client.py` (de `None`/`bool` a excepción tipada
+  propagada) tiene **blast radius alto**: hay que mapear a sus llamadores antes de
+  tocarlo.
 
 ## Walking Skeleton
 
 **No se ejecuta ceremonia de walking skeleton** para este intent (línea base OFF; el
 sistema ya está en producción con pipeline Fly.io maduro, healthcheck `/health` y un
-gate de CI bloqueante ya operativo con `ng test`). El intent es una intervención
-acotada sobre infraestructura de tests/pipeline existente (`angular.json`, `ng test`,
-`ci.yml`, `fly-deploy.yml`), no un producto nuevo: no hay nada que arrancar de cero.
+gate de CI bloqueante ya operativo con `pytest` + `ng test`). El intent es una
+intervención acotada de fiabilidad sobre código backend existente
+(`futmondo_client.py`, `db_connection.py`, `main.py`, migraciones, `sync_step_status.py`),
+no un producto nuevo: no hay nada que arrancar de cero.
 
 ## Testing Posture
 
 - **Methodology**: test-after
-- **Ordering**: sembrar specs de la capa `core/` crítica (servicios + `auth.guard` + `auth.interceptor`) más el componente de puja del mercado -> configurar cobertura en el target `test` de `angular.json` con `coverage.all: true` + `coverage.include: src/app/**` + excludes y umbrales por métrica -> medir la línea base y fijar el umbral inicial por debajo -> cablear el gate corrigiendo el comando `ng test` en `ci.yml` Y en el job `verify`; la suite existente permanece en verde.
+- **Ordering**: caracterizar primero (characterization-first) cada captura brownfield que se vaya a endurecer y el contrato de `futmondo_client._make_request` ANTES de cambiarlo — entregando un **inventario verificable de llamadores** de `_make_request` (Q4) —, luego implementar la taxonomía recuperable/fatal con excepciones tipadas propagadas (migrando el núcleo: `_make_request` + los llamadores donde un `None` no detectado corrompe datos; el resto de llamadores queda como deuda), y sólo después escribir specs significativas que **aseveren el EFECTO** por modo de fallo (recuperable → paso marcado `DEGRADED` y la operación NO falla; fatal → excepción tipada propagada Y sin datos a medias escritos) — nada de `pytest.raises` sin aserción de estado (Q1) —, replicando el patrón de referencia `SofascoreIPBanError` ya caracterizado, con la suite existente en verde en cada paso.
+- **Cobertura/tooling (Q5-quality)**: `--cov` se mantiene **observabilidad-only, sin piso** (`cov-fail-under`) en este intent — el ratcheting de cobertura backend sigue diferido. La asimetría de la señal de cobertura entre `ci.yml` (`--cov=app`) y el job `verify` de `fly-deploy.yml` (`pytest -q` sin `--cov`) queda registrada como **deuda diferida**; este intent no introduce piso ni cierra la asimetría.
 
-Detalle del orden y del encuadre para este intent (aditivo sobre la posture afirmada):
+Detalle del encuadre para este intent (aditivo sobre la posture afirmada):
 
-1. **Encuadre — NO es characterization-first.** La posture afirmada previa era
-   backend/`sync_prizes`-específica (congelar la producción del premio de un god-file).
-   ESTE intent es distinto: **añadir infraestructura de cobertura** a un frontend que
-   hoy casi no tiene specs (**2 specs sobre 71 fuentes `*.ts`**, cifra medida por la
-   revisión de calidad), no congelar el comportamiento de un artefacto único. El marco
-   es **test-after** con un orden seguro de siembra.
-
-2. **Denominador de cobertura (Q1=A — resuelve la objeción principal de calidad).**
-   El `tsconfig.spec.json` actual solo incluye `*.spec.ts`, así que la cobertura V8 por
-   defecto mediría **únicamente los ficheros ya probados**: un umbral así es
-   engañosamente alto y **caería** al sembrar más specs (crece el denominador),
-   rompiendo el trinquete. Fijamos el universo de cobertura desde el día 1 en el target
-   `test` de `angular.json`:
-   - `coverage.all: true`
-   - `coverage.include: src/app/**`
-   - `coverage.exclude` explícito: `*.spec.ts`, `main.ts`, `*.config.ts`, `environments/*`,
-     `*.d.ts`, mocks y barrels.
-   El umbral mide el código de la app **completo** desde el principio, para que el
-   ratchet sea honesto y no descienda al añadir specs.
-
-3. **Fase siembra (Q4=B — antes de activar el umbral bloqueante).** Escribir specs para
-   las piezas transversales críticas primero, replicando el patrón Vitest +
-   `@angular/*/testing` ya establecido por los 2 specs existentes
-   (`core/interceptors/auth.interceptor.spec.ts`,
-   `core/preloading/idle-preloading-strategy.spec.ts`). Alcance de fase 1:
-   - **`core/` crítica**: los 10 servicios HTTP de `core/services/*`
-     (`analytics`, `assistant`, `auth`, `budget`, `championship`, `evolution`,
-     `favorites`, `roster`, `stats`, `sync`), el guard `core/guards/auth.guard.ts`
-     (hoy SIN spec) y el interceptor `core/interceptors/auth.interceptor.ts`.
-   - **más un componente `features/*` de alto valor**: el **diálogo de puja del mercado**
-     (bid-dialog), para validar el patrón de test de componente standalone + signals +
-     `HttpClient` antes de que el trinquete empuje a más componentes.
-   Prioridad fina (por valor/coste, determinista y sin red): P0 `auth.guard.ts` y
-   `auth.service.ts`; P1 servicios HTTP CRUD (`HttpTestingController`); P2
-   `assistant.service.ts` (posible no-determinismo por streaming). El resto de
-   `features/*` y `shared/*` entra en rondas posteriores del trinquete.
-
-4. **Fase infraestructura + umbral (Q2=A, Q3=A, ratcheting).** Añadir
-   `@vitest/coverage-v8` como devDependency **a versión fijada** (cambio de
-   `package.json`/`package-lock.json`), declarar `coverage.provider` y
-   `coverage.thresholds` en el target `test` de `angular.json`, y fijar un umbral
-   **por métrica** (`lines`, `branches`, `functions`, `statements`), NO un único número
-   global. El valor inicial se **mide tras la siembra** y se fija **ligeramente por
-   debajo** de la línea base medida (colchón de 2–5 puntos para absorber la variabilidad
-   de la instrumentación V8), redondeando hacia abajo. `branches`/`functions` detectan
-   los tests-espejo sin aserciones (la propia brecha de meaningfulness de FR17.1). El
-   umbral es **trinquete manual por MR** (Q3=A): solo sube, revisado a mano cuando la
-   cobertura real lo supera; nunca se baja para hacer pasar el gate.
-
-5. **Fase gate (Q5=A — FR17.1, significatividad).** La cobertura **no se hereda sola**:
-   hoy `ci.yml` (PR) y el job `verify` de `fly-deploy.yml` (push→`main`) corren
-   `ng test --watch=false` **sin** flag de cobertura. Hay que **fijar el comando exacto
-   en ambos** para que ejerciten el umbral (p. ej. el flag de cobertura del builder o su
-   default en el target `test`), con una **única fuente de umbral** en `angular.json`.
-   La brecha de FR17.1 es de **meaningfulness**, no de ejecución: hoy los tests corren
-   pero no imponen cobertura ni verifican aserciones significativas. Orden obligado:
-   **FR10 → FR17.1**. Los specs sembrados deben tener aserciones reales (payload,
-   headers, estado), nunca el anti-patrón `expect(true).toBe(true)`.
-
-Notas y evidencia:
-
-- **Herramientas**: frontend `ng test` con **Vitest** (`^4.0.8`) + `jsdom` (`^25.0.1`)
-  vía el builder `@angular/build:unit-test` (`angular.json` → `architect.test.runner:
-  vitest`). Proveedor de cobertura a añadir: `@vitest/coverage-v8` (OSS, coste 0 €),
-  **fijado a versión exacta y casado en major con `vitest` 4.x** (un mismatch de major
-  rompe la instrumentación). Node `22.22.3` (`.nvmrc`, alineado con la línea Node 22 de
-  CI). Backend inalterado: `pytest` + `pytest-cov` desde `backend/`.
-- **La config de cobertura vive en `angular.json`, no en un `vitest.config` suelto**
-  (corrección mecánica de developer O1): el builder `@angular/build:unit-test` lee la
-  cobertura y sus umbrales de las `options` del target `test`; un `vitest.config` a mano
-  podría quedar fuera del flujo del builder. Fuente única de umbral.
-- **Umbral inicial (valor exacto → implementación).** El valor de arranque
-  (líneas/ramas/funciones/statements) NO se afirma aquí; se mide tras la siembra de la
-  fase 1 y se fija por debajo de la línea base real. Debe ser un piso que la línea base
-  ya supere para no romper el gate bloqueante de inmediato.
-- **Sin `cov-fail-under` heredado.** Como en backend, no existe piso de cobertura
-  bloqueante hoy; el umbral del frontend se introduce como trinquete consciente.
-- **Definición mínima de "hecho" (testing) del intent**: `angular.json` deja de nacer
-  código de lógica sin spec (`skipTests` retirado de los schematics relevantes),
-  `ng test` mide y exige cobertura por métrica contra un umbral con denominador estable,
-  y ese umbral bloquea en `ci.yml` y en `verify`; los specs llevan aserciones
-  significativas.
-- **Gate**: `pytest`, `ng test` (ahora **con cobertura por métrica**) y el escaneo de
-  secretos (gitleaks) son **BLOQUEANTES** en CI (PR→`main`) y en `verify` (push→`main`);
-  lint (ruff/ESLint) y auditorías de dependencias (pip-audit/npm audit) siguen
-  **advisory**. Cualquier paso adicional de reporte de cobertura es **solo
-  observabilidad** y nunca lleva `continue-on-error` que sustituya al enforcement dentro
-  de `ng test` (guardarraíl de devsecops).
-- **Deuda de pipeline DIFERIDA (Q8=A — no cerrada por omisión).** Dos huecos quedan
-  fuera del alcance de este intent y se registran como deuda:
-  (1) la paridad de la señal de cobertura de **backend** (`--cov`) en el job `verify`
-  (hoy `pytest -q` sin `--cov`, mientras `ci.yml` mide con `--cov=app`);
-  (2) **SAST/DAST del frontend** (no hay análisis estático de seguridad más allá de
-  ESLint advisory). Ambos son preexistentes y se difieren a un futuro diseño de
-  pipeline. OJO: la paridad de cobertura del **frontend** SÍ queda cerrada por este
-  intent, porque el umbral vive dentro de `ng test` y ese comando corre en ambos
-  caminos; la paridad de secretos ya está cerrada (gitleaks bloqueante `@v3` en PR y
-  `@v2` en `verify`, sin `continue-on-error`).
+1. **Marco general — test-after con specs significativas.** Se mantiene la posture
+   afirmada del equipo: test-after, specs con aserciones reales (payload, estado,
+   modo de fallo), nunca el anti-patrón `expect(true).toBe(true)` / `assert True`.
+2. **Characterization-first al endurecer brownfield.** El mandato ya afirmado cubre
+   `sync_prizes`, `SessionStore` y `TaskManager`; **se extiende** el mismo principio
+   a: (a) cualquier `except Exception` / `except: pass` de la primera oleada FR3.2
+   que se vaya a reclasificar (arranque `main.py`, migraciones `scripts/migrate_*`,
+   `db_connection.py`), y (b) el **contrato de `futmondo_client._make_request`**
+   antes de convertir su `None`/`bool` en excepción tipada — el cambio toca muchos
+   llamadores del god-file de sync, así que se congela el comportamiento actual con
+   dobles/fakes en memoria antes de tocarlo, **entregando un inventario verificable
+   de llamadores** de `_make_request` como artefacto previo a la migración (Q4). La
+   migración de contrato cubre el **núcleo** (`_make_request` + los llamadores donde
+   un `None` no detectado corrompe datos); el resto de llamadores queda como **deuda**.
+2bis. **Floor de aserción significativa por modo de fallo (Q1).** Un spec de fallo NO
+   basta con `pytest.raises`: debe aseverar el EFECTO. Recuperable → el paso se marca
+   `DEGRADED` vía `sync_step_status.py` **y** la operación no falla; fatal → la
+   excepción tipada se propaga **y** no quedan datos a medias escritos (estado de la
+   caché/tabla verificado tras el fallo). El anti-patrón prohibido es el spec espejo
+   que captura la excepción sin aseverar el efecto lateral (o su ausencia).
+3. **Herramientas y coste 0 €.** Backend `pytest` + `pytest-cov` desde `backend/`,
+   con las fixtures compartidas de `conftest.py` (`_FakeInMemoryDB`/`_FakeCursor`
+   SQLite `:memory:` honrando el contrato de `db_connection`, `clean_jwt_env`,
+   `fake_db`): **sin red, sin DB real, sin credenciales**. No se prevén dependencias
+   nuevas (stdlib suficiente); cualquiera sería OSS y fijada a versión exacta.
+4. **Sin bajar cobertura para pasar el gate.** No existe piso de cobertura
+   bloqueante backend hoy (`cov-fail-under` diferido); el ratcheting sólo sube y
+   nunca se relaja para hacer pasar el gate.
+5. **Enforcement de bare-except (`E722`) — decisión afirmada (Q2).** `E722` está hoy
+   en `ignore` en `backend/ruff.toml` y `ruff check` es advisory. Este intent
+   **re-habilita `E722` como ADVISORY por trinquete**: se quita del `ignore` para que
+   `ruff check` lo reporte, **sin** promover ruff a bloqueante. El cambio va en su
+   **propio commit aislado** (`chore(ci)`), **sin `--fix` ni `ruff format`**, aislando
+   el reflow de la regla afirmada de NO reformatear brownfield en masa. La reviewer
+   corre `ruff check` (no `ruff format`).
 
 ## Change Control
 
@@ -152,66 +90,73 @@ Notas y evidencia:
 **Desplegamos on-merge a `main`** hacia Fly.io (región `cdg`), sin entorno de staging
 separado: el smoke test contra `/health` (5 reintentos, HTTP 200) es la verificación del
 release (`.github/workflows/fly-deploy.yml`). Línea base afirmada; ESTE intent **no cambia
-la topología ni el orden de despliegue**, solo endurece la señal de calidad previa al deploy.
+la topología ni el orden de despliegue**, sólo endurece el manejo de errores/contratos
+del backend previos al deploy.
 
-- **Topología**: dos apps Fly.io — backend `futmondo-api` (puerto 8000, check `/health`) y
-  frontend `futmondo-app` (nginx, puerto 80, check `/`). Base de datos **Neon PostgreSQL**
-  (Frankfurt, tier free).
-- **Orden de despliegue**: `verify` (gitleaks + pytest + `ng test`) → `deploy-backend` →
-  `deploy-frontend` → `smoke-test`. Con este intent, `verify` gana la exigencia de cobertura
-  del frontend vía el umbral de `ng test` (FR17.1) sin cambiar la cadena `needs:`.
-- **Crons de coste ~0**: `daily-sync.yml` (04:30 UTC) y `sofascore-sync.yml` (05:00 UTC) usan
-  máquinas Fly one-shot; **no** afectan al frontend ni a su cobertura.
-- **Rollback**: runbook documentado (`docs/ROLLBACK.md`); el mecanismo Fly.io es redeploy de
-  la release anterior.
+- **Topología**: dos apps Fly.io — backend `futmondo-api` (puerto 8000, check `/health`)
+  y frontend `futmondo-app` (nginx, puerto 80, check `/`). Base de datos **Neon PostgreSQL**
+  (Frankfurt, tier free); fallback SQLite/Turso.
+- **Orden de despliegue**: `verify` (gitleaks + `pytest` + `ng test`) → `deploy-backend` →
+  `deploy-frontend` → `smoke-test`. Este intent **no cambia la cadena `needs:`**.
+- **Taxonomía recuperable/fatal como principio de release**: un fallo **recuperable**
+  degrada y continúa (marcado en `StepStatus.DEGRADED` vía `sync_step_status.py`, sin
+  corromper datos); un fallo **fatal** aborta limpio, sin dejar datos a medias. El punto
+  de corrupción tras commit (`DELETE FROM team_prizes ... NOT IN (...)` que traga el fallo)
+  se endurece hacia el patrón de reemplazo transaccional atómico ya caracterizado.
+- **Crons de coste ~0**: `daily-sync.yml` (04:30 UTC) y `sofascore-sync.yml` (05:00 UTC)
+  usan máquinas Fly one-shot; ejercitan las rutas de sync que este intent endurece, pero
+  **no** cambian el orden de deploy.
+- **Rollback**: runbook documentado (`docs/ROLLBACK.md`); el mecanismo Fly.io es redeploy
+  de la release anterior.
 - **Secretos**: siempre vía `secrets` de GitHub Actions / Fly.io, nunca literales en el
-  workflow (el `JWT_SECRET` efímero de CI es solo un literal de arranque no productivo,
-  exigido por el guard NFR1.1). Los specs de auth sembrados usan fakes/dobles, nunca
-  secretos ni tokens reales (gitleaks escanea también los `*.spec.ts`).
+  workflow; los specs de fiabilidad usan fakes/dobles, nunca credenciales ni tokens reales
+  (gitleaks escanea también los tests).
 - **Restricción dura**: todo en **tiers gratuitos** (Neon free, Fly.io free allowance,
-  GitHub Actions free) — coste 0 €. El proveedor de cobertura elegido es OSS
-  (`@vitest/coverage-v8`), sin servicio de pago (no Codecov/Coveralls); el reporte se
-  genera y consume dentro de `ng test` en el runner free-tier.
+  GitHub Actions free) — coste 0 €.
+- **Deuda de pipeline DIFERIDA (fuera de alcance)**: la asimetría de la señal de cobertura
+  de backend — `verify` corre `pytest -q` **sin `--cov`** mientras `ci.yml` mide `--cov=app`
+  — queda registrada como deuda; este intent no la cierra.
 
 ## Code Style
 
 Deferimos a las configuraciones del proyecto, en **modo escalonado (advisory → bloqueante)**.
-Línea base afirmada; ESTE intent añade solo lo relevante a specs y tooling de frontend.
+Línea base afirmada; ESTE intent añade sólo lo relevante al manejo de errores/contratos del
+backend.
 
 - **Idioma en el código**: **identificadores, docstrings y comentarios en INGLÉS**; **texto
   de cara al usuario** (`HTTPException.detail`, prosa de UI) y **mensajes de commit** en
-  **CASTELLANO**. Los specs nuevos llevan docstrings de caracterización con trazas a FR/BR
-  (patrón ya usado en los 2 specs existentes).
-- **Código nuevo nace con spec (Q6=A / FR10.1)**: se retira `skipTests` de los schematics
-  de `service`, `guard`, `interceptor`, `class`, `component` (donde vive el
-  comportamiento — HTTP, auth/refresh, estado con signals); se **mantiene**
-  `skipTests: true` en `pipe`, `resolver`, `directive` (specs a menudo triviales; en este
-  repo hay 1 pipe trivial `money.pipe.ts` y no hay resolvers). Retirar el flag NO genera
-  specs retroactivos: solo afecta a ficheros NUEVOS; la deuda de los ~69 ficheros sin spec
-  se cubre por la **siembra** de la fase 1, no por el flag.
-- **Frontend (TypeScript/Angular 22)**: ESLint flat config (`angular-app/eslint.config.js`)
-  **advisory**; `prettier ^3.8.1`. Los specs nuevos siguen el patrón Vitest +
-  `@angular/*/testing` de `auth.interceptor.spec.ts` (`TestBed.configureTestingModule` con
-  `provideHttpClient(withInterceptors([...]))` + `provideHttpClientTesting()`, mocks por
-  `useValue` con `vi.fn()`, `HttpTestingController.expectOne(...).flush(...)` y
-  `httpMock.verify()`) e `idle-preloading-strategy.spec.ts` (`vi.useFakeTimers()`). El
-  guard `CanActivateFn` se invoca dentro de `TestBed.runInInjectionContext(...)`.
-- **Backend (Python 3.12)**: `ruff` (`backend/ruff.toml`) — inalterado por este intent.
-- **Node**: versión fijada en `.nvmrc` = `22.22.3` (alineada con la línea Node 22 de CI, que
-  usa `node-version: '22'`; `packageManager: npm@11.12.1`). **Verificar `npm ci` + `ng test`
-  en local o contenedor `node:22.22.3` antes de pushear** cualquier cambio de
-  devDependencies del frontend (añadir `@vitest/coverage-v8` cambia
-  `package.json`/`package-lock.json`).
-- **Formateo brownfield (matiz frontend, aditivo)**: NUNCA reformatear en masa con
-  Prettier/ESLint ficheros existentes al sembrar specs; formatear SOLO los ficheros nuevos
-  o de forma quirúrgica, para no inflar diffs ni invalidar el pase de revisión en vuelo
-  (equivalente frontend de la regla ya afirmada para `ruff format` en backend).
-- **Ubicación de specs**: adyacentes a su fuente (`*.spec.ts` junto al `*.ts`), como los
-  specs existentes. No introducir un árbol de tests separado.
-- **Umbral de cobertura**: vive en el target `test` de `angular.json` (no disperso, no en
-  `vitest.config`); es por métrica y es trinquete (solo sube).
-- **Convenciones visibles**: código idiomático por lenguaje (camelCase TS, snake_case Python).
-## Forbidden
+  **CASTELLANO**. Los tests nuevos llevan docstrings de caracterización con trazas a FR/BR
+  (patrón ya usado en `sync_step_status.py`, `task_service.py`, `sofascore_client.py`).
+- **Excepciones tipadas propagadas, no swallow silencioso (FR4)**: el patrón de fallo de
+  integración es una **excepción tipada por modo de fallo, propagada**, con
+  `except <Typed>: raise` ANTES del `except Exception` genérico; **nunca `return None`
+  silencioso** como señal de fallo.
+- **Módulo dedicado de errores de integración (Q3)**: las excepciones de integración viven
+  en un **módulo estrecho y testeable `integration_errors`** con una **raíz común
+  `IntegrationError`**, del que heredan los subtipos por modo de fallo de Sofascore y de
+  Futmondo — fuera de los god-files. (Los nombres/subtipos exactos son decisión de
+  functional-design; aquí se afirma la práctica de raíz común + módulo dedicado.)
+- **Idioma de las excepciones (Q3, aclaración)**: los **mensajes de las excepciones de
+  integración internas van en INGLÉS** (son diagnóstico de desarrollador, como el resto de
+  identificadores/docstrings); el **texto de cara al usuario** (`HTTPException.detail` en el
+  borde HTTP, prosa de UI) va en **CASTELLANO**.
+- **Formateo brownfield (regla afirmada, arrastrada)**: NUNCA reformatear en masa con
+  `ruff format` los ficheros brownfield ya modificados; formatear SÓLO los ficheros nuevos
+  o de forma quirúrgica, para no inflar diffs, no exponer avisos preexistentes ni invalidar
+  el pase de revisión en vuelo (la reviewer sólo corre `ruff check`).
+- **Backend (Python 3.12)**: `ruff` (`backend/ruff.toml`, `select = ["E","F","I"]`,
+  `ignore = ["E501","E402","E722"]`) — advisory en CI. Este intent **re-habilita `E722`
+  (bare-except) como ADVISORY por trinquete (Q2)**: se quita `E722` del `ignore` para que
+  `ruff check` lo reporte, **sin** promover ruff a bloqueante. El cambio es de **una sola
+  línea de config**, en su **propio commit aislado** (`chore(ci)`), **sin `--fix` ni
+  `ruff format`**, para aislar el reflow y mantener estable el binding de la fuente reclamada
+  de la reviewer.
+- **Ubicación de tests**: bajo `backend/tests/` como la suite existente; sin árbol de tests
+  paralelo nuevo.
+- **Node**: versión fijada en `.nvmrc` = `22.22.3`. Este intent no toca devDependencies del
+  frontend, pero la regla afirmada de verificar `npm ci` + `ng test` en `node:22.22.3` antes
+  de pushear cualquier cambio de esas dependencias sigue vigente.
+- **Convenciones visibles**: código idiomático por lenguaje (snake_case Python, camelCase TS).## Forbidden
 
 <!-- Team-specific forbidden patterns -->
 

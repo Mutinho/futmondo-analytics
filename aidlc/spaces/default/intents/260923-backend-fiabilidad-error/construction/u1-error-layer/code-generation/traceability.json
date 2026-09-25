@@ -1,0 +1,21 @@
+{
+  "stage": "code-generation",
+  "unit": "u1-error-layer",
+  "upstream_ids": ["FR3.2.1", "FR3.2.2", "FR3.2.3", "FR4.1", "FR4.4", "NFR3"],
+  "coverage": [
+    { "id": "FR4.1", "status": "OK", "target": "backend/app/services/integration_errors.py (IntegrationError hierarchy)" },
+    { "id": "FR4.4", "status": "OK", "target": "backend/app/services/sofascore_client.py (SofascoreIPBanError re-parented under IntegrationBanError)" },
+    { "id": "FR3.2.1", "status": "OK", "target": "recoverable/fatal classification carried by type; asserted in tests/test_integration_errors.py + tests/test_error_layer_hardening.py" },
+    { "id": "FR3.2.2", "status": "OK", "target": "backend/app/main.py, backend/app/services/db_connection.py, backend/scripts/migrate_to_turso.py (broad captures reclassified)" },
+    { "id": "FR3.2.3", "status": "N/A", "target": "backend/ruff.toml (E722 removed from ignore; config, no business rule)" },
+    { "id": "NFR3", "status": "OK", "target": "no-secret-leak by construction (integration_errors constructor); defense spec in tests/test_integration_errors.py" }
+  ],
+  "reverse": [
+    { "id": "BR1.1", "status": "OK", "target": "IntegrationBanError fatal; tests/test_integration_errors.py" },
+    { "id": "BR1.2", "status": "OK", "target": "IntegrationTimeoutError recoverable; tests/test_integration_errors.py" },
+    { "id": "BR1.3", "status": "OK", "target": "IntegrationUnparseableError recoverable; tests/test_integration_errors.py" },
+    { "id": "BR1.4", "status": "OK", "target": "no credential in str/repr/args; tests/test_integration_errors.py defense spec" },
+    { "id": "BR1.5", "status": "OK", "target": "transactional rollback()+raise, no partial commit; tests/test_error_layer_hardening.py" },
+    { "id": "BR1.6", "status": "OK", "target": "reclassify without breaking transactions; tests/test_error_layer_hardening.py" }
+  ]
+}
