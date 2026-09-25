@@ -1,0 +1,20 @@
+{
+  "stage": "functional-design",
+  "unit": "u1-error-layer",
+  "upstream_ids": ["FR3.2.1", "FR3.2.2", "FR3.2.3", "FR4.1", "NFR3"],
+  "coverage": [
+    { "id": "FR3.2.1", "status": "OK", "target": "BR1.1, BR1.2, BR1.3, BR1.5" },
+    { "id": "FR3.2.2", "status": "OK", "target": "BR1.6" },
+    { "id": "FR3.2.3", "status": "N/A", "target": "config ruff.toml E722; sin regla de negocio" },
+    { "id": "FR4.1", "status": "OK", "target": "BR1.1, BR1.2, BR1.3 (jerarquía IntegrationError)" },
+    { "id": "NFR3", "status": "OK", "target": "BR1.4" }
+  ],
+  "reverse": [
+    { "id": "BR1.1", "status": "OK", "target": "FR3.2.1, FR4.4 (baneo fatal)" },
+    { "id": "BR1.2", "status": "OK", "target": "FR3.2.1 (timeout recuperable)" },
+    { "id": "BR1.3", "status": "OK", "target": "FR3.2.1, FR4.2 (no parseable recuperable)" },
+    { "id": "BR1.4", "status": "OK", "target": "NFR3 (sin credenciales)" },
+    { "id": "BR1.5", "status": "OK", "target": "NFR2 (no corromper datos; realizado en U2)" },
+    { "id": "BR1.6", "status": "OK", "target": "FR3.2.2, FR3.2.3 (reclasificar sin reescribir)" }
+  ]
+}

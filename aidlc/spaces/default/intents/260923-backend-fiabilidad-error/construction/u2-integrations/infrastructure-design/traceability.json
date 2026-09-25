@@ -1,0 +1,26 @@
+{
+  "stage": "infrastructure-design",
+  "unit": "u2-integrations",
+  "upstream_ids": ["NFR1.1", "NFR1.2", "NFR1.3", "NFR1.4", "NFR1.5", "NFR2.1", "NFR2.2", "NFR2.3", "NFR3.1", "NFR3.2", "NFR3.3", "NFR3.4", "NFR-perf.1", "NFR-perf.2", "NFR-scale.1", "NFR-rel.1", "NFR4.1"],
+  "coverage": [
+    { "id": "NFR1.1", "status": "OK", "target": "logging estructurado consultable via fly logs (monitoring-design)" },
+    { "id": "NFR1.3", "status": "OK", "target": "logging stdlib, sin dependencia nueva ni recurso de infra (monitoring-design, infrastructure-specification)" },
+    { "id": "NFR1.5", "status": "OK", "target": "correlacion por task_id en fly logs (monitoring-design)" },
+    { "id": "NFR3.4", "status": "OK", "target": "secretos via fly secrets / GitHub Actions secrets; gitleaks bloqueante en pipeline (cicd-pipeline)" },
+    { "id": "NFR4.1", "status": "OK", "target": "gate CI bloqueante (gitleaks + pytest + ng test) antes de merge; E722 advisory en commit aislado sin promover a bloqueante (cicd-pipeline)" }
+  ],
+  "reverse": [
+    { "id": "NFR1.2", "status": "N/A", "target": "niveles WARNING/ERROR por modo de fallo: control de codigo (logging del cliente/SyncService), sin recurso de infra propio; observable via fly logs (NFR1.1)" },
+    { "id": "NFR1.4", "status": "N/A", "target": "log sin credenciales: control de codigo (helper de campos permitidos) + gitleaks (cubierto en cicd-pipeline via NFR3.4/NFR4.1), sin recurso de infra propio" },
+    { "id": "NFR2.1", "status": "N/A", "target": "no-corrupcion team_prizes: control de codigo (transaccion atomica), no requiere recurso de infra nuevo" },
+    { "id": "NFR2.2", "status": "N/A", "target": "degradacion DEGRADED: control de codigo (SyncStepStatus), sin infra" },
+    { "id": "NFR2.3", "status": "N/A", "target": "fatal limpio: control de codigo, sin infra" },
+    { "id": "NFR3.1", "status": "N/A", "target": "excepciones sin credenciales: control de codigo, sin infra" },
+    { "id": "NFR3.2", "status": "N/A", "target": "log sin credenciales: control de codigo + gitleaks (ya en NFR3.4/NFR4.1), sin recurso de infra propio" },
+    { "id": "NFR3.3", "status": "N/A", "target": "HTTPException.detail generica: control de codigo, sin infra" },
+    { "id": "NFR-perf.1", "status": "N/A", "target": "timeout por peticion: parametro de codigo del cliente HTTP, sin infra" },
+    { "id": "NFR-perf.2", "status": "N/A", "target": "sin regresion de rendimiento: cubierto por gate CI (NFR4.1), sin infra propia" },
+    { "id": "NFR-scale.1", "status": "N/A", "target": "sin cambio de topologia ni modelo de carga: infra sin cambio (infrastructure-specification)" },
+    { "id": "NFR-rel.1", "status": "N/A", "target": "timeout acotado recuperable: control de codigo, sin infra" }
+  ]
+}

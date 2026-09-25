@@ -1,0 +1,16 @@
+{
+  "stage": "code-generation",
+  "unit": "u2-integrations",
+  "version": 1,
+  "writes": [
+    { "path": "backend/app/services/integration_errors.py" },
+    { "path": "backend/app/services/futmondo_client.py" },
+    { "path": "backend/app/services/data_sync_service.py" },
+    { "path": "backend/app/services/prizes/team_prizes_writer.py" },
+    { "path": "backend/app/api/v1/endpoints/sync.py" },
+    { "path": "backend/tests/test_futmondo_client_characterization.py" },
+    { "path": "backend/tests/test_futmondo_client_typed_failures.py" },
+    { "path": "backend/tests/test_sync_integration_failure_effect.py" },
+    { "path": "backend/tests/test_team_prizes_atomic_replacement.py" }
+  ]
+}

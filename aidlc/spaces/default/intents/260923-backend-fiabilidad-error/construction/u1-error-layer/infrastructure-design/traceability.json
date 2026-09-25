@@ -1,0 +1,10 @@
+{
+  "stage": "infrastructure-design",
+  "unit": "u1-error-layer",
+  "upstream_ids": ["FR3.2.3", "NFR4", "NFR5"],
+  "coverage": [
+    { "id": "FR3.2.3", "status": "OK", "target": "commit aislado chore(ci) para E722 advisory (cicd-pipeline.md)" },
+    { "id": "NFR4", "status": "OK", "target": "suite de U1 en el gate CI existente (ci.yml + verify)" },
+    { "id": "NFR5", "status": "OK", "target": "sin recursos cloud nuevos; GitHub Actions free tier; coste 0 €" }
+  ]
+}

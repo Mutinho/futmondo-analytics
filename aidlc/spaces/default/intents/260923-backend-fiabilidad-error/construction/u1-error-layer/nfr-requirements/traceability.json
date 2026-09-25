@@ -1,0 +1,14 @@
+{
+  "stage": "nfr-requirements",
+  "unit": "u1-error-layer",
+  "upstream_ids": ["NFR3", "NFR5", "FR3.2.3"],
+  "coverage": [
+    { "id": "NFR3", "status": "OK", "target": "SR1 (sin credenciales en excepciones)" },
+    { "id": "NFR5", "status": "OK", "target": "tech-stack-decisions (sin dependencias nuevas, coste 0 €)" },
+    { "id": "FR3.2.3", "status": "OK", "target": "tech-stack-decisions (E722 advisory)" }
+  ],
+  "reverse": [
+    { "id": "SR1", "status": "OK", "target": "NFR3" },
+    { "id": "SR2", "status": "OK", "target": "práctica afirmada (secretos en tests) + gate CI" }
+  ]
+}
