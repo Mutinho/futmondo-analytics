@@ -270,6 +270,10 @@ def main():
             logger.info(f"  ✅ {name}")
             created += 1
         except Exception as e:
+            # Reclassified (FR3.2.2 / BR1.6): RECOVERABLE per table. One table
+            # failing to create must not abort the whole idempotent migration —
+            # log the error and continue with the remaining tables. Behaviour
+            # preserved from the original one-shot script.
             logger.error(f"  ❌ {name}: {e}")
 
     # ============================================================

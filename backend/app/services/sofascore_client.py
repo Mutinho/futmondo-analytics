@@ -8,19 +8,34 @@ import time
 from typing import Optional, Dict, List
 from curl_cffi import requests as cffi_requests
 
+from app.services.integration_errors import IntegrationBanError
+
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://api.sofascore.com/api/v1"
 
 
-class SofascoreIPBanError(Exception):
+class SofascoreIPBanError(IntegrationBanError):
     """Señala un baneo de IP de Sofascore (respuesta HTTP 403) — FR2.1.
 
     Se distingue de un "jugador no encontrado" (404 / sin resultados), que
     devuelve ``None``. El endpoint de sync captura esta excepción para abortar
     el repoblado y NO aplicar el reemplazo de la caché (FR2.2), preservando la
     caché anterior intacta.
+
+    Re-parented under ``IntegrationBanError`` (FR4.4, U1): it IS an integration
+    ban (fatal). Its 403/re-raise behaviour is unchanged and it stays
+    constructible from a single positional message string (as all its call sites
+    do). The message is kept as the exception text for logging, while
+    ``failure_mode`` is pinned to ``"ban"`` so the ban classification holds; no
+    credential is ever passed here (the callers build the message from the
+    endpoint/name only, NFR3).
     """
+
+    def __init__(self, message: str = "Sofascore IP ban", *, status=None, endpoint=None):
+        # Pin the ban classification; keep the caller's message as the text.
+        super().__init__("ban", status=status, endpoint=endpoint)
+        self.args = (message,)
 
 
 class SofascoreClient:

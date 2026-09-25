@@ -136,9 +136,13 @@ class DBConnection:
             )
             logger.info("✅ PostgreSQL threaded connection pool created (5-20 connections)")
         except Exception as e:
+            # Reclassified (FR3.2.2 / BR1.6): RECOVERABLE. Failing to build the
+            # pool is not fatal — fall back to direct connections and continue.
+            # The subsequent _test_connection() still fails FATALLY if the DB is
+            # truly unreachable, so this degrade does not mask a dead database.
             logger.warning(f"Could not create connection pool, using direct connections: {e}")
             self._pool = None
-        
+
         self._test_connection()
         logger.info("✅ Using PostgreSQL database")
     
@@ -156,12 +160,22 @@ class DBConnection:
                 cursor.execute("SELECT 1;")
                 logger.info(f"✅ {self.db_type.capitalize()} connection successful")
         except Exception as e:
+            # Reclassified (FR3.2.2 / BR1.6): FATAL. A DB that fails the liveness
+            # probe cannot serve requests — log and PROPAGATE (fail fast/clean),
+            # never degrade to a warning. Behaviour preserved from the original.
             logger.error(f"❌ {self.db_type.upper()} connection failed: {e}")
             raise
     
     @contextmanager
     def get_connection(self):
-        """Get a database connection (context manager)"""
+        """Get a database connection (context manager).
+
+        Transactional failure classification (FR3.2.2 / BR1.6): FATAL. On any
+        exception inside the ``with`` block the transaction is rolled back and
+        the exception is re-raised — never swallowed — so no partial/half-written
+        data survives (NFR2). This rollback()+raise semantics is pre-existing and
+        deliberately UNCHANGED by the error-layer hardening.
+        """
         if self.db_type == "turso":
             # Embedded replica: use persistent connection
             # Reads are local (fast), writes go to remote automatically
