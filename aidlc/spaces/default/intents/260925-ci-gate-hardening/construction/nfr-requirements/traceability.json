@@ -1,0 +1,13 @@
+{
+  "stage": "nfr-requirements",
+  "unit": "workflow-level",
+  "upstream_ids": ["NFR1", "NFR2", "NFR3", "NFR4", "NFR5", "NFR6"],
+  "coverage": [
+    { "id": "NFR1", "status": "OK", "target": "NFR1.1, NFR1.2 (performance-requirements: coste/duracion del gate en free tier)" },
+    { "id": "NFR2", "status": "OK", "target": "NFR2.1 (reliability-requirements: rollback quirurgico por commit aislado)" },
+    { "id": "NFR3", "status": "OK", "target": "NFR3.1 (observability-requirements: no reformateo brownfield preserva la senal de la reviewer)" },
+    { "id": "NFR4", "status": "OK", "target": "NFR4.1 (security-requirements: secretos via secrets / JWT efimero / tests con fakes)" },
+    { "id": "NFR5", "status": "OK", "target": "NFR5.1, NFR5.2 (reliability-requirements: reproducibilidad del gate; sin flapping)" },
+    { "id": "NFR6", "status": "OK", "target": "NFR6.1 (observability: consumo de free tier documentado), NFR6.2 (observability: idioma de artefactos y commits)" }
+  ]
+}
