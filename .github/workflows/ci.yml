@@ -92,7 +92,8 @@ jobs:
         working-directory: ./angular-app
         run: npx ng test --watch=false
 
-      - name: Dependency audit (npm audit, advisory)
+      - name: Dependency audit (npm audit, high) — BLOQUEANTE
+        # FR12: promovido a bloqueante en `high` (0 findings a fecha de promocion).
+        # El trinquete de severidad solo endurece (critical->high), nunca se relaja.
         working-directory: ./angular-app
-        continue-on-error: true
         run: npm audit --audit-level=high
