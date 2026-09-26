@@ -32,7 +32,8 @@ jobs:
         # escaneo de secretos del gate de MR. gitleaks-action falla el job
         # (exit != 0) cuando detecta un secreto, por lo que los deploy que
         # dependen de `verify` no se ejecutan. Coste 0€ (acción OSS).
-        uses: gitleaks/gitleaks-action@v2
+        # gitleaks unificado a @v3 en ambos gates (paridad con ci.yml).
+        uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
