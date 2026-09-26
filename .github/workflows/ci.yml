@@ -45,9 +45,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Ruff lint (advisory)
+      - name: Ruff lint — BLOQUEANTE
+        # FR12: promovido a bloqueante (ultimo paso del escalon), tras sanear la
+        # deuda por fichero y registrar los god-files en per-file-ignores. Sin
+        # --fix ni ruff format: es un cambio de config aislado.
         working-directory: ./backend
-        continue-on-error: true
         run: |
           pip install ruff==0.16.9
           ruff check .
