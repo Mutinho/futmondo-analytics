@@ -1,0 +1,18 @@
+# pip-audit allowlist — findings SIN fix upstream (NFR-SEC.3)
+#
+# Solo se registran aqui vulnerabilidades SIN fix disponible. Todo finding CON
+# fix se sanea (actualizar la dependencia), nunca se allowlistea.
+#
+# Formato (columnas separadas por espacios en blanco):
+#   CVE_ID  dependencia  version  motivo  fecha_alta(YYYY-MM-DD)  caducidad(YYYY-MM-DD)
+#
+# Reglas afirmadas:
+#   - Una entrada caducada vuelve a bloquear el gate (verificado por
+#     scripts/check-allowlist-expiry.sh).
+#   - NUNCA continue-on-error permanente ni borrar/silenciar el audit.
+#   - Los IDs de esta lista se pasan a pip-audit con --ignore-vuln <ID>.
+#
+# Ejemplo (NO activo, ilustrativo):
+#   # PYSEC-0000-000  ejemplo-dep  1.2.3  sin fix upstream, riesgo bajo (no explotable en nuestro uso)  2026-09-26  2026-12-31
+#
+# (vacio: no hay findings sin fix registrados)
