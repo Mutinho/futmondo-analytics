@@ -6,7 +6,7 @@ pydantic==2.13.5
 python-multipart==0.0.32
 psycopg2-binary==2.9.13
 curl_cffi==0.16.3
-PyJWT==2.9.0
+PyJWT==2.13.0
 google-genai==1.14.0
 groq==0.25.0
 
