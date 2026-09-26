@@ -1,8 +1,9 @@
 """Shared helpers for API endpoints."""
 
 import json
-from typing import Optional
-from fastapi import Request, HTTPException
+
+from fastapi import HTTPException, Request
+
 from app.services.futmondo_client import FutmondoClient
 
 

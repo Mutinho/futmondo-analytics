@@ -20,9 +20,11 @@ import pytest
 os.environ.setdefault("JWT_SECRET", "test-secret-not-default-000")
 
 import jwt as pyjwt  # noqa: E402
-from app.auth import jwt_utils  # noqa: E402
-from app.auth import token_store  # noqa: E402
 
+from app.auth import (
+    jwt_utils,  # noqa: E402
+    token_store,  # noqa: E402
+)
 
 # --- jwt_utils: emisión y validación ---
 

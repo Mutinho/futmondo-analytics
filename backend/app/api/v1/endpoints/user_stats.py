@@ -5,9 +5,11 @@ Returns statistics about users: unique players, clauses, transactions
 
 import logging
 from typing import Dict
+
 from fastapi import APIRouter, HTTPException, Query
-from app.services.data_manager_v2 import DataManagerV2
+
 from app.core.config import CHAMPIONSHIP_ID
+from app.services.data_manager_v2 import DataManagerV2
 
 logger = logging.getLogger(__name__)
 

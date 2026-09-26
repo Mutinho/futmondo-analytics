@@ -10,8 +10,8 @@ double and is unaffected by this cleanup.
 """
 
 import logging
-from typing import Optional, Any
 from contextlib import contextmanager
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ class DBConnection:
     """Database connection manager for PostgreSQL/Neon."""
 
     def __init__(self):
-        from app.core.config import DATABASE_URL, DATABASE_PATH
+        from app.core.config import DATABASE_PATH, DATABASE_URL
 
         # Production targets PostgreSQL/Neon exclusively (resolved from
         # DATABASE_URL). db_type is retained as a stable attribute because
@@ -37,7 +37,6 @@ class DBConnection:
     def _init_postgresql(self, database_url):
         """Initialize PostgreSQL connection with a threaded connection pool."""
         import psycopg2
-        from psycopg2 import pool
 
         self.connection_string = database_url
         self.connector = psycopg2
@@ -122,7 +121,7 @@ class DBConnection:
             try:
                 yield conn
                 conn.commit()
-            except Exception as e:
+            except Exception:
                 conn.rollback()
                 raise
             finally:
@@ -132,7 +131,7 @@ class DBConnection:
             try:
                 yield conn
                 conn.commit()
-            except Exception as e:
+            except Exception:
                 conn.rollback()
                 raise
             finally:

@@ -1,9 +1,10 @@
 """User endpoints — current user info and championships config."""
 
 import json
-from fastapi import APIRouter, Request, HTTPException
+from typing import Dict, List
+
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
-from typing import Dict, List, Optional
 
 router = APIRouter()
 

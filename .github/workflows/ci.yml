@@ -45,11 +45,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Ruff lint (advisory)
+      - name: Ruff lint — BLOQUEANTE
+        # FR12: promovido a bloqueante (ultimo paso del escalon), tras sanear la
+        # deuda por fichero y registrar los god-files en per-file-ignores. Sin
+        # --fix ni ruff format: es un cambio de config aislado.
         working-directory: ./backend
-        continue-on-error: true
         run: |
-          pip install ruff
+          pip install ruff==0.16.9
           ruff check .
 
       - name: Backend tests (pytest con cobertura) — BLOQUEANTE
@@ -60,12 +62,19 @@ jobs:
           JWT_SECRET: ci-ephemeral-secret-not-a-real-one
         run: python -m pytest tests -q --cov=app --cov-report=term-missing
 
-      - name: Dependency audit (pip-audit, advisory)
+      - name: Allowlist expiry check (pip-audit) — BLOQUEANTE
+        # NFR-SEC.3: una entrada de la allowlist caducada vuelve a bloquear.
+        run: bash scripts/check-allowlist-expiry.sh backend/.pip-audit-allowlist
+
+      - name: Dependency audit (pip-audit, entorno instalado) — BLOQUEANTE
+        # FR12/NFR-SEC.1: audita el entorno YA instalado (sin -r) para un gate
+        # reproducible; bloquea todo finding CON fix. Los findings SIN fix se
+        # gobiernan por la allowlist versionada (--ignore-vuln), nunca silenciando.
         working-directory: ./backend
-        continue-on-error: true
         run: |
-          pip install pip-audit
-          pip-audit -r requirements.txt
+          pip install pip-audit==2.10.1
+          IGNORE=$(grep -vE '^\s*#|^\s*$' .pip-audit-allowlist 2>/dev/null | awk '{printf " --ignore-vuln %s", $1}')
+          pip-audit $IGNORE
 
       # --- Frontend: Angular ---
       - name: Set up Node
@@ -92,7 +101,8 @@ jobs:
         working-directory: ./angular-app
         run: npx ng test --watch=false
 
-      - name: Dependency audit (npm audit, advisory)
+      - name: Dependency audit (npm audit, high) — BLOQUEANTE
+        # FR12: promovido a bloqueante en `high` (0 findings a fecha de promocion).
+        # El trinquete de severidad solo endurece (critical->high), nunca se relaja.
         working-directory: ./angular-app
-        continue-on-error: true
         run: npm audit --audit-level=high

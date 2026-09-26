@@ -1,6 +1,5 @@
 """Analytics service for advanced championship insights."""
 
-import math
 import statistics
 from collections import defaultdict
 from typing import Dict, List, Optional

@@ -2,17 +2,19 @@
 JWT utilities — create and verify access/refresh tokens.
 """
 
-import jwt
-import uuid
 import hashlib
 import logging
+import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Dict
+from typing import Dict, Optional
+
+import jwt
 
 logger = logging.getLogger(__name__)
 
 # Secret key for signing tokens — MUST be set in production via env var
 from app.core.config import JWT_SECRET
+
 JWT_ALGORITHM = "HS256"
 
 # Token lifetimes

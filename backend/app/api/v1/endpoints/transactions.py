@@ -1,9 +1,10 @@
 """Transactions history endpoint — all championship transactions with filters."""
 
-from fastapi import APIRouter, Query, Request, HTTPException
 from typing import Dict, Optional
+
+from fastapi import APIRouter, HTTPException, Query, Request
+
 from app.core.config import CHAMPIONSHIP_ID
-from app.api.v1.endpoints._helpers import get_user_futmondo_client
 from app.services.db_connection import get_db
 
 router = APIRouter()

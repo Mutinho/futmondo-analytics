@@ -2,9 +2,11 @@
 FastAPI dependencies for authentication.
 """
 
-from fastapi import Request, HTTPException, status
-from app.auth.jwt_utils import verify_token
 from typing import Dict
+
+from fastapi import HTTPException, Request, status
+
+from app.auth.jwt_utils import verify_token
 
 
 def get_current_user(request: Request) -> Dict:

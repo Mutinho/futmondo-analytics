@@ -7,7 +7,6 @@ from typing import Dict
 
 import requests
 
-
 ENDPOINTS = [
     ("championship trends", "/api/v1/analytics/championship/trends", {"window": 5}),
     ("championship custom classification", "/api/v1/analytics/championship/custom-classification", {"window": 5}),

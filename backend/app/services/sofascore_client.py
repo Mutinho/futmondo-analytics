@@ -5,7 +5,8 @@ Usa curl_cffi para bypass de TLS fingerprinting.
 
 import logging
 import time
-from typing import Optional, Dict, List
+from typing import Dict, Optional
+
 from curl_cffi import requests as cffi_requests
 
 from app.services.integration_errors import IntegrationBanError

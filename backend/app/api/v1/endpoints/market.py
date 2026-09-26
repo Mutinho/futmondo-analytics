@@ -1,8 +1,10 @@
 """Market endpoint — jugadores del computer en mercado hoy + puja sugerida."""
 
 import logging
-from typing import Dict, List
-from fastapi import APIRouter, Query, HTTPException, Request
+from typing import Dict
+
+from fastapi import APIRouter, HTTPException, Query, Request
+
 from app.core.config import CHAMPIONSHIP_ID
 from app.services.db_connection import get_db
 
@@ -253,10 +255,10 @@ async def get_market_today(
     Reads from market_today table (cached). Falls back to live API if no data today.
     """
     try:
-        from app.api.v1.endpoints._helpers import get_user_futmondo_client, get_championship_config
-        from app.api.v1.endpoints._sofascore_helpers import calculate_starter_pct, get_current_matchday
-        from datetime import date
         import json as json_mod
+        from datetime import date
+
+        from app.api.v1.endpoints._helpers import get_user_futmondo_client
 
         db = get_db()
         today = date.today().isoformat()
@@ -313,9 +315,9 @@ async def get_market_today(
 def _build_market_response(request, db, conn, cursor, client, championship_id,
                            today, user_id, user_team_id, all_players):
     """Build the market response reusing a single DB connection/cursor."""
+
     from app.api.v1.endpoints._helpers import get_championship_config
     from app.api.v1.endpoints._sofascore_helpers import calculate_starter_pct, get_current_matchday
-    import json as json_mod
     logger = logging.getLogger(__name__)
     try:
 

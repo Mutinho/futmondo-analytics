@@ -5,11 +5,12 @@ Futmondo Service - Main service class that orchestrates all operations
 
 import logging
 from typing import Dict, List
-from app.services.futmondo_client import FutmondoClient
+
 from app.core.config import (
-    FUTMONDO_EMAIL, FUTMONDO_PASSWORD, CHAMPIONSHIP_ID,
-    MAX_PLAYERS_TO_ANALYZE, REQUEST_DELAY_SECONDS
+    FUTMONDO_EMAIL,
+    FUTMONDO_PASSWORD,
 )
+from app.services.futmondo_client import FutmondoClient
 
 logger = logging.getLogger(__name__)
 

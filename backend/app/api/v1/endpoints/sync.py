@@ -2,25 +2,26 @@
 Sync endpoints for data synchronization status and manual triggers
 """
 
-import logging
 import json
+import logging
 import threading
-from datetime import datetime
-from typing import Dict, List
-from fastapi import APIRouter, HTTPException, Query, Request
+from typing import Dict
+
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
+
+from app.core.config import CHAMPIONSHIP_ID
 from app.services.data_manager_v2 import DataManagerV2
 from app.services.data_sync_service import DataSyncService
-from app.services.task_service import TaskConflictError, TaskPersistenceError, get_task_service
-from app.services.sync_step_status import record_degraded_step
+from app.services.db_connection import get_db
 from app.services.integration_errors import (
     IntegrationBanError,
     IntegrationRequestError,
     IntegrationTimeoutError,
     IntegrationUnparseableError,
 )
-from app.services.db_connection import get_db
-from app.core.config import CHAMPIONSHIP_ID
+from app.services.sync_step_status import record_degraded_step
+from app.services.task_service import TaskConflictError, TaskPersistenceError, get_task_service
 
 logger = logging.getLogger(__name__)
 

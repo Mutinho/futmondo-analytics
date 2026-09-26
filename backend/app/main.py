@@ -2,37 +2,36 @@
 Main FastAPI application
 """
 
+import logging
 import os
+from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
-from contextlib import asynccontextmanager
-import logging
-from pathlib import Path
 
-from app.services.photo_service import PhotoService
 from app.api.v1.endpoints import matchdays
-from app.api.v1.endpoints.initialize import router as initialize_router
-from app.api.v1.endpoints.reset_db import router as reset_db_router
-from app.api.v1.endpoints.statistics import router as statistics_router
-from app.api.v1.endpoints.player_finances import router as player_finances_router
-from app.api.v1.endpoints.user_stats import router as user_stats_router
-from app.api.v1.endpoints.clausulable_players import router as clausulable_players_router
-from app.api.v1.endpoints.sync import router as sync_router
 from app.api.v1.endpoints.analytics import router as analytics_router
+from app.api.v1.endpoints.assistant import router as assistant_router
 from app.api.v1.endpoints.balances import router as balances_router
 from app.api.v1.endpoints.championships import router as championships_router
-from app.api.v1.endpoints.phantoms import router as phantoms_router
-from app.api.v1.endpoints.market import router as market_router
-from app.api.v1.endpoints.roster import router as roster_router
+from app.api.v1.endpoints.clausulable_players import router as clausulable_players_router
 from app.api.v1.endpoints.favorites import router as favorites_router
-from app.api.v1.endpoints.transactions import router as transactions_router
-from app.api.v1.endpoints.sofascore_sync import router as sofascore_sync_router
+from app.api.v1.endpoints.initialize import router as initialize_router
+from app.api.v1.endpoints.market import router as market_router
+from app.api.v1.endpoints.phantoms import router as phantoms_router
+from app.api.v1.endpoints.player_finances import router as player_finances_router
+from app.api.v1.endpoints.reset_db import router as reset_db_router
+from app.api.v1.endpoints.roster import router as roster_router
 from app.api.v1.endpoints.sofascore_detail import router as sofascore_detail_router
+from app.api.v1.endpoints.sofascore_sync import router as sofascore_sync_router
+from app.api.v1.endpoints.statistics import router as statistics_router
+from app.api.v1.endpoints.sync import router as sync_router
+from app.api.v1.endpoints.transactions import router as transactions_router
 from app.api.v1.endpoints.user import router as user_router
-from app.api.v1.endpoints.assistant import router as assistant_router
+from app.api.v1.endpoints.user_stats import router as user_stats_router
+from app.services.photo_service import PhotoService
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -76,6 +75,7 @@ app.add_middleware(
 # --- Auth middleware: protect /api/v1/* routes ---
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
+
 from app.auth.jwt_utils import verify_token
 from app.auth.token_store import init_auth_tables
 
@@ -154,8 +154,8 @@ except Exception as e:
 # interrupted-by-restart (it does NOT resume them).
 # Reclassified (FR3.2.2 / BR1.6): RECOVERABLE — degrade to a warning and continue
 # boot; schema is idempotent and the sweep is best-effort at import time.
-from app.stores.task_repository import ensure_durable_task_schema
 from app.services.task_service import get_task_service
+from app.stores.task_repository import ensure_durable_task_schema
 
 try:
     ensure_durable_task_schema()
@@ -167,6 +167,7 @@ except Exception as e:
 
 # Include auth router (no /api/v1 prefix — lives at /auth/*)
 from app.auth.routes import router as auth_router
+
 app.include_router(auth_router)
 
 # Include routers
@@ -219,8 +220,8 @@ async def get_player_photo(player_id: str, request: Request):
     redirects (302) to the public `/static/photos/*` mount, which is the
     intentional unauthenticated surface for the non-sensitive image bytes.
     """
+
     from app.services.db_connection import DBConnection
-    import requests
     
     # Validate player_id
     if not player_id or player_id == "default":
@@ -242,13 +243,6 @@ async def get_player_photo(player_id: str, request: Request):
     photo_path = photo_service.get_photo_path(player_id)
     if photo_path and os.path.exists(photo_path):
         logger.info(f"Serving local photo: {photo_path} for player {player_id}")
-        # Determine content type from file extension
-        ext = os.path.splitext(photo_path)[1].lower()
-        media_type = "image/jpeg"  # default
-        if ext == ".png":
-            media_type = "image/png"
-        elif ext == ".webp":
-            media_type = "image/webp"
         # Return redirect to static file - BEST PRACTICE
         # This allows browser caching and better performance
         from fastapi.responses import RedirectResponse

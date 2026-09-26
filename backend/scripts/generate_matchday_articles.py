@@ -17,9 +17,10 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+from app.services.matchday_humor_service import MatchdayHumorService  # noqa: E402
+
 from app.core.config import CHAMPIONSHIP_ID  # noqa: E402
 from app.services.data_manager_v2 import DataManagerV2  # noqa: E402
-from app.services.matchday_humor_service import MatchdayHumorService  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:

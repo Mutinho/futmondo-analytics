@@ -26,6 +26,17 @@ ignore = ["E501", "E402"]
 # fixtures que parecen no usadas.
 "tests/**" = ["E402", "F401"]
 "conftest.py" = ["E402"]
+# God-files heredados (regla afirmada: NUNCA ampliarlos ni reescribirlos). Su
+# deuda de lint queda REGISTRADA aquí en vez de sanearse tocando el fichero, al
+# promover `ruff check` a bloqueante. Saneo diferido a un refactor dedicado.
+#  - data_manager_v2.py (~166 KB): E722 (bare-except) = deuda registrada afirmada.
+#  - data_sync_service.py (~84 KB), assistant_service.py (~51 KB): imports.
+"app/services/data_manager_v2.py" = ["E722", "F841", "F401", "I001"]
+"app/services/data_sync_service.py" = ["F401", "I001"]
+"app/services/assistant_service.py" = ["I001"]
+# photo_service.py: el bare-except (E722) es deuda registrada afirmada (Q6); el
+# resto de su deuda sí se sanea de forma quirúrgica (no está en el ignore).
+"app/services/photo_service.py" = ["E722", "F841"]
 
 [format]
 quote-style = "double"

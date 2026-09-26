@@ -4,8 +4,8 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
-from app.services.analytics_service import AnalyticsService
 from app.core.config import CHAMPIONSHIP_ID
+from app.services.analytics_service import AnalyticsService
 
 
 def get_service() -> AnalyticsService:
@@ -34,8 +34,9 @@ async def championship_classification_full(
 ):
     """Combined classification + momentum endpoint — single optimized query."""
     try:
-        from app.services.db_connection import get_db
         import statistics
+
+        from app.services.db_connection import get_db
 
         db = get_db()
 
@@ -68,7 +69,7 @@ async def championship_classification_full(
         # Group by team
         teams_data: dict = {}
         for row in rows:
-            team_id, team_name, matchday, pts_md = row[0], row[1], row[2], row[3] or 0
+            team_id, team_name, _matchday, pts_md = row[0], row[1], row[2], row[3] or 0
             if team_id not in teams_data:
                 teams_data[team_id] = {"team_id": team_id, "team_name": team_name or team_id, "points": []}
             teams_data[team_id]["points"].append(pts_md)
@@ -200,9 +201,9 @@ async def market_watchlist(
 ):
     """Watchlist of free agents enriched with photo, position, sofascore, and trend."""
     try:
-        from app.services.db_connection import get_db
-        from app.api.v1.endpoints._sofascore_helpers import build_sofascore_map, lookup_sofascore
         from app.api.v1.endpoints._helpers import get_user_futmondo_client
+        from app.api.v1.endpoints._sofascore_helpers import build_sofascore_map, lookup_sofascore
+        from app.services.db_connection import get_db
 
         db = get_db()
 

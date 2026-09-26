@@ -8,13 +8,14 @@ that a matchday only awards ranking/MVP/dream-team prizes once every match of
 the round has been played, so no prize logic is recalculated here.
 """
 
-from fastapi import APIRouter, HTTPException, Query, Request
-from typing import Dict, List
 import logging
+from typing import Dict, List
 
+from fastapi import APIRouter, HTTPException, Query, Request
+
+from app.core.config import CHAMPIONSHIP_ID
 from app.services.data_manager_v2 import DataManagerV2
 from app.services.db_connection import get_db
-from app.core.config import CHAMPIONSHIP_ID
 
 logger = logging.getLogger(__name__)
 

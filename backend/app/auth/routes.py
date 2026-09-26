@@ -2,31 +2,30 @@
 Auth endpoints — login, refresh, logout.
 """
 
+import logging
 import os
 import uuid
-import logging
-from fastapi import APIRouter, HTTPException, Request, Response, status, Cookie
 from typing import Optional
 
-from app.auth.models import LoginRequest, TokenResponse, RefreshRequest, RefreshResponse
+from fastapi import APIRouter, Cookie, HTTPException, Request, Response, status
+
 from app.auth.jwt_utils import (
+    ACCESS_TOKEN_EXPIRE_MINUTES,
     create_access_token,
     create_refresh_token,
-    verify_token,
     hash_token,
-    ACCESS_TOKEN_EXPIRE_MINUTES,
+    verify_token,
 )
+from app.auth.models import LoginRequest
+from app.auth.session_store import get_session_store
 from app.auth.token_store import (
-    save_refresh_token,
+    get_user_by_email,
     is_refresh_token_valid,
     revoke_refresh_token,
-    revoke_all_user_tokens,
+    save_refresh_token,
     upsert_user,
-    get_user_by_email,
 )
-from app.auth.session_store import get_session_store
 from app.services.futmondo_client import FutmondoClient
-from app.core.config import BASE_URL
 from app.services.session_service import (
     SessionError,
     get_session_service,
@@ -179,7 +178,6 @@ async def refresh(request: Request, futmondo_refresh_token: Optional[str] = Cook
     user_id = payload["sub"]
     
     # Get user info for the new access token
-    from app.auth.token_store import get_user_by_email
     # We need email from somewhere — look up by user_id
     # Static module-level import (team.md Code Style: avoid dynamic __import__).
     from app.services.db_connection import get_db
@@ -260,7 +258,6 @@ async def logout(response: Response, futmondo_refresh_token: Optional[str] = Coo
 
 def _auto_detect_championships(user_id: str, client):
     """Detect user's championships from Futmondo and save them if not yet configured."""
-    import json
     from app.services.db_connection import get_db
     
     db = get_db()

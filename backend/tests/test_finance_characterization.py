@@ -23,7 +23,6 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 import app.api.v1.endpoints.player_finances as pf  # noqa: E402
 
-
 DEFAULT_BUDGET = 200_000_000
 
 

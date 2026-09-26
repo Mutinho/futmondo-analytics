@@ -1,7 +1,9 @@
 """Championships endpoint — legacy, redirects to user championships."""
 
 import json
+
 from fastapi import APIRouter, HTTPException, Request
+
 from app.services.db_connection import get_db
 
 router = APIRouter()
