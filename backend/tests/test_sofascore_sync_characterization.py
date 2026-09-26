@@ -19,7 +19,6 @@ from app.api.v1.endpoints.sofascore_sync import should_apply_replacement
 from app.core.constants import SOFASCORE_MIN_COVERAGE_RATIO
 from app.services.sofascore_client import SofascoreClient, SofascoreIPBanError
 
-
 # ---------------------------------------------------------------------------
 # Business logic — should_apply_replacement (función pura, FR2.2 / FR2.4)
 # ---------------------------------------------------------------------------
