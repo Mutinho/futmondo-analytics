@@ -119,10 +119,10 @@
               "lcovonly"
             ],
             "coverageThresholds": {
-              "statements": 15,
-              "branches": 15,
-              "functions": 13,
-              "lines": 14
+              "statements": 19,
+              "branches": 19,
+              "functions": 17,
+              "lines": 18
             }
           }
         }
