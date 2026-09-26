@@ -82,5 +82,12 @@
     "dirName": "260925-limpieza-config-residuos",
     "scope": "refactor",
     "status": "complete"
+  },
+  {
+    "uuid": "01a0d7fa-746e-7d03-bd00-6f990bcbf478",
+    "slug": "ci-gate-hardening",
+    "dirName": "260925-ci-gate-hardening",
+    "scope": "infra",
+    "status": "complete"
   }
 ]

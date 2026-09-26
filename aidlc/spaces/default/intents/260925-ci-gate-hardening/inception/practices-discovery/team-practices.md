@@ -1,9 +1,17 @@
-# Team-Level Rules
+# Practices Discovery — Team Practices
 
-> This team's affirmed practices and corrections. Loaded after `org.md` as
-> strict-additive guidance; contradictions with broader policy are rejected.
-> Populated by the practices-discovery affirmation gate. Edit at the gate,
-> not directly.
+**Collaborator:** aidlc-pipeline-deploy-agent
+
+Intent 4 — `260925-ci-gate-hardening` (scope infra, brownfield). RE-RUN sobre
+prácticas ya afirmadas: estas 5 secciones parten de la BASELINE de
+`aidlc/spaces/default/memory/team.md` y ajustan el matiz al alcance de ESTE
+intent (endurecimiento del gate CI/CD: FR11 cobertura backend bloqueante con
+ratchet, FR12 linters/audits a bloqueante escalonado, FR17.3 gate de
+verificación pre-deploy a coste 0 €, deuda diferida de paridad de cobertura
+backend en `verify` y ratchet frontend, FR16 free-tier). **No** es un intent de
+fiabilidad backend: el matiz de FR3.2/FR4 de intents previos no aplica aquí.
+Las decisiones de la entrevista (Q1–Q6, todas la opción recomendada) están ya
+integradas en las cinco secciones.
 
 ## Way of Working
 
@@ -85,10 +93,6 @@ componente ni pipeline que arrancar de cero.
 - **Sin bajar cobertura para pasar el gate**: el ratchet (backend y frontend)
   **sólo sube**; nunca se relaja un umbral/piso existente para hacer pasar el
   gate.
-
-## Change Control
-
-<!-- Affirmed by the team. Mode: strict or relaxed. Strict here holds for every intent and cannot be changed from chat. -->
 
 ## Deployment
 
@@ -214,10 +218,3 @@ bloqueante)**. Este intent añade sólo lo relevante al endurecimiento del gate.
 - **Ubicación de tests / convenciones visibles**: tests backend bajo
   `backend/tests/`; snake_case Python, camelCase TS. Sin árbol de tests paralelo
   nuevo.
-## Mandated
-
-<!-- Team-specific mandates -->
-
-## Corrections
-
-<!-- Self-learning loop appends here. -->

@@ -1,0 +1,48 @@
+{
+  "stage": "infrastructure-design",
+  "upstream_ids": [
+    "NFR1.1",
+    "NFR-SEC.1",
+    "NFR-SEC.2",
+    "NFR-SEC.3",
+    "NFR-SEC.4",
+    "NFR-SEC.5",
+    "NFR-SEC.6",
+    "NFR4.1",
+    "NFR5.1",
+    "NFR2.1",
+    "NFR-REL.1",
+    "NFR-OBS.1",
+    "NFR-OBS.2",
+    "NFR-OBS.3",
+    "NFR-OBS.4",
+    "NFR6.1"
+  ],
+  "coverage": [
+    { "id": "NFR1.1", "status": "OK", "target": "cicd-pipeline: free tier (paridad de cobertura como coste aceptado, FR16); reutilizacion del entorno instalado" },
+    { "id": "NFR-SEC.1", "status": "OK", "target": "infrastructure-specification: pip-audit pinneado sobre venv instalado; cicd-pipeline paso pip-audit (blocking) en ambos gates" },
+    { "id": "NFR-SEC.2", "status": "OK", "target": "cicd-pipeline: paso npm audit --audit-level=high (blocking) en ambos gates" },
+    { "id": "NFR-SEC.3", "status": "OK", "target": "infrastructure-specification shared: allowlist versionada + script de expiry (Q2); monitoring: alert allowlist caducada" },
+    { "id": "NFR-SEC.4", "status": "OK", "target": "infrastructure-specification: gitleaks version unica fijada en ambos gates" },
+    { "id": "NFR-SEC.5", "status": "OK", "target": "infrastructure-specification servicios: pin exacto de ruff/pip-audit/vitest en el paso que instala" },
+    { "id": "NFR-SEC.6", "status": "OK", "target": "cicd-pipeline mapeo etapa->gate: audits y lint ANADIDOS a verify (paridad PR<->push)" },
+    { "id": "NFR4.1", "status": "OK", "target": "cicd-pipeline secrets management: secrets de Actions/Fly.io, JWT efimero, gitleaks escanea tests" },
+    { "id": "NFR5.1", "status": "OK", "target": "infrastructure-specification: entorno instalado + tooling pinneado (gate reproducible)" },
+    { "id": "NFR2.1", "status": "OK", "target": "cicd-pipeline: secuencia de commits chore(ci) aislados con trinquete fijado (rollback quirurgico)" },
+    { "id": "NFR-REL.1", "status": "OK", "target": "cicd-pipeline invariantes: cadena needs: intacta (verify->deploy-backend->deploy-frontend->smoke-test)" },
+    { "id": "NFR-OBS.1", "status": "OK", "target": "monitoring metrics: cobertura backend visible en ci.yml y verify; cicd-pipeline mapeo etapa->gate" },
+    { "id": "NFR-OBS.2", "status": "OK", "target": "monitoring metrics + cicd-pipeline orden fail-fast: cada check como paso con nombre" },
+    { "id": "NFR-OBS.3", "status": "OK", "target": "monitoring: allowlist auditable en git + alert de caducidad" },
+    { "id": "NFR-OBS.4", "status": "OK", "target": "monitoring: release health via smoke-test /health (sin cambios)" },
+    { "id": "NFR6.1", "status": "OK", "target": "monitoring metrics: minutos de GitHub Actions documentados (FR16)" }
+  ],
+  "reverse": [
+    { "id": "app-infra-topology", "status": "N/A", "target": "config-only de CI/CD; topologia Fly.io/Neon sin cambios" },
+    { "id": "components", "status": "N/A", "target": "scope infra; domain-design omitido por diseno (consumes_absent expected)" },
+    { "id": "functional-spec", "status": "N/A", "target": "scope infra; functional-design omitido por diseno (consumes_absent expected)" },
+    { "id": "NFR3.1", "status": "N/A", "target": "no-reformateo brownfield: politica de code-style, sin componente de infraestructura" },
+    { "id": "NFR6.2", "status": "N/A", "target": "idioma de artefactos/commits: politica, sin componente de infraestructura" },
+    { "id": "NFR5.2", "status": "N/A", "target": "valor del piso de cobertura: mecanismo en pytest.ini; valor medido en ci-pipeline" },
+    { "id": "NFR-REL.2", "status": "N/A", "target": "el gate no relaja garantias: politica de ratchet, sin componente de infraestructura nuevo" }
+  ]
+}
