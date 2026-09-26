@@ -48,11 +48,34 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Backend tests (pytest) — BLOQUEANTE
+      - name: Allowlist expiry check (pip-audit) — BLOQUEANTE
+        # Paridad con ci.yml (FR17.3): una entrada de la allowlist caducada bloquea.
+        run: bash scripts/check-allowlist-expiry.sh backend/.pip-audit-allowlist
+
+      - name: Dependency audit (pip-audit, entorno instalado) — BLOQUEANTE
+        # Paridad con ci.yml: audita el entorno YA instalado (sin -r); bloquea
+        # findings CON fix; findings SIN fix via allowlist versionada.
+        working-directory: ./backend
+        run: |
+          pip install pip-audit==2.10.1
+          IGNORE=$(grep -vE '^\s*#|^\s*$' .pip-audit-allowlist 2>/dev/null | awk '{printf " --ignore-vuln %s", $1}')
+          pip-audit $IGNORE
+
+      - name: Ruff lint — BLOQUEANTE
+        # Paridad con ci.yml: lint bloqueante (deuda saneada + per-file-ignores).
+        working-directory: ./backend
+        run: |
+          pip install ruff==0.16.9
+          ruff check .
+
+      - name: Backend tests (pytest con cobertura y piso) — BLOQUEANTE
+        # Paridad con ci.yml (FR17.3): misma invocacion con --cov=app y el mismo
+        # piso --cov-fail-under (definido en pytest.ini), para que un push directo
+        # a main no pueda saltarse el piso de cobertura.
         working-directory: ./backend
         env:
           JWT_SECRET: ci-ephemeral-secret-not-a-real-one
-        run: python -m pytest tests -q
+        run: python -m pytest tests -q --cov=app --cov-report=term-missing
 
       - name: Set up Node
         uses: actions/setup-node@v5
@@ -62,6 +85,12 @@ jobs:
       - name: Install frontend dependencies
         working-directory: ./angular-app
         run: npm ci
+
+      - name: Dependency audit (npm audit, high) — BLOQUEANTE
+        # Paridad con ci.yml (FR17.3): npm audit bloqueante en high (0 findings a
+        # fecha de promocion); un push directo a main no elude el audit frontend.
+        working-directory: ./angular-app
+        run: npm audit --audit-level=high
 
       - name: Frontend tests (ng test con Vitest + cobertura por metrica) — BLOQUEANTE
         # FR17.1: paridad con el gate de PR. `ng test` ejerce los umbrales de
