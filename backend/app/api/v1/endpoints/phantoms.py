@@ -1,11 +1,12 @@
 """Phantom players detection — finds players without registered purchase."""
 
-import json
 from typing import Dict, List
-from fastapi import APIRouter, Query, HTTPException, Request
+
+from fastapi import APIRouter, HTTPException, Query, Request
+
+from app.api.v1.endpoints._helpers import get_user_futmondo_client
 from app.core.config import CHAMPIONSHIP_ID
 from app.services.db_connection import get_db
-from app.api.v1.endpoints._helpers import get_user_futmondo_client
 
 router = APIRouter()
 

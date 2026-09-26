@@ -3,9 +3,10 @@
 Pydantic models for FastAPI
 """
 
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel
-from datetime import datetime
+
 
 # Base response models
 class BaseResponse(BaseModel):

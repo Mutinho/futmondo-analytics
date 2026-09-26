@@ -3,11 +3,13 @@
 Futmondo API Client - Core API communication module
 """
 
-import requests
 import json
+import logging
 import time
 from typing import Dict, List, Optional
-import logging
+
+import requests
+
 from app.core.config import BASE_URL, REQUEST_DELAY_SECONDS
 from app.services.integration_errors import (
     IntegrationRequestError,

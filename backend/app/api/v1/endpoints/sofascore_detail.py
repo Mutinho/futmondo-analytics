@@ -1,7 +1,9 @@
 """Sofascore detail endpoint — todas las stats cacheadas de un jugador."""
 
 from typing import Dict
-from fastapi import APIRouter, Query, HTTPException
+
+from fastapi import APIRouter, HTTPException, Query
+
 from app.core.config import CHAMPIONSHIP_ID
 from app.services.db_connection import get_db
 

@@ -6,13 +6,17 @@ Uses DataManagerV2 to populate database with optimized schema for historical sta
 
 import logging
 import time
-from typing import Dict
 from datetime import datetime
+from typing import Dict
 
-import os
-from app.core.config import CHAMPIONSHIP_ID, REQUEST_DELAY_SECONDS, FUTMONDO_EMAIL, FUTMONDO_PASSWORD
-from app.services.futmondo_client import FutmondoClient
+from app.core.config import (
+    CHAMPIONSHIP_ID,
+    FUTMONDO_EMAIL,
+    FUTMONDO_PASSWORD,
+    REQUEST_DELAY_SECONDS,
+)
 from app.services.data_manager_v2 import DataManagerV2
+from app.services.futmondo_client import FutmondoClient
 from app.services.photo_service import PhotoService
 
 logger = logging.getLogger(__name__)

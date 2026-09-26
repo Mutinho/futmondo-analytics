@@ -2,17 +2,17 @@
 """
 Script para exportar todas las transacciones de un usuario específico a CSV
 """
-import sys
-import os
 import csv
+import os
+import sys
 import time
-from datetime import datetime
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from app.core.config import CHAMPIONSHIP_ID, FUTMONDO_EMAIL, FUTMONDO_PASSWORD
 from app.services.futmondo_client import FutmondoClient
-from app.core.config import FUTMONDO_EMAIL, FUTMONDO_PASSWORD, CHAMPIONSHIP_ID
+
 
 def export_user_transactions(user_identifier: str, output_file: str = None):
     """Export all transactions for a specific user to CSV

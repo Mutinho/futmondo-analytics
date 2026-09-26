@@ -5,18 +5,18 @@ Obtiene dream teams, MVPs y rosters de usuarios para cada round
 """
 
 import sys
-import os
 from pathlib import Path
 
 # Add parent directory to path to import app modules
 backend_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_dir))
 
-from app.services.futmondo_client import FutmondoClient
-from app.services.data_manager_v2 import DataManagerV2
-from app.core.config import FUTMONDO_EMAIL, FUTMONDO_PASSWORD, CHAMPIONSHIP_ID, LEAGUE_ID
-import time
 import json
+import time
+
+from app.core.config import CHAMPIONSHIP_ID, FUTMONDO_EMAIL, FUTMONDO_PASSWORD, LEAGUE_ID
+from app.services.data_manager_v2 import DataManagerV2
+from app.services.futmondo_client import FutmondoClient
 
 # Constants
 POINTS_TO_EUROS = 40000  # 40,000 euros por punto
@@ -75,7 +75,7 @@ def main():
     
     if not target_league:
         print(f"\n❌ Error: No se encontró el campeonato {CHAMPIONSHIP_ID}")
-        print(f"   Buscando en todas las ligas...")
+        print("   Buscando en todas las ligas...")
         # Try to find by partial match or show all IDs
         all_ids = []
         for league in leagues:
@@ -89,7 +89,7 @@ def main():
                 all_ids.append(f"  - {league_id} ({league.get('name', 'Unknown')})")
         
         if all_ids:
-            print(f"   IDs encontrados en las ligas:")
+            print("   IDs encontrados en las ligas:")
             for id_info in all_ids[:10]:  # Show first 10
                 print(id_info)
         return
@@ -337,7 +337,7 @@ def main():
         print(f"\n   Round {idx}/{len(closed_rounds)}: {round_id}")
         
         # Get dream team for this round
-        print(f"   - Obteniendo dream team...")
+        print("   - Obteniendo dream team...")
         dream_team_data = client.get_dream_team(CHAMPIONSHIP_ID, round_id=round_id)
         time.sleep(0.1)  # Small delay to avoid rate limiting
         
@@ -609,7 +609,7 @@ def main():
                 raw_transactions = cursor.fetchall()
                 
                 if raw_transactions:
-                    print(f"  - Primeras 5 transacciones en BD:")
+                    print("  - Primeras 5 transacciones en BD:")
                     for txn in raw_transactions:
                         print(f"    Comprador: {txn[0]}, Vendedor: {txn[1]}, Precio: {txn[2]:,} €")
                 else:
@@ -626,7 +626,7 @@ def main():
                     cursor.execute(sql, (user['team_name'],))
                     raw_transactions = cursor.fetchall()
                     if raw_transactions:
-                        print(f"  - Transacciones encontradas por username:")
+                        print("  - Transacciones encontradas por username:")
                         for txn in raw_transactions:
                             print(f"    Comprador: {txn[0]}, Vendedor: {txn[1]}, Precio: {txn[2]:,} €")
         except Exception as e:

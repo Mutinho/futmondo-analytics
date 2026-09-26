@@ -29,21 +29,22 @@ Requirements (install once):
 print("🏠 Sofascore local sync starting...", flush=True)
 
 import os
+import random
 import sys
 import time
-import random
 import unicodedata
 from datetime import datetime
 from pathlib import Path
 
 # Load .env from project root
 from dotenv import load_dotenv
+
 project_root = Path(__file__).resolve().parent.parent.parent
 load_dotenv(project_root / ".env")
 
 import psycopg2
-from psycopg2.extras import execute_values
 from curl_cffi import requests as cffi_requests
+from psycopg2.extras import execute_values
 
 # --- Config ---
 DATABASE_URL = os.getenv("DATABASE_URL", "")
@@ -477,11 +478,16 @@ class SofascoreLocal:
                     is_priority = any(kw in tname for kw in self.PRIORITY_KEYWORDS)
                     is_current = any(kw in sname for kw in CURRENT_SEASON_KEYWORDS)
                     is_previous = any(kw in sname for kw in PREVIOUS_SEASON_KEYWORDS)
-                    if is_priority and is_current: priority = 1
-                    elif is_current: priority = 2
-                    elif is_priority and is_previous: priority = 3
-                    elif is_previous: priority = 4
-                    else: priority = 5
+                    if is_priority and is_current:
+                        priority = 1
+                    elif is_current:
+                        priority = 2
+                    elif is_priority and is_previous:
+                        priority = 3
+                    elif is_previous:
+                        priority = 4
+                    else:
+                        priority = 5
                     candidates.append((priority, tournament, season))
         candidates.sort(key=lambda x: x[0])
 

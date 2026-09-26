@@ -8,17 +8,17 @@ by backend/scripts/sync_sofascore_local.py (residential IP).
 # Early flush to confirm process starts (visible in Fly.io logs immediately)
 print("sync_data.py starting...", flush=True)
 
-import sys
-import os
 import logging
+import os
+import sys
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from app.core.config import CHAMPIONSHIP_ID, FUTMONDO_EMAIL, FUTMONDO_PASSWORD
 from app.services.data_sync_service import DataSyncService
-from app.services.futmondo_client import FutmondoClient
 from app.services.db_connection import get_db
-from app.core.config import FUTMONDO_EMAIL, FUTMONDO_PASSWORD, CHAMPIONSHIP_ID
+from app.services.futmondo_client import FutmondoClient
 
 # Configure logging with flush to stdout (critical for Fly.io log capture)
 logging.basicConfig(
@@ -218,7 +218,7 @@ def main():
         
         for champ_id, results in all_results.items():
             if isinstance(results, dict) and "error" not in results:
-                logger.info(f"")
+                logger.info("")
                 logger.info(f"  Championship: {champ_id}")
                 for sync_type, result in results.items():
                     status = result.get("status", "unknown")

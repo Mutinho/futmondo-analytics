@@ -2,12 +2,12 @@
 API endpoints for matchday evolution data
 """
 
-from fastapi import APIRouter, HTTPException, Request, Query
-from typing import Dict, List, Optional
 import logging
 
-from app.core.config import CHAMPIONSHIP_ID
+from fastapi import APIRouter, HTTPException, Query, Request
+
 from app.api.v1.endpoints._helpers import get_user_futmondo_client
+from app.core.config import CHAMPIONSHIP_ID
 
 logger = logging.getLogger(__name__)
 

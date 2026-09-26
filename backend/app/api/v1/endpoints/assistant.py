@@ -3,10 +3,11 @@
 import json
 import uuid
 from datetime import datetime
+from typing import List, Optional
+
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import List, Optional
 
 from app.services.assistant_service import get_assistant_service
 from app.services.db_connection import get_db

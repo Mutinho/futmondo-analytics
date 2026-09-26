@@ -2,11 +2,13 @@
 Reset Database endpoint - Recreates database schema optimized for historical analysis
 """
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks
-import os
 import logging
-from app.services.data_manager_v2 import DataManagerV2
+import os
+
+from fastapi import APIRouter, BackgroundTasks, HTTPException
+
 from app.services.data_initializer_v2 import DataInitializerV2
+from app.services.data_manager_v2 import DataManagerV2
 
 logger = logging.getLogger(__name__)
 

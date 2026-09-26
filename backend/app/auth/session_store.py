@@ -18,6 +18,7 @@ import logging
 import threading
 from datetime import datetime, timedelta
 from typing import Optional
+
 from app.services.futmondo_client import FutmondoClient
 
 logger = logging.getLogger(__name__)

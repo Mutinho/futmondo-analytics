@@ -2,11 +2,12 @@
 API endpoints for championship statistics
 """
 
-from fastapi import APIRouter, HTTPException, Query
-from typing import List, Dict
 import logging
-from app.services.data_manager_v2 import DataManagerV2
+
+from fastapi import APIRouter, HTTPException, Query
+
 from app.core.config import CHAMPIONSHIP_ID
+from app.services.data_manager_v2 import DataManagerV2
 
 logger = logging.getLogger(__name__)
 

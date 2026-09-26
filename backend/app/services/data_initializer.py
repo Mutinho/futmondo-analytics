@@ -4,9 +4,9 @@
 import logging
 from typing import Dict
 
-from app.services.futmondo_client import FutmondoClient
-from app.services.data_sync_service import DataSyncService
 from app.core.config import CHAMPIONSHIP_ID, FUTMONDO_EMAIL, FUTMONDO_PASSWORD
+from app.services.data_sync_service import DataSyncService
+from app.services.futmondo_client import FutmondoClient
 
 logger = logging.getLogger(__name__)
 

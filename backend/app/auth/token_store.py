@@ -6,6 +6,7 @@ import logging
 import sqlite3
 from datetime import datetime, timezone
 from typing import Optional
+
 from app.services.db_connection import get_db
 
 logger = logging.getLogger(__name__)

@@ -3,12 +3,14 @@
 import logging
 from datetime import datetime
 from typing import Dict, Tuple
-from fastapi import APIRouter, Query, HTTPException, Request
+
+from fastapi import APIRouter, HTTPException, Query, Request
+
+from app.api.v1.endpoints._helpers import get_user_futmondo_client
 from app.core.config import CHAMPIONSHIP_ID
 from app.core.constants import SOFASCORE_MIN_COVERAGE_RATIO
-from app.api.v1.endpoints._helpers import get_user_futmondo_client
-from app.services.sofascore_client import get_sofascore_client, SofascoreIPBanError
 from app.services.db_connection import get_db
+from app.services.sofascore_client import SofascoreIPBanError, get_sofascore_client
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

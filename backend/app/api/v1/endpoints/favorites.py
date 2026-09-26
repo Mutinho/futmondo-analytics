@@ -1,9 +1,11 @@
 """Favorites endpoint — shows user's favorited free-agent players with stats."""
 
-from fastapi import APIRouter, Query, Request, HTTPException
 from typing import Dict
-from app.core.config import CHAMPIONSHIP_ID
+
+from fastapi import APIRouter, HTTPException, Query, Request
+
 from app.api.v1.endpoints._helpers import get_user_futmondo_client
+from app.core.config import CHAMPIONSHIP_ID
 from app.services.db_connection import get_db
 
 router = APIRouter()

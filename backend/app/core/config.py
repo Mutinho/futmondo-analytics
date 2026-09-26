@@ -6,6 +6,7 @@ Uses environment variables with fallback to default values
 import os
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
 # Futmondo API Credentials (optional — users authenticate individually via /auth/login)

@@ -2,9 +2,11 @@
 Initialize endpoint - Populates database with data from all API endpoints
 """
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks
-from typing import Dict
 import logging
+from typing import Dict
+
+from fastapi import APIRouter, BackgroundTasks, HTTPException
+
 from app.services.data_initializer import DataInitializer
 
 logger = logging.getLogger(__name__)
@@ -80,9 +82,9 @@ async def populate_players() -> Dict:
         Status message and count of players saved
     """
     try:
-        from app.services.futmondo_service import FutmondoService
-        from app.services.data_manager_v2 import DataManagerV2
         from app.core.config import CHAMPIONSHIP_ID
+        from app.services.data_manager_v2 import DataManagerV2
+        from app.services.futmondo_service import FutmondoService
         
         service = FutmondoService()
         

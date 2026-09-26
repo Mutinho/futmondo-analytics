@@ -1,9 +1,10 @@
 """Balances endpoint - Muestra saldo actual de cada equipo y sus altas/bajas."""
 
-from fastapi import APIRouter, Query, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
+
+from app.api.v1.endpoints._helpers import get_championship_config
 from app.core.config import CHAMPIONSHIP_ID
 from app.services.db_connection import get_db
-from app.api.v1.endpoints._helpers import get_championship_config
 
 router = APIRouter()
 

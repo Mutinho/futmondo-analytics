@@ -5,6 +5,7 @@ Returns top 20 players based on clause value analysis
 
 import logging
 from typing import Dict, List
+
 from fastapi import APIRouter, HTTPException, Query, Request
 
 from app.core.config import CHAMPIONSHIP_ID
@@ -165,8 +166,8 @@ async def get_clausulable_players(
         scored_players.sort(key=lambda x: x["final_score"], reverse=True)
 
         # Enrich with player details (slug, position, real team) and sofascore
-        from app.services.db_connection import get_db
         from app.api.v1.endpoints._sofascore_helpers import build_sofascore_map, lookup_sofascore
+        from app.services.db_connection import get_db
 
         db = get_db()
         player_ids = [p["player_id"] for p in scored_players]

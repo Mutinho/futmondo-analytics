@@ -3,12 +3,14 @@
 Photo Service - Downloads and manages player photos locally
 """
 
-import os
-import requests
 import hashlib
 import logging
-from typing import Optional, Dict
+import os
 from pathlib import Path
+from typing import Dict, Optional
+
+import requests
+
 from app.core.config import DATABASE_PATH
 from app.services.db_connection import DBConnection
 
@@ -371,8 +373,8 @@ class PhotoService:
     
     def _ensure_player_exists(self, player_data: Dict, player_id: str):
         """Ensure player exists in players table, create if not exists"""
-        from datetime import datetime
         import logging
+        from datetime import datetime
         logger_ensure = logging.getLogger(__name__)
         
         # First check if player exists
