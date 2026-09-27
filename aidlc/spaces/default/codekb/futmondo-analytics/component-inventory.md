@@ -10,22 +10,29 @@ Configuración y constantes del backend. `config.py` resuelve el tipo de BD en
 cascada (`DATABASE_URL` → `TURSO_DATABASE_URL` → fallback `sqlite`) y expone
 secretos; **contiene los defaults hardcodeados `CHAMPIONSHIP_ID`/`LEAGUE_ID`**
 (residuo mono-usuario, FR14). `constants.py` mantiene el catálogo estático
-`LALIGA_TEAMS` (fallback legítimo).
+`LALIGA_TEAMS` (fallback legítimo) y `LALIGA_TEAM_NAMES` (usado por assistant).
 Depende de: variables de entorno.
 
 ## services
 
 Lógica de negocio e integraciones. Incluye `db_connection.py` (manager
-multi-backend), los god-files `data_manager_v2.py`/`data_sync_service.py`,
-`analytics_service.py`, `assistant_service.py`, los clientes
-`futmondo_client.py`/`sofascore_client.py`, `integration_errors.py` y
-`sync_step_status.py`.
+multi-backend), los **god files** `data_manager_v2.py` (3692 líneas · hub
+estrella), `data_sync_service.py` (1955), `assistant_service.py` (1158) y
+`analytics_service.py` (828), los clientes
+`futmondo_client.py`/`sofascore_client.py`, `integration_errors.py`,
+`sync_step_status.py` y el paquete **`prizes/`** (extracción de referencia ya
+hecha: capa estrecha + `team_prizes_writer.replace_team_prizes`).
+**Foco FR13**: los god files mezclan lógica y acceso a datos (SQL inline) — a
+descomponer en repositorios por agregado tras fachadas delgadas, preservando
+superficie pública. Responsabilidades mezcladas y seams por fichero en
+`code-structure.md`.
 Depende de: `core`, `stores`, BD (Neon), APIs externas.
 
 ## api/v1/endpoints
 
 24 routers HTTP montados bajo `/api/v1/*`. Traducen peticiones a llamadas de
-servicio. Contiene el doble montaje de `matchdays` (FR15).
+servicio (consumidores de la superficie pública de `services`). Contiene el
+doble montaje de `matchdays` (FR15).
 Depende de: `services`, `auth`.
 
 ## auth
@@ -61,8 +68,7 @@ Depende de: `services`, `core`.
 ## angular-app
 
 SPA Angular 22 (PWA), servida por nginx en producción. Consume la API interna.
-No relevante al alcance FR14/FR15 salvo por el consumo del doble prefijo de
-`matchdays`.
+No relevante al alcance FR13 (backend-only).
 Depende de: API interna del backend.
 
 ## proxy / cron

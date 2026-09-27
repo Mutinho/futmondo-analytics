@@ -1,0 +1,28 @@
+{
+  "intent": "260927-god-files-refactor",
+  "wave": 1,
+  "stage": "code-generation",
+  "unit": "analytics",
+  "created": [
+    "backend/app/services/analytics/__init__.py",
+    "backend/app/services/analytics/domain/__init__.py",
+    "backend/app/services/analytics/domain/ports.py",
+    "backend/app/services/analytics/application/__init__.py",
+    "backend/app/services/analytics/application/calculations.py",
+    "backend/app/services/analytics/infrastructure/__init__.py",
+    "backend/app/services/analytics/infrastructure/data_manager_adapter.py",
+    "backend/app/services/analytics/facade.py"
+  ],
+  "modified": [
+    "backend/app/services/analytics_service.py",
+    "backend/tests/test_analytics_service.py"
+  ],
+  "not_touched_out_of_scope": [
+    "backend/app/api/v1/endpoints/analytics.py",
+    "backend/app/services/data_manager_v2.py",
+    "backend/app/services/data_sync_service.py",
+    "backend/app/services/assistant_service.py",
+    "backend/pytest.ini",
+    "backend/ruff.toml"
+  ]
+}

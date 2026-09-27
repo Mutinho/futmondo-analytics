@@ -16,13 +16,14 @@
 | psycopg2-binary | rango abierto | driver PostgreSQL (Neon) |
 | curl_cffi | rango abierto | cliente HTTP para Sofascore |
 | libsql-experimental | `0.0.55` (pin) | cliente Turso — **dead-path**, no compila fuera de 3.12, no ejercitado por tests (FR14) |
-| google-genai | pin | asistente (Gemini) |
-| groq | pin | asistente (Groq) |
+| google-genai | pin | asistente (Gemini) — usado por `assistant_service.py` |
+| groq | pin | asistente (Groq) — usado por `assistant_service.py` |
 | python-dotenv | rango abierto | carga de `.env` |
 
 > Detalle exhaustivo de versiones en `backend/requirements.txt`. Varias
 > dependencias van con rango abierto (deuda de pinning, ver
-> `code-quality-assessment.md`).
+> `code-quality-assessment.md`). El intent FR13 (god files) es refactor de la
+> capa de servicios y **no cambia el stack ni las versiones**.
 
 ## Frontend
 

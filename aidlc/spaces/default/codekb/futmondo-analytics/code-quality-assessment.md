@@ -12,13 +12,12 @@
   branches 15 / functions 13 / lines 14, en trinquete).
 - **Asimetría conocida (deuda diferida afirmada)**: `ci.yml` mide `--cov=app`
   mientras `fly-deploy.yml` (job `verify`) corre `pytest -q` **sin `--cov`**.
-  Este intent no la cierra.
 
 ## Linting / formato
 
 - **Backend**: `ruff` (`backend/ruff.toml`, `select=["E","F","I"]`,
-  `ignore=["E501","E402"]`; `E722` ya re-habilitado como advisory), advisory
-  en CI.
+  `ignore=["E501","E402"]`; `E722`/bare-except re-habilitado advisory).
+  **Sin `# noqa` en los 4 god files** (0). Advisory en CI.
 - **Frontend**: ESLint (`eslint.config.js`) advisory; Prettier (`.prettierrc`).
 
 ## CI/CD
@@ -32,10 +31,78 @@
 ## Documentación
 
 `README.md` + `docs/` (DEPLOY, ROLLBACK, PR-GATE, PROJECT_CONTEXT, varios
-BACKLOG y planes históricos). Docstrings de caracterización con trazas a FR/BR
-en los tests. Calidad razonable; deuda: docs/planes históricos acumulados.
+BACKLOG y planes históricos). Docstrings de módulo/clase presentes en los god
+files; lógica interna escasamente documentada. Docstrings de caracterización
+con trazas a FR/BR en los tests.
 
-## Deuda técnica — foco del intent (FR14/FR15)
+## Deuda técnica — foco del intent (FR13: descomposición de god files)
+
+Los cuatro god files comparten el anti-patrón **SQL-en-servicio**. Anatomía,
+seams de extracción y superficie pública por fichero en `code-structure.md`;
+aquí, la señal de calidad y los riesgos de intervención.
+
+### Señales de deuda por god file
+
+- **`data_manager_v2.py`** (3692 líneas, 62 `def`, **94 `cursor.execute`
+  inline**): `except: pass` ~29, 5 `except:` bare, 18 `except Exception`.
+  `_init_database` (~330 líneas) mezcla DDL de todas las tablas. SQL crudo
+  embebido en cada save/get. **Núcleo del acoplamiento** (8 routers + sync +
+  analytics vía `self.dm`) y de **mayor riesgo**: cobertura directa ~cero.
+- **`data_sync_service.py`** (1955 líneas): 28 `except Exception`, ~34
+  `except:`-tipo. Funciones enormes: `sync_prizes` (303),
+  `sync_player_performance` (223), `sync_dream_teams_mvps` (161).
+- **`assistant_service.py`** (1158 líneas, **42 `cursor.execute` inline**):
+  SQL-en-servicio dentro de los `_ctx_*`; guardrails/factual/tracker sin test.
+- **`analytics_service.py`** (828 líneas, solo **2 `cursor.execute`**): el más
+  limpio; ya delega en `self.dm`.
+
+### Estado global / config module-level (acoplamiento oculto)
+
+`data_sync_service` toma `CHAMPIONSHIP_ID`/`LEAGUE_ID`/`FUTMONDO_EMAIL/PASSWORD`
+de `app.core.config`; assistant toma `GEMINI_API_KEY`/`GROQ_API_KEY` y límites
+module-level; `_resolve_real_team_name` importa `LALIGA_TEAM_NAMES` de
+constants dentro del método. Considerar inyección al extraer, **sin cambiar el
+comportamiento observable**.
+
+### Caché mutable per-instance
+
+`analytics_service._team_cache`/`_player_cache`; `data_manager_v2.cache_duration`.
+
+### Cobertura de tests por god file (estado previo a la extracción)
+
+| God file | Cobertura directa | Notas |
+|----------|-------------------|-------|
+| `analytics_service.py` | **Buena** (6/10 `get_*`) | Seam de inyección `self.dm` ya existe; fake `DataManagerV2` por lambdas en `test_analytics_service.py`. **Menor riesgo.** |
+| `data_sync_service.py` | **Parcial de efecto** | Contrato de fallo (DEGRADED/fatal) y `sync_prizes`/reemplazo atómico congelados; resto de `sync_*` sin caracterización directa. |
+| `data_manager_v2.py` | **~cero** (solo indirecta) | God file más expuesto y menos protegido. |
+| `assistant_service.py` | **cero** | Guardrails/factual/context/tracker sin test. |
+
+### Riesgos / restricciones de la intervención (reglas afirmadas)
+
+- **Characterization-first obligatorio** (mandato afirmado del proyecto) antes
+  de mover código en `data_manager_v2.py` y `assistant_service.py` (cobertura
+  directa ~cero/cero). Reutilizables: fake `DataManagerV2` por lambdas
+  (`test_analytics_service.py`) y fakes in-memory de `conftest.py`
+  (`_FakeInMemoryDB`) para caracterizar métodos con SQL antes de extraer un
+  repositorio; la caracterización de efecto de sync (DEGRADED/fatal, prizes
+  atómico) congela el contrato de fallo antes de trocear el sync.
+- **Preservar la superficie pública**: `DataManagerV2.*` (8 routers),
+  `DataSyncService.sync_*`/`sync_all`, `get_assistant_service()`/`ask()`,
+  `AnalyticsService.get_*`. Cualquier extracción mantiene fachada delgada que
+  delega, o los routers rompen.
+- **NO sanear los `except: pass` del DM** (~29) ni los de `photo_service.py`:
+  **deuda registrada FUERA de alcance** por regla afirmada — se preserva
+  comportamiento, no se limpia oportunistamente al extraer.
+- **NO ampliar los god files ni el patrón SQL-en-router** (regla afirmada); el
+  código nuevo va tras capa/función estrecha testeable.
+- **NO `ruff format` masivo** sobre estos ficheros brownfield ya modificados
+  (infla diffs, expone avisos preexistentes, invalida el pase de revisión en
+  vuelo); formatear solo los ficheros nuevos o quirúrgicamente.
+- **Patrón de extracción de referencia**: paquete `prizes/` +
+  `replace_team_prizes` (capa estrecha testeable + writer transaccional
+  atómico) — replicable por dominio.
+
+## Deuda técnica previa (intent 260925 — preservada)
 
 ### FR14 — Ramas de BD muertas SQLite/Turso (producción solo Neon)
 
@@ -54,53 +121,33 @@ Dead-path operativo completo y aislado:
 - `entrypoint.sh`: arranca `cron` + uvicorn duplicando el `CMD` del Dockerfile;
   no referenciado por Dockerfile ni `fly.toml` (candidato a residuo).
 
-**Riesgos / characterization-first**:
-- Caracterizar `db_connection.py` ANTES de tocarlo: verificar que ningún
-  llamador dependa de `adapt_params`/`adapt_sql` con `?` (SQLite) bajo Neon;
-  no alterar el contrato del cursor en PostgreSQL.
-- **El fake de tests está separado de la rama SQLite de producción**:
-  `test_db_engine_characterization.py` y `fake_db` usan `db_type="sqlite"`
-  deliberadamente (fake in-memory, NO la rama de producción). Retirar SQLite
-  del código de producción NO debe romper el doble de test — confirmar la
-  separación antes de borrar.
-- Confirmar que no queda import vivo tras eliminar `_init_turso` al retirar
-  `libsql-experimental` (coherente con coste 0 € y learning afirmado).
+**Riesgos / characterization-first** (contexto preservado, no re-verificado
+en este run — ver Scope of Analysis, degradado a shallow):
+- Caracterizar `db_connection.py` ANTES de tocarlo; no alterar el contrato del
+  cursor en PostgreSQL.
+- El fake de tests está separado de la rama SQLite de producción
+  (`test_db_engine_characterization.py` y `fake_db` usan `db_type="sqlite"`
+  deliberadamente).
 
 ### FR14 — IDs hardcodeados
 
-`CHAMPIONSHIP_ID` y `LEAGUE_ID` tienen defaults hardcodeados en
-**`config.py`** (NO en `constants.py`; el enunciado FR14 nombra el fichero
-equivocado). Residuo de la etapa mono-usuario en una app hoy multi-usuario/
-multi-campeonato. `constants.py` sí contiene `LALIGA_TEAMS` (fallback
-legítimo, no residuo).
+`CHAMPIONSHIP_ID` y `LEAGUE_ID` tienen defaults hardcodeados en **`config.py`**
+(NO en `constants.py`). Residuo de la etapa mono-usuario. `constants.py` sí
+contiene `LALIGA_TEAMS` (fallback legítimo, no residuo).
 
 ### FR15 — Doble montaje de `matchdays`
 
 En `main.py`, el mismo router se incluye dos veces
-(`prefix="/api/v1/matchdays"` y `prefix="/v1/matchdays"`, comentario "avoid
-redirect loops"). **Riesgo**: el segundo prefijo `/v1/matchdays` puede tener
-**clientes legacy** — verificar consumo en frontend/Sofascore antes de
-retirarlo.
+(`prefix="/api/v1/matchdays"` y `prefix="/v1/matchdays"`). El segundo puede
+tener clientes legacy — verificar consumo antes de retirarlo.
 
 ### FR15 — Artefactos basura versionados
 
-- `*.jpg:Zone.Identifier` (marcadores NTFS Windows): `42874.jpg:Zone.Identifier`,
-  `30825.jpg:Zone.Identifier`, `IMG_9904.PNG:Zone.Identifier`; imágenes
-  sueltas (`42874.jpg` ≈580 KB). **NO cubiertos por `.gitignore`** → requieren
-  `git rm` explícito.
-- Directorios `stitch_team_card_dashboard/` y
-  `stitch_angular_material_card_redesign/` (mockups, ≈370 KB) — **no en
-  `.gitignore`**.
-- `angular-app/node_modules.old-1789382239/` (`.gitignore` cubre
-  `node_modules.old-*/` — verificar si está trackeado históricamente).
-- `backend/futmondo_data.db` (`.gitignore` ignora `*.db` — verificar tracking
-  histórico).
+- `*.jpg:Zone.Identifier`, imágenes sueltas (`42874.jpg`), `stitch_*/`
+  (mockups), `angular-app/node_modules.old-*/`, `backend/futmondo_data.db`
+  (verificar tracking histórico). Detalle preservado del run previo.
 
-### Deuda fuera de alcance (registrada)
+### Deuda fuera de alcance (registrada, transversal)
 
-- God-files: `data_manager_v2.py` ~166 KB, `data_sync_service.py` ~84 KB,
-  `assistant_service.py` ~51 KB; patrón SQL-en-router. Regla afirmada: NO
-  ampliar.
 - Dependencias backend con rango abierto (deuda de pinning).
-- Comentarios "Railway"/"Turso" obsoletos dispersos en
-  `config.py`/`db_connection.py`/`docker-compose.yml`.
+- Comentarios "Railway"/"Turso" obsoletos dispersos.

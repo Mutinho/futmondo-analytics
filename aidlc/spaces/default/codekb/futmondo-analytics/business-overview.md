@@ -39,9 +39,18 @@ infraestructura (tiers gratuitos: Neon, Fly.io, GitHub Actions).
 
 ## Contexto del intent activo
 
-`260925-limpieza-config-residuos` (scope `refactor`, Minimal) es una
-intervención de **limpieza** brownfield: retirar ramas de BD muertas
-(SQLite/Turso frente a Neon en producción), IDs hardcodeados residuo de la
-etapa mono-usuario, el doble montaje de `matchdays` y artefactos basura
-versionados. No añade funcionalidad de negocio; reduce deuda. Hallazgos y
-riesgos en `code-quality-assessment.md`.
+`260927-god-files-refactor` (scope `refactor`, Minimal) es una intervención
+brownfield de **reducción de deuda estructural** en la capa de servicios del
+backend (FR13): descomponer los god files
+(`data_manager_v2.py`, `data_sync_service.py`, `assistant_service.py`,
+`analytics_service.py`) que hoy mezclan lógica de negocio con acceso a datos
+(SQL crudo inline). No añade funcionalidad de negocio; **preserva el
+comportamiento observable** (characterization-first) y la superficie pública
+consumida por routers y servicios. Responsabilidades mezcladas, seams de
+extracción candidatos, superficie pública a preservar y cobertura de tests
+por god file en `code-structure.md`; riesgos y estado de calidad en
+`code-quality-assessment.md`.
+
+> El intent previo `260925-limpieza-config-residuos` (limpieza de dead-path de
+> BD, IDs hardcodeados y residuos versionados) sigue reflejado en los
+> artefactos; su prosa se preserva fuera del área re-analizada aquí.

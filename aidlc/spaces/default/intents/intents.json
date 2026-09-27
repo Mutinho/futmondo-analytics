@@ -89,5 +89,12 @@
     "dirName": "260925-ci-gate-hardening",
     "scope": "infra",
     "status": "complete"
+  },
+  {
+    "uuid": "01a0e1c4-2731-74c7-8cfb-f1b6cb0c880b",
+    "slug": "god-files-refactor",
+    "dirName": "260927-god-files-refactor",
+    "scope": "refactor",
+    "status": "complete"
   }
 ]
