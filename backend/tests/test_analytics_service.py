@@ -258,8 +258,8 @@ def test_no_arg_constructor_and_historical_import_path(monkeypatch):
     historical import path resolves to the same facade. The DataManagerV2 the
     default adapter builds is stubbed so no DB is touched."""
     import app.services.analytics.infrastructure.data_manager_adapter as adapter_mod
-    from app.services.analytics_service import AnalyticsService as ShimService
     from app.services.analytics.facade import AnalyticsService as FacadeService
+    from app.services.analytics_service import AnalyticsService as ShimService
 
     monkeypatch.setattr(adapter_mod, "DataManagerV2", lambda: types.SimpleNamespace())
 
