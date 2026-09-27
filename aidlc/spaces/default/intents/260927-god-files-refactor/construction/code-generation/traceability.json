@@ -1,0 +1,40 @@
+{
+  "stage": "code-generation",
+  "unit": "analytics",
+  "upstream_ids": [
+    "FR1.1", "FR2.1", "FR2.2", "FR2.3", "FR3.2", "FR3.3", "FR4.1", "FR4.2",
+    "NFR1", "NFR2", "NFR3", "NFR4",
+    "BR1.1", "BR1.2", "BR1.3", "BR2.1", "BR2.2", "BR2.3", "BR2.4", "BR2.5", "BR2.6", "BR4.1", "BR4.2", "BR5.1", "BR5.2"
+  ],
+  "coverage": [
+    { "id": "FR1.1", "status": "OK", "target": "backend/app/services/analytics/ (Wave 1: analytics first)" },
+    { "id": "FR2.1", "status": "OK", "target": "backend/app/services/analytics_service.py (re-export shim; endpoint untouched)" },
+    { "id": "FR2.2", "status": "OK", "target": "backend/app/services/analytics/infrastructure/data_manager_adapter.py (raw SQL isolated)" },
+    { "id": "FR2.3", "status": "OK", "target": "backend/app/services/analytics/facade.py (_team_cache/_player_cache observable semantics preserved)" },
+    { "id": "FR3.2", "status": "OK", "target": "backend/tests/test_analytics_service.py (characterization of 5 uncovered get_*)" },
+    { "id": "FR3.3", "status": "OK", "target": "backend/tests/test_analytics_service.py (in-memory stubs; no network/DB/creds)" },
+    { "id": "FR4.1", "status": "OK", "target": "full suite green: 218 passed" },
+    { "id": "FR4.2", "status": "OK", "target": "behavior preserved; >=1 seam extracted (analytics context)" },
+    { "id": "NFR1", "status": "OK", "target": "SQL moved out of the facade into infrastructure adapter" },
+    { "id": "NFR2", "status": "OK", "target": "existing suite remains green (refactor scope floor)" },
+    { "id": "NFR3", "status": "OK", "target": "tests use in-memory fakes; conftest fake_db for adapter contract" },
+    { "id": "NFR4", "status": "OK", "target": "no new runtime deps (stdlib typing.Protocol); cost 0 EUR" },
+    { "id": "BR1.1", "status": "OK", "target": "backend/tests/test_analytics_service.py (11 characterization tests: identical payloads before/after)" },
+    { "id": "BR1.2", "status": "OK", "target": "backend/tests/test_analytics_service.py::test_adapter_fetch_all_teams_row_shape / test_adapter_fetch_players_by_ids_row_shape" },
+    { "id": "BR1.3", "status": "OK", "target": "Step 3 characterization ran green against un-moved code before extraction" },
+    { "id": "BR2.1", "status": "OK", "target": "backend/app/services/analytics/domain/ports.py (no infra, no framework, no SQL)" },
+    { "id": "BR2.2", "status": "OK", "target": "backend/app/services/analytics/infrastructure/data_manager_adapter.py (only raw SQL site)" },
+    { "id": "BR2.3", "status": "OK", "target": "backend/app/services/analytics/application/calculations.py (depends on AnalyticsDataPort)" },
+    { "id": "BR2.4", "status": "OK", "target": "single coherent port/adapter for the analytics context" },
+    { "id": "BR2.5", "status": "OK", "target": "backend/app/services/analytics/facade.py (facade only delegates)" },
+    { "id": "BR2.6", "status": "OK", "target": "backend/tests/test_analytics_service.py::test_no_arg_constructor_and_historical_import_path" },
+    { "id": "BR4.1", "status": "OK", "target": "analytics extracted first (lowest-risk god-file)" },
+    { "id": "BR4.2", "status": "OK", "target": "green suites + analytics seam extracted, behavior preserved" },
+    { "id": "BR5.1", "status": "OK", "target": "no new dependencies added (requirements.txt unchanged)" },
+    { "id": "BR5.2", "status": "OK", "target": "ruff format only on app/services/analytics/; no brownfield reformat" }
+  ],
+  "reverse": [
+    { "id": "endpoint SQL-in-router (classification-full)", "status": "Deferred", "target": "pre-existing debt in analytics.py; out of scope (consumers not modified)" },
+    { "id": "data_manager decomposition", "status": "N/A", "target": "Wave 4; adapter wraps current DataManagerV2" }
+  ]
+}

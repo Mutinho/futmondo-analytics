@@ -20,17 +20,28 @@ por `AuthMiddleware` (Bearer JWT). Rutas públicas (sin auth): `/`, `/health`,
 | Otros | roster, transactions, favorites, sofascore, assistant, matchdays | recursos de datos |
 | Salud | `/health` | check de liveness (smoke de release) |
 
-> Contratos de datos detallados y modelos: pendientes (no elaborados a
-> profundidad Minimal en scope refactor). Diagramas de secuencia de las
-> transacciones principales en `architecture.md` (Interaction Diagrams).
+> Contratos de datos detallados y modelos: no elaborados a profundidad
+> Minimal. Diagramas de secuencia de las transacciones principales en
+> `architecture.md` (Interaction Diagrams).
 
-### Hallazgo FR15 — doble montaje de `matchdays`
+## Superficie pública interna de la capa de servicios (contrato a NO romper — FR13)
 
-El **mismo router** de matchdays se incluye **DOS veces** en `main.py`:
-`prefix="/api/v1/matchdays"` y `prefix="/v1/matchdays"` (comentario "avoid
-redirect loops"). El segundo prefijo `/v1/matchdays` es superficie duplicada a
-unificar; **puede tener clientes legacy** — verificar consumo en el
-frontend/Sofascore antes de retirarlo (ver `code-quality-assessment.md`).
+La descomposición de god files debe preservar estas entradas públicas (los
+routers y servicios consumidores dependen de ellas). Inventario de métodos y
+seams en `code-structure.md`:
+
+- **`DataManagerV2`** — ~60 métodos públicos consumidos por 8 routers + sync +
+  analytics + `data_initializer_v2`.
+- **`DataSyncService`** — `sync_*()` (10 syncs) + `sync_all()`.
+- **`AssistantService`** — `get_assistant_service()` + `async ask(...)`.
+- **`AnalyticsService`** — `get_*` (10 métodos).
+
+### Hallazgo FR15 — doble montaje de `matchdays` (preservado)
+
+El mismo router de matchdays se incluye **dos veces** en `main.py`
+(`prefix="/api/v1/matchdays"` y `prefix="/v1/matchdays"`). El segundo prefijo
+puede tener clientes legacy — verificar consumo antes de retirarlo (ver
+`code-quality-assessment.md`).
 
 ## APIs externas consumidas
 
