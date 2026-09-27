@@ -50,11 +50,65 @@ Lo crítico del plan (FR1, FR2, FR5) está cerrado.
 
 ### Intent 3 — Descomposición de god files
 - **Requisitos**: FR13
-- **Prioridad**: Importante · **Esfuerzo**: L · **Scope**: `refactor` (multi-Bolt)
+- **Prioridad**: Importante · **Esfuerzo**: L · **Scope**: `refactor` (multi-Bolt / multi-intent por oleada)
 - **Alcance**: plan incremental por dominio de `data_manager_v2.py` (166 KB),
   `data_sync_service.py` (84 KB), `assistant_service.py` (51 KB),
   `analytics_service.py` (34 KB), preservando comportamiento (characterization-first).
 - **Cohesión**: el más caro y arriesgado; el análisis ya lo marcó "planificar aparte".
+- **Patrón objetivo por god file**: bounded context DDD bajo
+  `backend/app/services/<contexto>/` (fachada delgada que preserva la superficie
+  pública + `domain/` puerto + `application/` casos de uso + `infrastructure/`
+  adaptador con el SQL crudo aislado). El fichero original queda como shim de
+  re-export para no romper import paths. Puerto/adaptador propio del contexto
+  (DIP) para no acoplar el orden de oleadas.
+
+#### Oleadas (orden por riesgo creciente — BR4.1)
+
+| Oleada | God file | Estado | Intent / rama |
+|--------|----------|--------|---------------|
+| 1 | `analytics_service.py` (34 KB) | Completada | `260927-god-files-refactor` (rama `refactor/god-files-analytics-wave1`) |
+| 2 | `assistant_service.py` (51 KB) | Pendiente | intent nuevo (ver abajo) |
+| 3 | `data_sync_service.py` (84 KB) | Pendiente | intent nuevo (ver abajo) |
+| 4 | `data_manager_v2.py` (166 KB) | Pendiente | intent nuevo (posibles sub-Bolts por grupo de agregado) |
+
+**Oleada 1 — analytics (HECHA).** Extraído a `backend/app/services/analytics/`
+(fachada `AnalyticsService` con 11 `get_*` preservados, `AnalyticsDataPort`,
+`DataManagerAnalyticsAdapter` con los 2 SELECT crudos aislados). Consumidores
+intactos. Suite verde (218 passed), cobertura 29.75% >= piso 27. Reviewer READY.
+
+**Oleada 2 — assistant (PENDIENTE).** Seams claros ya identificados en
+`functional-spec.md`: `AssistantUsageTracker` (agregado propio con tabla), capa
+factual (`_try_factual_answer`/`_factual_*`), `ContextBuilder`
+(`_build_context`/`_ctx_*` con ~42 `cursor.execute` -> repositorios), guardrails
+(`_check_guardrails`, modulo puro); `ask()` queda como orquestador. Superficie a
+preservar: `get_assistant_service()` + `async ask(...)`. Cobertura directa hoy
+CERO -> caracterizacion just-enough por seam antes de mover. Scope `refactor`.
+
+**Oleada 3 — sync (PENDIENTE).** Un modulo/servicio de aplicacion por dominio de
+sync (transactions, clauses, punishments, dream_teams, performance, rosters,
+rankings, players, odds, prizes) coordinados por un `sync_all` delgado;
+`sync_prizes` ya delega en `prizes/` (patron a replicar). Reemplazos de conjunto
+-> repositorios con escritura atomica (BR3.2, patron `team_prizes_writer`).
+Superficie a preservar: `sync_*` (10) + `sync_all()`. La caracterizacion de
+efecto (DEGRADED/fatal, prizes atomico) ya existe; anadir por dominio antes de
+trocear. Scope `refactor`.
+
+**Oleada 4 — data_manager (PENDIENTE, nucleo).** Hub de 8 routers + sync +
+analytics; ~94 `cursor.execute`; cobertura directa ~cero. Los 8 agregados de
+`entities.md` -> un repositorio por agregado (SRP, BR2.4); `_init_database`/DDL
+-> `SchemaInitializer` aislado (no cuenta como agregado). Superficie a preservar:
+los 51 metodos publicos de `DataManagerV2`. Requiere **caracterizacion AMPLIA**
+de la superficie publica (FR3.1) antes del primer movimiento, con el
+`_FakeInMemoryDB` de `conftest.py`. Por tamano puede requerir **sub-Bolts por
+grupo de agregado** (schema/DDL, jugadores, transacciones, standings, ...). En
+esta oleada, los adaptadores de las oleadas 1-3 se reapuntan de la fachada
+`DataManagerV2` a los repositorios reales, sin tocar la logica de los contextos
+consumidores. Scope `refactor`.
+
+**Como arrancar cada oleada pendiente**: nuevo intent AI-DLC con
+`/aidlc --new-intent --scope refactor "<descripcion de la oleada>"`, reutilizando
+este patron y las reglas afirmadas (characterization-first, no ampliar god-files,
+no reformatear brownfield, no relajar cobertura, coste 0 EUR).
 
 ### Intent 4 — Endurecimiento del gate CI/CD (opcionales)
 - **Requisitos**: FR11 + FR12 + FR17.3 + deuda diferida
