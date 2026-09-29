@@ -141,10 +141,12 @@ def test_public_surface_and_singleton_stable(monkeypatch, fake_db):
     fake to keep the test hermetic in CI.
     """
     import app.services.assistant.facade as facade_module
-    from app.services import db_connection
 
     # Route the adapters' DB boundary to the in-memory fake (no network/Neon).
-    monkeypatch.setattr(db_connection, "get_db", lambda: fake_db)
+    # NOTE: facade.py binds ``get_db`` at import time (``from ... import get_db``),
+    # and its default-adapter lambdas call that module-level name — so the fake
+    # must replace ``facade.get_db``, not ``db_connection.get_db``.
+    monkeypatch.setattr(facade_module, "get_db", lambda: fake_db)
     # Reset the module singleton so this test builds a fresh instance under the fake.
     monkeypatch.setattr(facade_module, "_assistant_service", None)
 
