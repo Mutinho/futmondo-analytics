@@ -96,5 +96,12 @@
     "dirName": "260927-god-files-refactor",
     "scope": "refactor",
     "status": "complete"
+  },
+  {
+    "uuid": "01a0eba2-a33d-723a-bc92-8b71dfc114cb",
+    "slug": "assistant-god-file",
+    "dirName": "260929-assistant-god-file",
+    "scope": "refactor",
+    "status": "complete"
   }
 ]

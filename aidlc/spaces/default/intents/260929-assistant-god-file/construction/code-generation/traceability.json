@@ -1,0 +1,53 @@
+{
+  "stage": "code-generation",
+  "unit": "assistant",
+  "upstream_ids": [
+    "FR1.1", "FR1.2", "FR2.1", "FR2.2", "FR3.1", "FR3.2", "FR3.3", "FR3.4",
+    "FR4.1", "FR4.2", "FR4.3", "FR5.1", "FR5.2", "FR6.1", "FR6.2",
+    "NFR1.1", "NFR1.2", "NFR1.3", "NFR2.1", "NFR3.2", "NFR4.1",
+    "BR1.1", "BR1.2", "BR2.1", "BR2.2", "BR3.1", "BR3.2", "BR3.3",
+    "BR4.1", "BR4.2", "BR5.1", "BR5.2", "BR5.3", "BR5.4", "BR6.1"
+  ],
+  "coverage": [
+    { "id": "FR1.1", "status": "OK", "target": "backend/app/services/assistant/facade.py (get_assistant_service + async ask() surface preserved)" },
+    { "id": "FR1.2", "status": "OK", "target": "backend/tests/test_assistant_facade.py::test_public_surface_and_singleton_stable" },
+    { "id": "FR2.1", "status": "OK", "target": "backend/app/services/assistant/ package (DDD layers mirroring analytics/)" },
+    { "id": "FR2.2", "status": "OK", "target": "backend/app/services/assistant_service.py (re-export shim; endpoints untouched)" },
+    { "id": "FR3.1", "status": "OK", "target": "backend/app/services/assistant/domain/guardrails.py (pure guardrail)" },
+    { "id": "FR3.2", "status": "OK", "target": "backend/app/services/assistant/application/factual.py (factual over read port)" },
+    { "id": "FR3.3", "status": "OK", "target": "backend/app/services/assistant/application/context.py (context builder over read port)" },
+    { "id": "FR3.4", "status": "OK", "target": "backend/app/services/assistant/facade.py::AssistantUsageTracker + infrastructure/usage_adapter.py" },
+    { "id": "FR4.1", "status": "OK", "target": "backend/app/services/assistant/infrastructure/read_adapter.py (only read-SQL site; db.adapt_params + ?)" },
+    { "id": "FR4.2", "status": "OK", "target": "backend/app/services/assistant/infrastructure/usage_adapter.py (only assistant_usage SQL site)" },
+    { "id": "FR4.3", "status": "OK", "target": "read_adapter.save_market_today + usage_adapter._ensure_table (CREATE TABLE IF NOT EXISTS preserved; R-04 second DDL isolated)" },
+    { "id": "FR5.1", "status": "OK", "target": "backend/app/services/assistant/infrastructure/llm_adapter.py (Groq -> Gemini order)" },
+    { "id": "FR5.2", "status": "OK", "target": "backend/app/services/assistant/infrastructure/llm_adapter.py (provider fallback encapsulated behind LLMPort)" },
+    { "id": "FR6.1", "status": "OK", "target": "backend/app/services/assistant/facade.py::AssistantService.ask (orchestration order preserved)" },
+    { "id": "FR6.2", "status": "OK", "target": "context + LLM degradation preserved per-branch (BR3.3 / BR5.3)" },
+    { "id": "NFR1.1", "status": "OK", "target": "full suite green: 244 passed, 3 xfailed (no regressions)" },
+    { "id": "NFR1.2", "status": "OK", "target": "line coverage 33.82% (was 29.75%); floor --cov-fail-under=27 untouched (ratchet up)" },
+    { "id": "NFR1.3", "status": "OK", "target": "endpoints assistant.py / market.py import get_assistant_service unchanged (verified)" },
+    { "id": "NFR2.1", "status": "OK", "target": "SQL moved out of facade into infrastructure adapters (read_adapter.py / usage_adapter.py)" },
+    { "id": "NFR3.2", "status": "OK", "target": "ruff format + ruff check only on app/services/assistant/ and new tests; no brownfield reformat" },
+    { "id": "NFR4.1", "status": "OK", "target": "tests use conftest fake_db + in-test port stubs; no network, no real DB, no real creds; no new deps" },
+    { "id": "BR1.1", "status": "OK", "target": "backend/tests/test_assistant_guardrails.py (blocked/off-topic -> GUARDRAIL_RESPONSE, no factual/LLM)" },
+    { "id": "BR1.2", "status": "OK", "target": "backend/tests/test_assistant_guardrails.py (allowed message continues)" },
+    { "id": "BR2.1", "status": "OK", "target": "backend/tests/test_assistant_factual.py (factual answer from data, no LLM)" },
+    { "id": "BR2.2", "status": "OK", "target": "backend/app/services/assistant/domain/ports.py::AssistantReadPort + read_adapter.py (reads via port)" },
+    { "id": "BR3.1", "status": "OK", "target": "backend/tests/test_assistant_context.py::test_build_context_includes_roster_and_budget" },
+    { "id": "BR3.2", "status": "OK", "target": "backend/app/services/assistant/application/context.py (no SQL; all reads via port)" },
+    { "id": "BR3.3", "status": "OK", "target": "backend/tests/test_assistant_context.py (market degrades to ''; standings does NOT swallow — R-03 asymmetry frozen)" },
+    { "id": "BR4.1", "status": "OK", "target": "backend/tests/test_assistant_usage.py (quota checked before serving)" },
+    { "id": "BR4.2", "status": "OK", "target": "backend/tests/test_assistant_usage.py (consumption recorded after serving)" },
+    { "id": "BR5.1", "status": "OK", "target": "backend/tests/test_assistant_llm.py::test_groq_is_tried_before_gemini" },
+    { "id": "BR5.2", "status": "OK", "target": "backend/app/services/assistant/infrastructure/llm_adapter.py (provider fallback encapsulated)" },
+    { "id": "BR5.3", "status": "OK", "target": "backend/tests/test_assistant_llm.py::test_llm_failure_degrades_without_crashing + facade test degradation" },
+    { "id": "BR5.4", "status": "OK", "target": "llm_adapter.py logs only bounded str(e)[:80]; no key/token/password in exceptions; tests assert no leak" },
+    { "id": "BR6.1", "status": "OK", "target": "backend/tests/test_assistant_facade.py (end-to-end ask order; R-02 factual precedes quota)" }
+  ],
+  "reverse": [
+    { "id": "endpoint /ask/stream -> service.ask_stream", "status": "Deferred", "target": "PRE-EXISTING latent bug: ask_stream is absent in the source and remains absent (surface preserved exactly); registered debt, out of scope" },
+    { "id": "data_manager decomposition", "status": "N/A", "target": "later wave; read_adapter reads directly via db_connection, no data_manager coupling introduced" },
+    { "id": "endpoint SQL-in-router (assistant.py conversations, market.py)", "status": "Deferred", "target": "pre-existing debt in consumers; out of scope (endpoints not modified)" }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "stage": "functional-design",
+  "unit": "assistant",
+  "upstream_ids": [],
+  "coverage": [],
+  "reverse": [
+    { "id": "BR1.1", "status": "OK", "target": "FR3.1 (guardrails: mensaje bloqueado -> GUARDRAIL_RESPONSE)" },
+    { "id": "BR1.2", "status": "OK", "target": "FR3.1 (guardrails: mensaje permitido continua)" },
+    { "id": "BR1.3", "status": "OK", "target": "FR3.1 (guardrails modulo puro sin I/O)" },
+    { "id": "BR2.1", "status": "OK", "target": "FR3.2 (factual: respuesta desde datos sin LLM)" },
+    { "id": "BR2.2", "status": "OK", "target": "FR3.2, FR4.1 (factual lee solo via AssistantReadPort)" },
+    { "id": "BR3.1", "status": "OK", "target": "FR3.3 (ContextBuilder + LLM cuando no hay factual)" },
+    { "id": "BR3.2", "status": "OK", "target": "FR3.3, FR4.1, FR4.3 (SQL de contexto solo en el adaptador)" },
+    { "id": "BR3.3", "status": "OK", "target": "FR3.3, FR6.2 (degradacion de lecturas de contexto/mercado sin romper)" },
+    { "id": "BR4.1", "status": "OK", "target": "FR3.4 (comprobar cuota antes de consumir)" },
+    { "id": "BR4.2", "status": "OK", "target": "FR3.4 (registrar consumo tras servir)" },
+    { "id": "BR4.3", "status": "OK", "target": "FR3.4, FR4.2, FR4.3 (uso via AssistantUsagePort; CREATE TABLE idempotente)" },
+    { "id": "BR5.1", "status": "OK", "target": "FR5.1 (fallback Groq -> Gemini, orden preservado)" },
+    { "id": "BR5.2", "status": "OK", "target": "FR5.1 (fallback encapsulado en el adaptador de LLMPort)" },
+    { "id": "BR5.3", "status": "OK", "target": "FR5.1, FR6.2 (fallo LLM degrada sin romper; modo observable preservado)" },
+    { "id": "BR5.4", "status": "OK", "target": "memory:M1 regla afirmada (sin credenciales/tokens Futmondo en excepciones)" },
+    { "id": "BR6.1", "status": "OK", "target": "FR1.1, FR1.2 (superficie publica identica + shim de re-export)" }
+  ]
+}

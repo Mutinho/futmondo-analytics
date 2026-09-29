@@ -1,0 +1,39 @@
+{
+  "intent": "260929-assistant-god-file",
+  "wave": 2,
+  "stage": "code-generation",
+  "unit": "assistant",
+  "created": [
+    "backend/app/services/assistant/__init__.py",
+    "backend/app/services/assistant/facade.py",
+    "backend/app/services/assistant/domain/__init__.py",
+    "backend/app/services/assistant/domain/guardrails.py",
+    "backend/app/services/assistant/domain/ports.py",
+    "backend/app/services/assistant/application/__init__.py",
+    "backend/app/services/assistant/application/factual.py",
+    "backend/app/services/assistant/application/context.py",
+    "backend/app/services/assistant/infrastructure/__init__.py",
+    "backend/app/services/assistant/infrastructure/usage_adapter.py",
+    "backend/app/services/assistant/infrastructure/read_adapter.py",
+    "backend/app/services/assistant/infrastructure/llm_adapter.py",
+    "backend/tests/test_assistant_guardrails.py",
+    "backend/tests/test_assistant_usage.py",
+    "backend/tests/test_assistant_factual.py",
+    "backend/tests/test_assistant_context.py",
+    "backend/tests/test_assistant_llm.py",
+    "backend/tests/test_assistant_facade.py"
+  ],
+  "modified": [
+    "backend/app/services/assistant_service.py"
+  ],
+  "not_touched_out_of_scope": [
+    "backend/app/api/v1/endpoints/assistant.py",
+    "backend/app/api/v1/endpoints/market.py",
+    "backend/app/services/data_manager_v2.py",
+    "backend/app/services/data_sync_service.py",
+    "backend/app/services/analytics/",
+    "backend/pytest.ini",
+    "backend/ruff.toml",
+    "backend/requirements.txt"
+  ]
+}
