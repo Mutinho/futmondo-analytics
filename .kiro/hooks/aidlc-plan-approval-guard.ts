@@ -518,7 +518,28 @@ function isTrustedRecordTarget(
       projectReal,
       relative(projectLexical, targetAbs),
     );
-    return isWithinDir(targetAbs, recordAbs);
+    if (isWithinDir(targetAbs, recordAbs)) return true;
+    // The adversarial review of code-generation-plan.md is a Step 3
+    // prerequisite of Plan Approval: the reviewer writes its review record
+    // under `.aidlc-reviews/code-generation/` BEFORE the human approves.
+    // That path is a tool-owned review record, not application source, so a
+    // write there is trusted like the code-generation record dir. Step 4
+    // application-source mutation stays outside both dirs and remains blocked.
+    const reviewsDir = resolve(
+      projectLexical,
+      "aidlc",
+      "spaces",
+      "default",
+      "intents",
+    );
+    if (
+      isWithinDir(targetAbs, reviewsDir) &&
+      targetAbs.split(sep).includes(".aidlc-reviews") &&
+      targetAbs.split(sep).includes(GUARDED_STAGE)
+    ) {
+      return true;
+    }
+    return false;
   } catch {
     return false;
   }
@@ -572,9 +593,24 @@ function isPlanApprovalPrerequisite(args: string[]): boolean {
   ) {
     return true;
   }
-  if (noun !== "log" || (verb !== "decision" && verb !== "answer")) return false;
+  if (noun !== "log" || (verb !== "decision" && verb !== "answer" && verb !== "review")) {
+    return false;
+  }
 
   const routeArgs = args.slice(3);
+
+  // `log review` records the adversarial review of code-generation-plan.md
+  // (the stage's `review_artifact`). That review is a Step 3 prerequisite of
+  // Plan Approval — it runs BEFORE the human approves and only writes the
+  // review record under `.aidlc-reviews/`, never application source. Blocking
+  // it as if it were Step 4 generation is a false positive (the plan can never
+  // become READY-reviewed before approval). Allow it, scoped to the guarded
+  // stage; the developer-agent dispatch and workspace mutation of Step 4 stay
+  // blocked by the other branches.
+  if (verb === "review") {
+    return lastFlagValue(routeArgs, "--stage") === GUARDED_STAGE;
+  }
+
   return (
     lastFlagValue(routeArgs, "--stage") === GUARDED_STAGE &&
     lastFlagValue(routeArgs, "--checkpoint") === "plan-approval"

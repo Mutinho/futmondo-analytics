@@ -1,153 +1,94 @@
-# Evaluación de Calidad del Código — Futmondo Analytics
+# Code Quality Assessment — futmondo-analytics
 
-## Cobertura de tests
+## Cobertura de test
 
-- **Backend**: `backend/tests/` (≈28 ficheros pytest, characterization-first).
-  Fixtures fake in-memory en `conftest.py` (`_FakeInMemoryDB`/`_FakeCursor`
-  SQLite `:memory:`, `clean_jwt_env`, `fake_db`) — sin red, sin BD real, sin
-  credenciales. Cobertura `--cov=app` **observability-only** (SIN
-  `cov-fail-under`).
-- **Frontend**: Vitest (`@angular/build:unit-test` + `@vitest/coverage-v8`
-  4.1.11 pin), con umbrales por métrica en `angular.json` (statements 15 /
-  branches 15 / functions 13 / lines 14, en trinquete).
-- **Asimetría conocida (deuda diferida afirmada)**: `ci.yml` mide `--cov=app`
-  mientras `fly-deploy.yml` (job `verify`) corre `pytest -q` **sin `--cov`**.
+- **Backend**: `backend/tests/` con 32 ficheros `test_*.py` (suite de
+  caracterización). Framework `pytest` + `pytest-cov`. Piso bloqueante
+  `--cov-fail-under=27` en `pytest.ini` (line-only, sin `--cov-branch`); solo
+  sube por trinquete. Fakes in-memory en `conftest.py` (`_FakeInMemoryDB`/
+  `_FakeCursor` SQLite `:memory:`, `clean_jwt_env`, `fake_db`) — sin red, sin BD
+  real, sin credenciales reales.
+- **Frontend**: `*.spec.ts` colocados junto a servicios/componentes; `ng test`
+  (builder `@angular/build:unit-test` + `@vitest/coverage-v8==4.1.11`) con
+  umbrales por métrica en `angular.json` (`coverageThresholds`: statements 15 /
+  branches 15 / functions 13 / lines 14).
+- **Deuda crítica — cobertura CERO del asistente**: ningún test de
+  `backend/tests/` referencia el asistente (0 matches de "assistant" en la
+  suite). Esto **obliga characterization-first** (mandato afirmado) antes de
+  descomponer `assistant_service.py`: congelar el comportamiento por seam con los
+  fakes de `conftest.py` antes de mover una sola línea.
 
-## Linting / formato
+## Linting
 
-- **Backend**: `ruff` (`backend/ruff.toml`, `select=["E","F","I"]`,
-  `ignore=["E501","E402"]`; `E722`/bare-except re-habilitado advisory).
-  **Sin `# noqa` en los 4 god files** (0). Advisory en CI.
-- **Frontend**: ESLint (`eslint.config.js`) advisory; Prettier (`.prettierrc`).
+- `backend/ruff.toml`: `target-version = py312`, `line-length = 100`,
+  `select = ["E","F","I"]`, `ignore = ["E501","E402"]`. `[lint.per-file-ignores]`
+  para `tests/**`/`conftest.py` y para los god-files:
+  `assistant_service.py` → `["I001"]`; `data_manager_v2.py` →
+  `["E722","F841","F401","I001"]`; `data_sync_service.py` → `["F401","I001"]`;
+  `photo_service.py` → `["E722","F841"]`.
+- `ruff check` **ya es bloqueante** en ambos gates; `ruff format` NO lo corre la
+  reviewer. Implicación para el intent: formatear SOLO ficheros nuevos (no en
+  masa) al crear `assistant/`, para no invalidar el pase de revisión en vuelo ni
+  romper el gate.
+- Frontend ESLint aún advisory (`continue-on-error`) — deuda diferida.
 
 ## CI/CD
 
-- `ci.yml` (PR→main): **gitleaks + pytest + ng test BLOQUEANTES**;
-  ruff/ESLint/pip-audit/npm-audit advisory.
-- `fly-deploy.yml` (push→main): `verify` (gitleaks+pytest+ng test) →
-  deploy-backend → deploy-frontend → smoke `/health`.
-- Crons Fly.io one-shot: `daily-sync.yml`, `sofascore-sync.yml`.
+- `.github/workflows/ci.yml` (PR → main, job `quality`, required status check).
+- `.github/workflows/fly-deploy.yml` (push → main, job `verify` que replica el
+  gate; luego `deploy-backend` → `deploy-frontend` → `smoke-test` contra
+  `/health`, 5 reintentos HTTP 200).
+- Checks bloqueantes: gitleaks `@v3` (unificado), `pytest --cov=app`,
+  `ruff check`, `pip-audit` (entorno instalado + allowlist con caducidad),
+  `npm audit --audit-level=high`, `ng test`.
+- Crons de coste ~0: `daily-sync.yml`, `sofascore-sync.yml` (máquinas Fly
+  one-shot).
+- Restricción dura: coste 0 € (tiers gratuitos); un rojo nunca llega a
+  producción.
 
-## Documentación
+## Calidad de documentación
 
-`README.md` + `docs/` (DEPLOY, ROLLBACK, PR-GATE, PROJECT_CONTEXT, varios
-BACKLOG y planes históricos). Docstrings de módulo/clase presentes en los god
-files; lógica interna escasamente documentada. Docstrings de caracterización
-con trazas a FR/BR en los tests.
+- `README.md` completo (arquitectura, stack, endpoints, deploy).
+- `docs/` extenso: `BACKLOG-plan-intents.md` (origen del intent), `DEPLOY.md`,
+  `ROLLBACK.md`, `PROJECT_CONTEXT`.
+- Docstrings de calidad en los paquetes DDD de referencia (`analytics/`,
+  `prizes/`); los god-files carecen de esa disciplina.
 
-## Deuda técnica — foco del intent (FR13: descomposición de god files)
+## Deuda técnica (registro)
 
-Los cuatro god files comparten el anti-patrón **SQL-en-servicio**. Anatomía,
-seams de extracción y superficie pública por fichero en `code-structure.md`;
-aquí, la señal de calidad y los riesgos de intervención.
+- **God-files** (NUNCA ampliar ni extender SQL-en-router; saneo quirúrgico solo):
+  `data_manager_v2.py` (166 173 bytes), `data_sync_service.py` (84 591 bytes),
+  `assistant_service.py` (51 681 bytes / 1158 líneas — objetivo del intent),
+  `photo_service.py` (22 764 bytes).
+- **SQL inline en la capa de servicio**: `assistant_service.py` contiene **42
+  `cursor.execute`** con SQL crudo, concentrados en `ContextBuilder` (`_ctx_*`).
+  Patrón que la Oleada 1 relocó tras `AnalyticsDataPort` (Protocol) + adaptador.
+- **`except Exception` amplio / silencioso**: en `assistant_service.py` (p. ej.
+  `_ctx_market_from_db`, `_save_market_to_db` con `except: return ""` /
+  `logger.warning`); bare-except registrados como deuda (E722 en per-file-ignores
+  de `data_manager_v2.py`/`photo_service.py`). Al reubicar, preservar el
+  comportamiento (degradar, no romper).
+- **`CREATE TABLE IF NOT EXISTS` en caliente** (esquema implícito, sin
+  migraciones): `AssistantUsageTracker._ensure_table()` (`assistant_usage`);
+  `_save_market_to_db` (`market_today`); el endpoint del asistente
+  (`assistant_conversations`, verificado en `assistant.py`); y esquemas durables
+  de auth/sesión/tarea al arranque en `main.py` (idempotentes, degradan a
+  warning). El adaptador de infra debe preservar la idempotencia para no cambiar
+  comportamiento observable.
+- **Rangos de modelo LLM frágiles**: listas hardcodeadas
+  (`["gemini-3.6-flash","gemini-3.5-flash"]`, `openai/gpt-oss-120b`) y
+  formaciones hardcodeadas en `_ctx_formations`.
+- **Pin de tooling frontend**: `vitest` en rango abierto `^4.0.8` frente al pin
+  de su plugin `@vitest/coverage-v8==4.1.11` — asimetría de pin señalada.
 
-### Señales de deuda por god file
+## Postura de seguridad (direccionada)
 
-- **`data_manager_v2.py`** (3692 líneas, 62 `def`, **94 `cursor.execute`
-  inline**): `except: pass` ~29, 5 `except:` bare, 18 `except Exception`.
-  `_init_database` (~330 líneas) mezcla DDL de todas las tablas. SQL crudo
-  embebido en cada save/get. **Núcleo del acoplamiento** (8 routers + sync +
-  analytics vía `self.dm`) y de **mayor riesgo**: cobertura directa ~cero.
-- **`data_sync_service.py`** (1955 líneas): 28 `except Exception`, ~34
-  `except:`-tipo. Funciones enormes: `sync_prizes` (303),
-  `sync_player_performance` (223), `sync_dream_teams_mvps` (161).
-- **`assistant_service.py`** (1158 líneas, **42 `cursor.execute` inline**):
-  SQL-en-servicio dentro de los `_ctx_*`; guardrails/factual/tracker sin test.
-- **`analytics_service.py`** (828 líneas, solo **2 `cursor.execute`**): el más
-  limpio; ya delega en `self.dm`.
-
-### Estado global / config module-level (acoplamiento oculto)
-
-`data_sync_service` toma `CHAMPIONSHIP_ID`/`LEAGUE_ID`/`FUTMONDO_EMAIL/PASSWORD`
-de `app.core.config`; assistant toma `GEMINI_API_KEY`/`GROQ_API_KEY` y límites
-module-level; `_resolve_real_team_name` importa `LALIGA_TEAM_NAMES` de
-constants dentro del método. Considerar inyección al extraer, **sin cambiar el
-comportamiento observable**.
-
-### Caché mutable per-instance
-
-`analytics_service._team_cache`/`_player_cache`; `data_manager_v2.cache_duration`.
-
-### Cobertura de tests por god file (estado previo a la extracción)
-
-| God file | Cobertura directa | Notas |
-|----------|-------------------|-------|
-| `analytics_service.py` | **Buena** (6/10 `get_*`) | Seam de inyección `self.dm` ya existe; fake `DataManagerV2` por lambdas en `test_analytics_service.py`. **Menor riesgo.** |
-| `data_sync_service.py` | **Parcial de efecto** | Contrato de fallo (DEGRADED/fatal) y `sync_prizes`/reemplazo atómico congelados; resto de `sync_*` sin caracterización directa. |
-| `data_manager_v2.py` | **~cero** (solo indirecta) | God file más expuesto y menos protegido. |
-| `assistant_service.py` | **cero** | Guardrails/factual/context/tracker sin test. |
-
-### Riesgos / restricciones de la intervención (reglas afirmadas)
-
-- **Characterization-first obligatorio** (mandato afirmado del proyecto) antes
-  de mover código en `data_manager_v2.py` y `assistant_service.py` (cobertura
-  directa ~cero/cero). Reutilizables: fake `DataManagerV2` por lambdas
-  (`test_analytics_service.py`) y fakes in-memory de `conftest.py`
-  (`_FakeInMemoryDB`) para caracterizar métodos con SQL antes de extraer un
-  repositorio; la caracterización de efecto de sync (DEGRADED/fatal, prizes
-  atómico) congela el contrato de fallo antes de trocear el sync.
-- **Preservar la superficie pública**: `DataManagerV2.*` (8 routers),
-  `DataSyncService.sync_*`/`sync_all`, `get_assistant_service()`/`ask()`,
-  `AnalyticsService.get_*`. Cualquier extracción mantiene fachada delgada que
-  delega, o los routers rompen.
-- **NO sanear los `except: pass` del DM** (~29) ni los de `photo_service.py`:
-  **deuda registrada FUERA de alcance** por regla afirmada — se preserva
-  comportamiento, no se limpia oportunistamente al extraer.
-- **NO ampliar los god files ni el patrón SQL-en-router** (regla afirmada); el
-  código nuevo va tras capa/función estrecha testeable.
-- **NO `ruff format` masivo** sobre estos ficheros brownfield ya modificados
-  (infla diffs, expone avisos preexistentes, invalida el pase de revisión en
-  vuelo); formatear solo los ficheros nuevos o quirúrgicamente.
-- **Patrón de extracción de referencia**: paquete `prizes/` +
-  `replace_team_prizes` (capa estrecha testeable + writer transaccional
-  atómico) — replicable por dominio.
-
-## Deuda técnica previa (intent 260925 — preservada)
-
-### FR14 — Ramas de BD muertas SQLite/Turso (producción solo Neon)
-
-Dead-path operativo completo y aislado:
-- `config.py`: resolución en cascada `DATABASE_URL` → `TURSO_DATABASE_URL` →
-  fallback `sqlite`; expone `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`,
-  `POSTGRES_*` manuales. Comentarios "Railway" obsoletos.
-- `db_connection.py`: `_init_turso()` (libsql embedded replica),
-  `_TursoCursorWrapper`, `_init_sqlite()`, y ramas `turso`/`sqlite` en
-  `get_connection`/`adapt_sql`/`adapt_params`/`get_last_insert_id`/`sync`.
-- `requirements.txt`: `libsql-experimental==0.0.55` (no compila fuera de 3.12;
-  no lo ejercitan los tests).
-- `nixpacks.toml`: config Railway/Nixpacks huérfana (`python311` incoherente).
-- `scripts/migrate_to_turso.py` (14 KB) y `migrate_data_to_turso.py` (5 KB):
-  sin uso en el flujo Neon.
-- `entrypoint.sh`: arranca `cron` + uvicorn duplicando el `CMD` del Dockerfile;
-  no referenciado por Dockerfile ni `fly.toml` (candidato a residuo).
-
-**Riesgos / characterization-first** (contexto preservado, no re-verificado
-en este run — ver Scope of Analysis, degradado a shallow):
-- Caracterizar `db_connection.py` ANTES de tocarlo; no alterar el contrato del
-  cursor en PostgreSQL.
-- El fake de tests está separado de la rama SQLite de producción
-  (`test_db_engine_characterization.py` y `fake_db` usan `db_type="sqlite"`
-  deliberadamente).
-
-### FR14 — IDs hardcodeados
-
-`CHAMPIONSHIP_ID` y `LEAGUE_ID` tienen defaults hardcodeados en **`config.py`**
-(NO en `constants.py`). Residuo de la etapa mono-usuario. `constants.py` sí
-contiene `LALIGA_TEAMS` (fallback legítimo, no residuo).
-
-### FR15 — Doble montaje de `matchdays`
-
-En `main.py`, el mismo router se incluye dos veces
-(`prefix="/api/v1/matchdays"` y `prefix="/v1/matchdays"`). El segundo puede
-tener clientes legacy — verificar consumo antes de retirarlo.
-
-### FR15 — Artefactos basura versionados
-
-- `*.jpg:Zone.Identifier`, imágenes sueltas (`42874.jpg`), `stitch_*/`
-  (mockups), `angular-app/node_modules.old-*/`, `backend/futmondo_data.db`
-  (verificar tracking histórico). Detalle preservado del run previo.
-
-### Deuda fuera de alcance (registrada, transversal)
-
-- Dependencias backend con rango abierto (deuda de pinning).
-- Comentarios "Railway"/"Turso" obsoletos dispersos.
+- `JWT_SECRET` no-default obligatorio en arranque (NFR1.1; endurecido en
+  `test_jwt_startup.py`).
+- Nunca contraseña/token Futmondo en claro (memoria o BD) ni en
+  mensaje/`repr`/`exc_info` de excepciones (reglas afirmadas); las excepciones de
+  integración llevan modo de fallo + contexto no sensible.
+- gitleaks escanea también los tests → los tests usan fakes/dobles, sin
+  credenciales reales.
+- Superficie pública intencional `/static/photos/*` documentada en `main.py`
+  (FR7/NFR1.6): no colocar recursos sensibles bajo ese mount.

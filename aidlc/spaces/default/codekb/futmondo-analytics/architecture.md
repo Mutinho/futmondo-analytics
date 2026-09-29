@@ -1,167 +1,193 @@
-# Arquitectura — Futmondo Analytics
+# Architecture — futmondo-analytics
 
-## Visión general del sistema
+## Architecture Analysis
 
-Sistema web de dos aplicaciones desplegadas por separado en Fly.io (región
-`cdg`): un **frontend** Angular 22 (PWA servida por nginx) y un **backend**
-FastAPI (Python 3.12), con **Neon PostgreSQL** (Frankfurt, tier free) como
-base de datos. El backend integra APIs externas (Futmondo, Sofascore,
-Gemini/Groq). Auth por JWT (access token en memoria del navegador + refresh
-token en cookie HttpOnly).
+### System Overview
 
-## Estilo arquitectónico
+Sistema web multi-usuario compuesto por dos unidades desplegables independientes
+(backend API y frontend PWA) sobre una base de datos gestionada. El backend es
+un **monolito modular** FastAPI: routers HTTP delgados bajo `/api/v1/*`
+protegidos por un middleware de autenticación JWT, apoyados en una **capa de
+servicios** que concentra la lógica de negocio y las integraciones salientes
+(Futmondo, Sofascore, LLM). El frontend Angular 22 consume esa API vía un proxy
+nginx.
 
-**Monolito modular** en el backend (un único proceso FastAPI con subpaquetes
-`core`/`services`/`api`/`auth`/`stores`/`security`/`models`) desplegado como
-un servicio, más un SPA independiente. Evidencia: un solo `main.py` monta los
-24 routers; los servicios comparten proceso y acceso directo a BD vía
-`db_connection`. No hay límites de despliegue por dominio (no microservicios).
+### Architectural Style
 
-**Smell brownfield (foco FR13)**: la capa de servicios contiene god files
-(`data_manager_v2.py` 3692 líneas, `data_sync_service.py` 1955,
-`assistant_service.py` 1158, `analytics_service.py` 828) con SQL crudo inline
-(anti-patrón SQL-en-servicio). `DataManagerV2` es un **hub estrella**: 8
-routers + sync + analytics dependen de él. La descomposición extrae
-repositorios por agregado tras fachadas delgadas, preservando la superficie
-pública. Deuda registrada; regla afirmada de NO ampliarlos. Detalle de seams
-en `code-structure.md`.
+**Monolito modular** (backend) + **SPA/PWA** (frontend), evidencia:
+`backend/app/main.py` monta ~20 routers `/api/v1/*` de
+`backend/app/api/v1/endpoints/` sobre un único proceso ASGI (`uvicorn`), sin
+separación en microservicios. La capa de servicios está en transición hacia
+**hexagonal / puertos-y-adaptadores** en los bounded contexts ya refactorizados
+(`analytics/`, `prizes/`): dominio con `Protocol` sin SQL, aplicación pura,
+adaptadores de infraestructura como único sitio con SQL crudo (evidencia:
+`backend/app/services/analytics/domain/ports.py`,
+`backend/app/services/analytics/infrastructure/data_manager_adapter.py`). El
+resto de servicios (god-files) siguen un estilo procedural con SQL embebido.
 
-## Relaciones entre componentes
-
-```mermaid
-graph TD
-  Browser["iPhone / Navegador (PWA)"] -->|HTTPS| FE["futmondo-app (nginx + Angular)"]
-  FE -->|/api/*, /auth/*| BE["futmondo-api (FastAPI)"]
-  BE --> Auth["auth (JWT + token/session store)"]
-  BE --> Svc["services (lógica + integraciones)"]
-  Svc --> DBC["db_connection (manager multi-backend)"]
-  DBC -->|DATABASE_URL| Neon[("Neon PostgreSQL")]
-  DBC -.rama muerta.-> Turso[("Turso / SQLite (dead-path)")]
-  Svc --> FM["futmondo_client → API Futmondo"]
-  Svc --> SS["sofascore_client → API Sofascore"]
-  Svc --> AI["assistant_service → Gemini / Groq"]
-```
-
-**Fallback en texto**: el navegador habla HTTPS con `futmondo-app` (nginx +
-Angular), que proxya `/api/*` y `/auth/*` a `futmondo-api` (FastAPI). El
-backend usa `auth` (JWT), `services` (lógica de negocio e integraciones) y,
-a través de `db_connection`, resuelve la conexión de BD: en producción a
-**Neon (DATABASE_URL)**; las ramas **Turso/SQLite** existen en código pero
-están muertas en operación. Los servicios llaman a las APIs externas Futmondo,
-Sofascore y Gemini/Groq.
-
-### Acoplamiento de la capa de servicios (foco FR13)
+### Component Relationships
 
 ```mermaid
 graph TD
-  R8["8 routers (sync, analytics, assistant,\nmarket, statistics, matchdays,\nplayer_finances, ...)"] --> DM["DataManagerV2\n(god file · 94 cursor.execute · ~60 métodos)"]
-  Sync["DataSyncService\n(sync_* · sync_all)"] --> DM
-  Analytics["AnalyticsService\n(get_* · inyecta self.dm)"] --> DM
-  Assistant["AssistantService\n(ask · _ctx_* SQL inline)"] --> DBC["db_connection"]
-  DM --> DBC
-  Sync --> Prizes["prizes/ (extraído)\nreplace_team_prizes (writer atómico)"]
-  Prizes --> DBC
-  DBC --> Neon[("Neon PostgreSQL")]
+  Browser["iPhone / Browser (PWA)"] -->|HTTPS| Nginx["futmondo-app (nginx)"]
+  Nginx -->|/ SPA| Angular["Angular 22 SPA"]
+  Nginx -->|/api/*, /auth/*| API["futmondo-api (FastAPI)"]
+  API --> Auth["AuthMiddleware (JWT Bearer)"]
+  Auth --> Routers["~20 routers /api/v1/*"]
+  Routers --> Services["Capa de servicios (dominio + integraciones)"]
+  Services --> Analytics["analytics/ (DDD)"]
+  Services --> Prizes["prizes/ (cálculo puro)"]
+  Services --> Assistant["assistant_service.py (god-file, objetivo del intent)"]
+  Services --> GodFiles["data_manager_v2.py / data_sync_service.py (god-files)"]
+  Services --> DB[("Neon PostgreSQL")]
+  Services -->|saliente| Futmondo["API Futmondo"]
+  Services -->|saliente| Sofascore["API Sofascore (curl_cffi)"]
+  Assistant -->|saliente| LLM["LLM: Groq -> fallback Gemini"]
 ```
 
-**Fallback en texto**: `DataManagerV2` es el hub estrella: los 8 routers, el
-`DataSyncService` y el `AnalyticsService` (que lo inyecta como `self.dm`)
-dependen de él, y él accede a BD por `db_connection`. `AssistantService` accede
-a BD directo (SQL inline en `_ctx_*`). `sync_prizes` ya delega en el paquete
-extraído `prizes/` (writer transaccional atómico `replace_team_prizes`) — el
-patrón de referencia para la descomposición.
+Fallback de texto: el navegador llega por HTTPS a `futmondo-app` (nginx), que
+sirve la SPA Angular en `/` y hace proxy de `/api/*` y `/auth/*` a
+`futmondo-api` (FastAPI). En el backend, `AuthMiddleware` valida el Bearer JWT
+antes de los ~20 routers `/api/v1/*`; los routers delegan en la capa de
+servicios, que accede a Neon PostgreSQL y a las integraciones salientes
+(Futmondo, Sofascore, y LLM Groq→Gemini solo desde el asistente).
 
-## Flujo de datos
+### Data Flow
 
-Petición HTTP → `AuthMiddleware` (valida Bearer JWT salvo rutas públicas) →
-router `/api/v1/*` → servicio de negocio → `db_connection` (Neon) y/o cliente
-de integración externo → respuesta JSON. El sync es asíncrono: un endpoint
-lanza la tarea (devuelve `task_id`), el estado se persiste vía `stores` y el
-frontend hace polling del progreso.
+Entrada HTTP → `AuthMiddleware` (adjunta `request.state.user`) → router →
+servicio de dominio → adaptador/SQL → Neon PostgreSQL. Las integraciones
+salientes (Futmondo/Sofascore/LLM) se invocan desde la capa de servicios. El
+sync es asíncrono: un endpoint dispara una tarea durable y el frontend hace
+polling del progreso (11 pasos). El esquema de varias tablas se materializa en
+caliente con `CREATE TABLE IF NOT EXISTS` (ver `code-quality-assessment.md`).
 
-## Interaction Diagrams — transacciones de negocio principales
+### Interaction Diagrams
 
-### Login (autenticación contra Futmondo + emisión JWT)
+#### Flujo del asistente IA (`/api/v1/assistant/ask` → `ask()`)
 
 ```mermaid
 sequenceDiagram
-  participant U as Navegador
-  participant API as FastAPI /auth
-  participant FM as API Futmondo
-  U->>API: POST /auth/login (email, password)
-  API->>FM: valida credenciales
-  FM-->>API: sesión Futmondo (12h TTL)
-  API-->>U: access JWT (memoria) + refresh (cookie HttpOnly)
+  participant C as Cliente (PWA)
+  participant E as assistant.py (endpoint)
+  participant S as assistant_service.ask()
+  participant G as Guardrails (_check_guardrails)
+  participant F as Capa factual (_try_factual_answer)
+  participant CB as ContextBuilder (_build_context)
+  participant DB as Neon PostgreSQL
+  participant L as LLM (Groq -> Gemini)
+  C->>E: POST /api/v1/assistant/ask (Bearer JWT)
+  E->>DB: CREATE TABLE IF NOT EXISTS assistant_conversations / load-or-create
+  E->>S: await service.ask(user_id, championship_id, message, history)
+  S->>G: _check_guardrails(message)
+  alt bloqueado
+    G-->>S: GUARDRAIL_RESPONSE
+    S-->>E: response (bloqueado)
+  else permitido
+    S->>F: _try_factual_answer(message)
+    alt hay respuesta factual
+      F->>DB: cursor.execute (lectura factual)
+      F-->>S: respuesta factual
+    else no factual
+      S->>CB: _build_context(...)
+      CB->>DB: ~cursor.execute (contexto)
+      CB-->>S: contexto
+      S->>L: Groq (openai/gpt-oss-120b)
+      alt Groq falla
+        S->>L: fallback Gemini (google-genai)
+      end
+      L-->>S: respuesta LLM
+    end
+    S-->>E: {response, context_used}
+  end
+  E->>DB: UPDATE assistant_conversations (persistir mensajes)
+  E-->>C: AskResponse
 ```
 
-**Fallback**: el navegador envía credenciales a `/auth/login`; el backend las
-valida contra la API de Futmondo, y si son correctas devuelve un access JWT
-(en memoria, 1h) y un refresh token en cookie HttpOnly (30 días).
+Fallback de texto: el endpoint autentica y carga/crea la conversación, luego
+llama `ask()`. `ask()` orquesta: guardrails (regex puro) → si bloqueado devuelve
+`GUARDRAIL_RESPONSE`; si no, intenta respuesta factual (lecturas SQL directas);
+si no hay factual, construye contexto (mayoría de los `cursor.execute`) y llama
+al LLM Groq con **fallback a Gemini**. El endpoint persiste ambos mensajes.
 
-### Sync asíncrono (progreso por pasos)
+#### Flujo de sync/analytics
 
 ```mermaid
 sequenceDiagram
-  participant U as Navegador
-  participant API as FastAPI /api/v1/sync
-  participant Svc as data_sync_service
-  participant DM as DataManagerV2
-  participant Ext as Futmondo / Sofascore
-  participant DB as Neon
-  U->>API: POST /sync/trigger
-  API-->>U: task_id
-  Svc->>Ext: obtiene datos (11 pasos)
-  Svc->>DM: save_* (o prizes/ para sync_prizes)
-  DM->>DB: escribe (reemplazo transaccional)
-  U->>API: GET /sync/task/{id} (polling)
-  API-->>U: progreso / estado por paso
+  participant C as Cliente (PWA)
+  participant Sy as sync.py (endpoint)
+  participant T as task_service (tarea durable)
+  participant DS as data_sync_service (11 pasos)
+  participant FUT as API Futmondo
+  participant SOF as API Sofascore
+  participant DB as Neon PostgreSQL
+  participant An as analytics/ (AnalyticsService)
+  C->>Sy: POST /api/v1/sync/trigger (Bearer JWT)
+  Sy->>T: crear tarea durable -> task_id
+  Sy-->>C: {task_id}
+  loop 11 pasos
+    DS->>FUT: fetch (transacciones, plantillas, ...)
+    DS->>SOF: fetch (odds/ratings, curl_cffi)
+    DS->>DB: persistir (reemplazo transaccional)
+  end
+  loop polling
+    C->>Sy: GET /api/v1/sync/task/{id}
+    Sy->>DB: leer estado del paso
+    Sy-->>C: progreso
+  end
+  C->>An: GET /api/v1/analytics/* (Bearer JWT)
+  An->>DB: AnalyticsDataPort -> adapter (SQL crudo)
+  An-->>C: analítica derivada
 ```
 
-**Fallback**: el usuario dispara `/sync/trigger` y recibe un `task_id`; el
-`DataSyncService` recorre 11 pasos consultando Futmondo/Sofascore y escribiendo
-vía `DataManagerV2` (o el paquete `prizes/` en `sync_prizes`) en Neon; el
-frontend consulta `/sync/task/{id}` para el progreso. El estado de paso usa
-`sync_step_status.py` (recuperable → `DEGRADED`, fatal → aborta limpio).
+Fallback de texto: el cliente dispara `sync/trigger`, que crea una tarea durable
+y devuelve `task_id`; el servicio de sync ejecuta 11 pasos consumiendo Futmondo
+y Sofascore y persistiendo en Neon; el cliente hace polling del progreso.
+Independientemente, las consultas de analytics pasan por `AnalyticsService`, que
+lee vía `AnalyticsDataPort` implementado por un adaptador de infraestructura con
+SQL crudo.
 
-### Consulta analítica (delegación a DataManagerV2)
+### Key Design Decisions
 
-```mermaid
-sequenceDiagram
-  participant U as Navegador
-  participant API as FastAPI /api/v1/analytics
-  participant AS as AnalyticsService
-  participant DM as DataManagerV2
-  participant DB as Neon
-  U->>API: GET /analytics/*
-  API->>AS: get_* (cálculo)
-  AS->>DM: self.dm.get_* (lecturas)
-  DM->>DB: SELECT
-  DB-->>DM: filas
-  DM-->>AS: datos
-  AS-->>API: métricas calculadas
-  API-->>U: JSON
-```
+#### ADR — Descomposición DDD de servicios god-file (Oleada 1, replicable)
 
-**Fallback**: los endpoints de analítica llaman a `AnalyticsService.get_*`,
-que calcula a partir de lecturas obtenidas por inyección de `self.dm`
-(`DataManagerV2`). Este seam de inyección ya está probado con un fake por
-lambdas — el candidato de menor riesgo para la descomposición.
+- **Context**: los servicios de negocio históricos son god-files con SQL crudo
+  embebido y baja testabilidad (`data_manager_v2.py` 166 173 bytes,
+  `data_sync_service.py` 84 591 bytes, `assistant_service.py` 51 681 bytes). La
+  regla de proyecto prohíbe ampliarlos o extender el patrón SQL-en-router.
+- **Decision**: extraer por bounded context a `facade + domain/ports +
+  application + infrastructure` (evidencia `analytics/`): la fachada preserva la
+  superficie pública y solo delega; el `Protocol` de dominio no contiene SQL ni
+  framework; la aplicación es lógica pura sobre el port; el SQL crudo vive solo
+  en el adaptador; el módulo original queda como shim de re-export
+  (`analytics_service.py`).
+- **Consequences**: (+) testabilidad por inyección de un stub port sin
+  monkeypatching; (+) SQL aislado en un único punto; (+) import histórico
+  intacto vía shim. (−) más ficheros/indirección; (−) coste de caracterización
+  previa (characterization-first) en código con cobertura cero.
+- **Alternatives**: reescribir el god-file in-place (rechazado: prohibido por
+  regla afirmada y de alto riesgo sin cobertura); dejar el SQL en routers
+  (rechazado: patrón SQL-en-router prohibido).
 
-## Decisiones de diseño clave
+#### ADR — Autenticación JWT vía middleware ASGI
 
-- **Multi-backend de BD** (`db_connection`) — hoy solo Neon (PostgreSQL) vivo;
-  el resto es dead-path (ver `code-quality-assessment.md`, FR14).
-- **JWT dual** (access en memoria, refresh en cookie HttpOnly) por seguridad.
-- **Excepciones de integración tipadas propagadas** (`integration_errors.py`,
-  raíz `IntegrationError`) en lugar de `return None` silencioso.
-- **Extracción por capa estrecha testeable + writer transaccional** (paquete
-  `prizes/`) como patrón de descomposición de referencia (FR13).
-- **Despliegue on-merge** a Fly.io con smoke `/health`.
+- **Context**: multi-usuario con credenciales Futmondo; superficie `/api/v1/*`
+  debe exigir Bearer token, excepto rutas públicas.
+- **Decision**: `AuthMiddleware` (Starlette `BaseHTTPMiddleware`) valida el
+  Bearer y adjunta `request.state.user`; `AUTH_EXCLUDED_PATHS` exime
+  `/auth/*`, `/health`, `/`, `/docs`, `/openapi.json`, `/redoc` (evidencia
+  `backend/app/main.py`). Implicación de seguridad: `JWT_SECRET` no-default
+  obligatorio en arranque (NFR1.1); el mount `/static/photos/*` es una
+  superficie pública **intencional** documentada en `main.py`.
+- **Consequences**: (+) autorización centralizada; (+) rutas públicas
+  explícitas. (−) el middleware es un punto único que debe mantener sincronizada
+  la allowlist de rutas.
+- **Alternatives**: dependencias `Depends()` por router (rechazado: dispersa la
+  política de auth y facilita olvidos).
 
-## Oportunidades de mejora
+### Improvement Opportunities
 
-Foco del intent activo (FR13): descomponer los god files de la capa de
-servicios en repositorios por agregado tras fachadas delgadas, preservando
-comportamiento y superficie pública (characterization-first). Deuda previa
-(dead-path de BD, doble montaje `matchdays`, residuos versionados) documentada
-en `code-quality-assessment.md`.
+- Migraciones de esquema explícitas en lugar de `CREATE TABLE IF NOT EXISTS` en
+  caliente (detalle en `code-quality-assessment.md`).
+- Completar la descomposición DDD de los god-files restantes (`assistant/` es el
+  objetivo del intent activo).
+- Aislar los rangos de modelo LLM hardcodeados tras configuración.

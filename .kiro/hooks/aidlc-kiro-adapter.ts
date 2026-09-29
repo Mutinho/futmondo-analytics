@@ -972,6 +972,40 @@ function buildForward(): Forward {
       };
     }
 
+    case "record-human-turn": {
+      // The Plan Approval response-pairing seam on Kiro. The verb-intercept
+      // seam (userPromptSubmit) already forwards a TYPED prompt to the core
+      // human-turn hook, which is enough for the break-glass phrase and for a
+      // human who types "Approve Plan". But at the Plan Approval gate the
+      // conductor presents a structured question and the human PICKS an option;
+      // Kiro delivers that choice as a postToolUse `tool_response`, never as a
+      // typed prompt. Without this forward the core hook never sees the pick, so
+      // `recordPlanApprovalHumanResponse` never writes `response-<session>.json`
+      // and the embedded `log answer` receipt path refuses with "requires the
+      // actual offered choice from this prompt and session".
+      //
+      // Forward the raw pick to the core hook as a PostToolUse carrying
+      // `tool_response`; the core's `extractResponseText` maps the option to
+      // `Approve Plan`/`Request Changes` and pairs it with the pending
+      // challenge. This is fail-open and idempotent: the core writes nothing
+      // unless a matching challenge is pending for this session, so forwarding
+      // any picker response (or none) is harmless. We require a tool_response
+      // so ordinary tool events are not forwarded as human turns.
+      if (kiro.tool_response === undefined || kiro.tool_response === null) {
+        return null;
+      }
+      return {
+        hook: "aidlc-record-human-turn.ts",
+        input: {
+          hook_event_name: "PostToolUse",
+          tool_name: kiro.tool_name ?? "",
+          tool_input: ti,
+          tool_response: kiro.tool_response,
+          ...(kiro.session_id ? { session_id: kiro.session_id } : {}),
+        },
+      };
+    }
+
     case "continue-workflow":
       // kiro-cli provides neither stop_hook_active NOR a transcript_path, so the
       // core hook's run-mode-aware no-progress ceiling is the loop guard here

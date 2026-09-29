@@ -1,56 +1,62 @@
-# Visión de Negocio — Futmondo Analytics
+# Business Overview — futmondo-analytics
 
-## Dominio
+## Dominio de negocio
 
-Aplicación web **multi-usuario** para gestionar y analizar campeonatos de
-**Futmondo** (fantasy football). Cada usuario se autentica con sus propias
-credenciales de Futmondo; los datos de campeonato (transacciones, jugadores,
-clasificación) se comparten entre los usuarios de un mismo campeonato.
+`futmondo-analytics` es una aplicación web multi-usuario para gestionar y
+analizar campeonatos de **Futmondo** (fantasy football). Es un sistema
+brownfield **en producción** (Fly.io, región `cdg`) desplegado como dos apps:
+backend `futmondo-api` (FastAPI, Python 3.12) y frontend `futmondo-app`
+(Angular 22 PWA), con base de datos **Neon PostgreSQL** (Frankfurt, tier free).
 
-## Propósito
+El propósito es dar a cada usuario visibilidad y analítica sobre sus
+campeonatos de Futmondo: presupuestos por equipo, mercado con puja sugerida,
+ratings de Sofascore, finanzas por usuario, evolución/estadísticas y un
+asistente conversacional con IA. Restricción de negocio dura: **coste 0 €**
+(solo tiers gratuitos).
 
-Dar a los participantes de una liga Futmondo una herramienta analítica sobre
-su PWA (instalable en iPhone) para tomar decisiones de mercado y seguir sus
-finanzas, apoyándose en datos externos (Futmondo, Sofascore) sin coste de
-infraestructura (tiers gratuitos: Neon, Fly.io, GitHub Actions).
+## Modelo multi-usuario
+
+- Cada usuario se autentica con sus credenciales **Futmondo** (email/password);
+  el backend valida contra la API de Futmondo y emite JWT (access token en
+  memoria + refresh token en HttpOnly cookie).
+- Los campeonatos del usuario se auto-detectan en el primer login; su
+  configuración (presupuesto, premios, cláusulas) procede de la API de Futmondo.
+- Los datos del campeonato (transacciones, jugadores, standings) son
+  **compartidos** entre usuarios de ese campeonato; las operaciones salientes
+  usan las credenciales Futmondo del usuario logado (no hay credencial global).
 
 ## Funcionalidad clave
 
-- **Presupuesto**: saldos por equipo con detalle de altas/bajas y puja máxima.
-- **Mercado**: jugadores del computer con puja sugerida, rating Sofascore y
-  tendencia; pujar con validación min/max.
-- **Sincronización asíncrona**: sync en background con progreso paso a paso
-  (11 pasos: jugadores, transacciones, cláusulas, castigos, dream teams,
-  rendimiento, plantillas, clasificación, odds, phantoms, sofascore).
+- **Presupuesto / Balances**: saldos por equipo con detalle de altas/bajas,
+  puja máxima y rendimiento.
+- **Mercado**: jugadores del computer con puja sugerida (historial), rating
+  Sofascore y tendencia; puja con min/max validados.
+- **Sincronización asíncrona**: sync en background de 11 pasos (jugadores,
+  transacciones, cláusulas, castigos, dream teams, rendimiento, plantillas,
+  clasificación, odds, phantoms, sofascore) con progreso paso a paso y tareas
+  durables.
 - **Finanzas**: cálculo de dinero por usuario (presupuesto + puntos×€ + profit
   de transacciones + dream team + MVP + clasificación proporcional + castigos).
-- **Analítica**: evolución, estadísticas, clausulables, analytics avanzado
-  (Chart.js) y asistente conversacional (Gemini/Groq).
-- **PWA / Dark Mode**: service worker, manifest, meta Apple; tema persistido.
-
-## Actores e integraciones
-
-- **Actor primario**: participante de una liga Futmondo (usuario multi-tenant).
-- **Integraciones externas**: API Futmondo (fuente de verdad del juego), API
-  Sofascore (ratings), Gemini/Groq (asistente).
-
-> Detalle de superficie de API en `api-documentation.md`; componentes y
-> responsabilidades en `component-inventory.md`.
+- **Analytics avanzado**: tendencias, consistencia, watchlist de mercado, red de
+  cláusulas, rachas de oportunidad y proyecciones de jornada (paquete DDD
+  `analytics/`).
+- **Premios**: cálculo de premios por jornada (`prizes/`).
+- **Asistente IA**: chat conversacional con guardrails, respuestas factuales
+  desde la BD y fallback a LLM (Groq → Gemini), con persistencia de
+  conversaciones.
+- **PWA / Dark mode**: instalable en iPhone Safari; tema oscuro persistido.
 
 ## Contexto del intent activo
 
-`260927-god-files-refactor` (scope `refactor`, Minimal) es una intervención
-brownfield de **reducción de deuda estructural** en la capa de servicios del
-backend (FR13): descomponer los god files
-(`data_manager_v2.py`, `data_sync_service.py`, `assistant_service.py`,
-`analytics_service.py`) que hoy mezclan lógica de negocio con acceso a datos
-(SQL crudo inline). No añade funcionalidad de negocio; **preserva el
-comportamiento observable** (characterization-first) y la superficie pública
-consumida por routers y servicios. Responsabilidades mezcladas, seams de
-extracción candidatos, superficie pública a preservar y cobertura de tests
-por god file en `code-structure.md`; riesgos y estado de calidad en
-`code-quality-assessment.md`.
+El intent activo (**Oleada 2 god-files, FR13**) es de tipo `refactor`: descomponer
+el god-file `backend/app/services/assistant_service.py` (51 681 bytes / 1158
+líneas) al patrón DDD ya establecido en la Oleada 1 (`analytics/`, `prizes/`),
+preservando la superficie pública `get_assistant_service()` + `async ask(...)`.
+La analítica de detalle de deuda técnica vive en `code-quality-assessment.md`.
 
-> El intent previo `260925-limpieza-config-residuos` (limpieza de dead-path de
-> BD, IDs hardcodeados y residuos versionados) sigue reflejado en los
-> artefactos; su prosa se preserva fuera del área re-analizada aquí.
+## Trazabilidad
+
+Hallazgos de dominio verificables contra: `README.md`, `docs/` (BACKLOG,
+DEPLOY, ROLLBACK, PROJECT_CONTEXT), `backend/app/main.py` (montaje de la API) y
+la superficie de servicios en `backend/app/services/`. Inventario de
+componentes en `component-inventory.md`.

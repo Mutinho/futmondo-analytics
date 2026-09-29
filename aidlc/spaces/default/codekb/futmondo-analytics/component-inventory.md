@@ -1,82 +1,109 @@
-# Inventario de Componentes — Futmondo Analytics
+# Component Inventory — futmondo-analytics
 
-> Nombres de componente usados verbatim en el bloque `Scope of Analysis` de
-> `reverse-engineering-timestamp.md`. Responsabilidad registrada una vez aquí;
-> el resto de artefactos cross-referencia.
+Lista completa de componentes lógicos con responsabilidad y dependencias. Los
+nombres de encabezado `###` de esta lista se usan **verbatim** en
+`analyzed.components` del bloque Scope of Analysis
+(`reverse-engineering-timestamp.md`). Los tamaños/deuda no se repiten aquí; ver
+`code-quality-assessment.md`.
 
-## core
+### backend-app-core
 
-Configuración y constantes del backend. `config.py` resuelve el tipo de BD en
-cascada (`DATABASE_URL` → `TURSO_DATABASE_URL` → fallback `sqlite`) y expone
-secretos; **contiene los defaults hardcodeados `CHAMPIONSHIP_ID`/`LEAGUE_ID`**
-(residuo mono-usuario, FR14). `constants.py` mantiene el catálogo estático
-`LALIGA_TEAMS` (fallback legítimo) y `LALIGA_TEAM_NAMES` (usado por assistant).
-Depende de: variables de entorno.
+- **Responsabilidad**: bootstrap ASGI FastAPI (`main.py`): CORS, `AuthMiddleware`
+  JWT, montaje de ~20 routers, arranque idempotente de esquemas durables, mount
+  estático de fotos; configuración en `core/config.py` (`JWT_SECRET` NFR1.1).
+- **Dependencias**: `api-v1-endpoints`, `auth-jwt`, `services-*`, `stores-durable`.
+- **Evidencia**: `backend/app/main.py`, `backend/app/core/config.py`.
 
-## services
+### api-v1-endpoints
 
-Lógica de negocio e integraciones. Incluye `db_connection.py` (manager
-multi-backend), los **god files** `data_manager_v2.py` (3692 líneas · hub
-estrella), `data_sync_service.py` (1955), `assistant_service.py` (1158) y
-`analytics_service.py` (828), los clientes
-`futmondo_client.py`/`sofascore_client.py`, `integration_errors.py`,
-`sync_step_status.py` y el paquete **`prizes/`** (extracción de referencia ya
-hecha: capa estrecha + `team_prizes_writer.replace_team_prizes`).
-**Foco FR13**: los god files mezclan lógica y acceso a datos (SQL inline) — a
-descomponer en repositorios por agregado tras fachadas delgadas, preservando
-superficie pública. Responsabilidades mezcladas y seams por fichero en
-`code-structure.md`.
-Depende de: `core`, `stores`, BD (Neon), APIs externas.
+- **Responsabilidad**: routers HTTP delgados bajo `/api/v1/*` que delegan en la
+  capa de servicios; incluye el router `assistant` y helpers (`_helpers.py`,
+  `_sofascore_helpers.py`).
+- **Dependencias**: `services-analytics`, `services-prizes`, `assistant-service`,
+  clientes de integración, `db-connection`.
+- **Evidencia**: `backend/app/api/v1/endpoints/` (~20 módulos-router).
 
-## api/v1/endpoints
+### auth-jwt
 
-24 routers HTTP montados bajo `/api/v1/*`. Traducen peticiones a llamadas de
-servicio (consumidores de la superficie pública de `services`). Contiene el
-doble montaje de `matchdays` (FR15).
-Depende de: `services`, `auth`.
+- **Responsabilidad**: login/refresh/logout, emisión y verificación de JWT,
+  almacén de tokens.
+- **Dependencias**: `stores-durable`, `core/config.py`.
+- **Evidencia**: `backend/app/auth/` (`routes.py`, `jwt_utils.py`, `token_store.py`).
 
-## auth
+### assistant-service
 
-Autenticación JWT (access en memoria + refresh en cookie HttpOnly) y
-token/session store; `AuthMiddleware` protege las rutas no públicas.
-Depende de: `stores`, `security`, PyJWT.
+- **Responsabilidad**: asistente IA (god-file **objetivo del intent**):
+  guardrails, respuestas factuales, `ContextBuilder`, `AssistantUsageTracker`,
+  orquestación `ask()`/`ask_stream()` con fallback LLM Groq→Gemini. Superficie
+  pública `get_assistant_service()` + `async ask(...)`.
+- **Dependencias**: `db-connection`, LLM externos (Groq/Gemini).
+- **Evidencia**: `backend/app/services/assistant_service.py`.
 
-## stores
+### services-analytics
 
-Repositorios durables de estado de tareas y sesiones (soporte del sync async y
-la sesión Futmondo por usuario).
-Depende de: `db_connection` (`services`).
+- **Responsabilidad**: analítica derivada (bounded context DDD Oleada 1 de
+  referencia): fachada + domain/ports + application + infrastructure.
+- **Dependencias**: `db-connection` (vía adaptador), `data-manager-v2`.
+- **Evidencia**: `backend/app/services/analytics/`, `analytics_service.py` (shim).
 
-## security
+### services-prizes
 
-Protección de credenciales (nunca password/token en claro en memoria, BD,
-logs ni excepciones).
-Depende de: —.
+- **Responsabilidad**: cálculo de premios (patrón secundario Oleada 1): cálculo
+  puro + writer de persistencia.
+- **Dependencias**: `db-connection`.
+- **Evidencia**: `backend/app/services/prizes/` (`calculator.py`, `team_prizes_writer.py`).
 
-## models
+### data-manager-v2
 
-Modelos de datos compartidos.
-Depende de: —.
+- **Responsabilidad**: acceso/gestión de datos del dominio (god-file); superficie
+  de lectura consumida por `analytics/`.
+- **Dependencias**: `db-connection`.
+- **Evidencia**: `backend/app/services/data_manager_v2.py`.
 
-## scripts
+### data-sync-service
 
-Utilidades one-shot: sync, export, `init_db`, y las migraciones a Turso
-(`migrate_to_turso.py`, `migrate_data_to_turso.py`) — estas últimas sin uso en
-el flujo Neon actual (deuda FR14).
-Depende de: `services`, `core`.
+- **Responsabilidad**: sincronización asíncrona de 11 pasos desde Futmondo y
+  Sofascore hacia la BD (god-file); reemplazo transaccional atómico.
+- **Dependencias**: `futmondo-client`, `sofascore-client`, `db-connection`,
+  `sync-step-status`, `task-service`.
+- **Evidencia**: `backend/app/services/data_sync_service.py`.
 
-## angular-app
+### integration-clients
 
-SPA Angular 22 (PWA), servida por nginx en producción. Consume la API interna.
-No relevante al alcance FR13 (backend-only).
-Depende de: API interna del backend.
+- **Responsabilidad**: clientes de integración saliente Futmondo y Sofascore, con
+  excepciones tipadas por modo de fallo.
+- **Dependencias**: `requests`, `curl_cffi`, `integration_errors`.
+- **Evidencia**: `backend/app/services/futmondo_client.py`, `sofascore_client.py`,
+  `futmondo_service.py`, `integration_errors.py`.
 
-## proxy / cron
+### services-support
 
-`proxy` = nginx reverse proxy local; `cron` = app Fly.io de crons
-(`daily-sync`, `sofascore-sync`, máquinas one-shot). Ejercitan rutas de sync
-pero no cambian la topología de despliegue.
-Depende de: backend.
+- **Responsabilidad**: soporte de dominio: tareas (`task_manager.py`,
+  `task_service.py`), sesión (`session_service.py`), fotos (`photo_service.py`,
+  god-file menor), inicialización (`data_initializer*.py`), estado de pasos
+  (`sync_step_status.py`).
+- **Dependencias**: `db-connection`, `stores-durable`.
+- **Evidencia**: `backend/app/services/` (módulos citados).
 
-> Dependencias externas (librerías) y cross-paquete internas en
-> `dependencies.md`.
+### db-connection
+
+- **Responsabilidad**: gestión de conexión y cursor; `adapt_params` para
+  compatibilidad de placeholders SQLite (`?`) / PostgreSQL.
+- **Dependencias**: `psycopg2-binary`.
+- **Evidencia**: `backend/app/services/db_connection.py`.
+
+### stores-durable
+
+- **Responsabilidad**: repositorios durables de sesión y tarea (esquema
+  idempotente, sweep de tareas interrumpidas al arranque).
+- **Dependencias**: `db-connection`.
+- **Evidencia**: `backend/app/stores/`.
+
+### frontend-angular-app
+
+- **Responsabilidad**: SPA/PWA Angular 22 (core/services, features, shared) que
+  consume la API; fuera del alcance de cambio del intent (solo sube ratchet de
+  cobertura).
+- **Dependencias**: `api-v1-endpoints` (vía HTTP/proxy nginx).
+- **Evidencia**: `angular-app/src/app/`, `angular-app/package.json`,
+  `angular-app/angular.json`.
