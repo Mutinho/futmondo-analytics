@@ -132,8 +132,22 @@ class _StubLLM:
 # --- Public surface identity -------------------------------------------------
 
 
-def test_public_surface_and_singleton_stable():
-    """The historical import path exposes the surface and a stable singleton."""
+def test_public_surface_and_singleton_stable(monkeypatch, fake_db):
+    """The historical import path exposes the surface and a stable singleton.
+
+    Uses the in-memory DB fake (no real Postgres): building the default service
+    eagerly creates the ``assistant_usage`` table via the usage adapter
+    (behavior preserved from the god-file), so ``get_db`` must resolve to the
+    fake to keep the test hermetic in CI.
+    """
+    import app.services.assistant.facade as facade_module
+    from app.services import db_connection
+
+    # Route the adapters' DB boundary to the in-memory fake (no network/Neon).
+    monkeypatch.setattr(db_connection, "get_db", lambda: fake_db)
+    # Reset the module singleton so this test builds a fresh instance under the fake.
+    monkeypatch.setattr(facade_module, "_assistant_service", None)
+
     assert callable(get_assistant_service)
     assert AssistantUsageTracker is not None
     first = get_assistant_service()
