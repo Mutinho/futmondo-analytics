@@ -91,3 +91,65 @@ de confirmaciones, ni el guard, ni el estado del workflow.
 - `~/.local/share/aidlc/versions/2.9.0/aidlc.orig-2.9.0.bak`: copia del binario
   2.9.0 original (red de seguridad; el binario en uso es el original sin
   modificar).
+
+---
+
+## Bug PENDIENTE (diagnosticado 2026-09-29, SIN parchear todavía) — Plan Approval de Code Generation
+
+> **Estado**: diagnosticado durante el intent `260929-assistant-god-file` (etapa
+> `code-generation`). **Bloquea la generación de código.** Aún NO hay parche.
+
+### Síntoma
+
+En la etapa `code-generation`, el recibo del **Plan Approval** (challenge/response)
+se rechaza de forma determinista con:
+
+```
+Refusing to record Plan Approval: Plan Approval requires the actual offered choice from this prompt and session
+```
+
+aun con: challenge bien formado, opciones coincidentes (`Approve Plan` /
+`Request Changes`), `requireExactOptionLabels: false`, y un `HUMAN_TURN`
+registrado tras el `DECISION_RECORDED`.
+
+### Causa raíz (por traza de auditoría)
+
+- `log decision --checkpoint plan-approval` fija `promptSha256` sobre el fichero
+  de preguntas (`code-generation-questions.md`) en el momento del reto, **con el
+  `[Answer]:` en blanco**.
+- El protocolo exige rellenar `[Answer]: Approve Plan` ANTES de correr
+  `log answer`. Esa escritura cambia el contenido del fichero.
+- `log answer` valida el `promptSha256` contra el estado ACTUAL del fichero →
+  ya no coincide → rechazo. La proyección del prompt del Plan Approval **no está
+  excluyendo el valor del `[Answer]:`** (a diferencia del summary-confirmation,
+  que sí lo excluye vía `Hash Scope: confirmed-content-v1`).
+
+### Secuela: el override break-glass no desbloquea
+
+- `log answer --override "<motivo>"` SÍ registra `PLAN_APPROVAL_RECORDED
+  override:true`, pero el **hook PreToolUse `aidlc-plan-approval-guard.ts`** NO
+  lo reconoce como aprobación válida para el target y sigue bloqueando el
+  despacho del developer (arrastra el mismo `failed_check` de binding).
+- Resultado: ni el recibo normal ni el override permiten arrancar la generación.
+- Además el guard bloquea lecturas/escrituras de workspace (incluido el propio
+  fichero del parche) mientras no haya aprobación válida → el bug **solo se puede
+  arreglar fuera del flujo aidlc** (chat sin el agente `aidlc`, o edición directa
+  cuando el guard no está activo).
+
+### Arreglo propuesto (pendiente de aplicar)
+
+Análogo al fix de `summary-authorization`: hacer que la proyección del hash del
+prompt del Plan Approval (en `.kiro/tools/aidlc-lib.ts`, la función que computa
+`promptSha256` para el challenge/response del checkpoint `plan-approval`, y su
+verificación en `log answer`) **excluya el valor del `[Answer]:`** (blanquearlo
+antes de hashear), igual que `confirmed-content-v1` excluye el answer del
+summary-confirmation. Verificar además que el hook
+`aidlc-plan-approval-guard.ts` honra el recibo resultante. Verificar con
+`aidlc --doctor` y de punta a punta en `code-generation`.
+
+### Estado del intent al documentar
+
+- RE, Requirements Analysis, Functional Design: aprobados y en disco.
+- Code Generation: plan + unit-test-instructions + Testing Contract completos,
+  revisados READY, aprobados por el humano; **la generación de código NO ha
+  arrancado** por este bug. Retomar con `/aidlc --resume` una vez parcheado.

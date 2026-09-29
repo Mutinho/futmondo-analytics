@@ -52,6 +52,7 @@
 import { existsSync } from "node:fs";
 import {
   consumeSharedDirectiveAsk,
+  hookDebug,
   humanTurnMintAllowed,
   markHumanTurn,
   resolveProjectDirFromHook,
@@ -105,6 +106,14 @@ function extractResponseText(value: unknown): string {
 export async function run(input: string): Promise<number> {
 try {
   const projectDir = resolveProjectDirFromHook(import.meta.url);
+  // Diagnostic-only raw payload dump, gated behind AIDLC_HOOK_DEBUG (or the
+  // `.aidlc-hook-debug` marker). It captures the exact harness payload this
+  // hook receives — the UserPromptSubmit prompt AND any picker PostToolUse
+  // tool_response — so the Plan Approval response-pairing seam can be verified
+  // against the real Kiro shape. It changes no control flow.
+  hookDebug(projectDir, "record-human-turn", "invoked", {
+    input: input.slice(0, 4000),
+  });
   if (existsSync(stateFilePath(projectDir))) {
     if (humanTurnMintAllowed()) {
       let sessionId = "";
