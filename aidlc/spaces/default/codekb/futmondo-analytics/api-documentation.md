@@ -1,88 +1,81 @@
-# API Documentation — futmondo-analytics
+# API Documentation
 
-## Superficies API
+## Superficies externas (HTTP)
 
-### 1. REST interno (FastAPI) — entrante
+### Auth (`backend/app/auth/routes.py`)
 
-Evidencia: `backend/app/main.py` (montaje de routers) y
-`backend/app/api/v1/endpoints/`. La API v1 monta ~20 routers de endpoints bajo
-prefijos `/api/v1/*` (el handoff del developer lo enuncia como "22 routers"; el
-recuento exacto de módulos-router de endpoints v1 mapeados en `main.py` es 20,
-más el `auth` router fuera de `/api/v1`). Todos los routers `/api/v1/*` quedan
-tras `AuthMiddleware`.
+| Ruta | Método | Descripción |
+|------|--------|-------------|
+| `/auth/login` | POST | Login con credenciales Futmondo → JWT access + refresh cookie |
+| `/auth/refresh` | POST | Renovar access token desde la cookie HttpOnly |
+| `/auth/logout` | POST | Revocar sesión |
 
-Routers montados (prefijo → módulo, verbatim de `main.py`):
+### REST FastAPI v1 (`backend/app/api/v1/endpoints/`, 21 routers)
 
-- `/api/v1/matchdays` → `matchdays`
-- `/api/v1/initialize` → `initialize`
-- `/api/v1/database` → `reset_db`
-- `/api/v1/statistics` → `statistics`
-- `/api/v1/player-finances` → `player_finances`
-- `/api/v1/user-stats` → `user_stats`
-- `/api/v1/clausulable-players` → `clausulable_players`
-- `/api/v1/sync` → `sync`, `phantoms`, `sofascore_sync` (tres routers, mismo prefijo)
-- `/api/v1/analytics` → `analytics`, `balances` (dos routers, mismo prefijo)
-- `/api/v1` → `championships`
-- `/api/v1/market` → `market`
-- `/api/v1/roster` → `roster`
-- `/api/v1/favorites` → `favorites`
-- `/api/v1/transactions` → `transactions`
-- `/api/v1/sofascore` → `sofascore_detail`
-- `/api/v1/user` → `user`
-- `/api/v1/assistant` → `assistant`
+Todos los endpoints `/api/v1/*` requieren Bearer token. Routers:
+`sync`, `market`, `balances`, `analytics`, `player_finances`, `transactions`,
+`clausulable_players`, `roster`, `sofascore_sync`, `sofascore_detail`, `user`,
+`user_stats`, `championships`, `favorites`, `phantoms`, `matchdays`,
+`statistics`, `initialize`, `reset_db`, más helpers `_helpers.py` y
+`_sofascore_helpers.py`.
 
-Rutas fuera de `/api/v1` (no requieren Bearer salvo la de foto): `GET /`,
-`GET /health`, `GET /api/v1/photos/{player_id}` (SÍ requiere Bearer; redirige a
-`/static/photos/*`) y el mount estático **público intencional**
-`/static/photos/*` (documentado como superficie pública en `main.py`, FR7/NFR1.6).
+Endpoints principales representativos (ver `README.md` para la lista de usuario):
 
-### 2. Auth — entrante
+| Endpoint | Método | Router | Descripción |
+|----------|--------|--------|-------------|
+| `/api/v1/sync/trigger` | POST | `sync` | Lanza sync async, devuelve `task_id` |
+| `/api/v1/sync/task/{id}` | GET | `sync` | Polling del progreso del sync |
+| `/api/v1/user/championships` | GET/POST/DELETE | `championships` | CRUD campeonatos del usuario |
+| `/api/v1/analytics/balances` | GET | `balances` | Presupuestos por equipo |
+| `/api/v1/market/today` | GET | `market` | Mercado + puja sugerida + Sofascore |
+| `/api/v1/market/bid` | POST | `market` | Pujar por jugador |
+| `/api/v1/player-finances/` | GET | `player_finances` | Finanzas por usuario |
 
-Evidencia: `backend/app/auth/routes.py` (montado sin prefijo `/api/v1`).
-`/auth/login`, `/auth/refresh`, `/auth/logout`. Excluidas de `AuthMiddleware`.
+> Nota de deuda: la mayoría de estos routers ejecutan SQL crudo inline
+> (SQL-en-router). Ver `code-quality-assessment.md`.
 
-### 3. Asistente IA — contrato interno + LLM saliente
+## Integraciones externas (clientes salientes)
 
-Evidencia: `backend/app/api/v1/endpoints/assistant.py`. Endpoints:
+- **API Futmondo** — `backend/app/services/futmondo_client.py`. Validación de
+  credenciales y fuente de la mayor parte de los datos de sync. Expone excepciones
+  tipadas por modo de fallo (`Integration*Error`: `IntegrationBanError` fatal;
+  `IntegrationTimeoutError` / `IntegrationUnparseableError` / `IntegrationRequestError`
+  recuperables). Contrato de fallo caracterizado en `test_futmondo_client_characterization.py`.
+- **API Sofascore** — `backend/app/services/sofascore_client.py` vía `curl_cffi`.
+  Ratings deportivos.
 
-- `POST /api/v1/assistant/ask` → `AskRequest{message, championship_id,
-  conversation_id?, history?}` → `AskResponse{response, context_used[],
-  conversation_id}`.
-- `POST /api/v1/assistant/ask/stream` → SSE (`text/event-stream`): eventos
-  `start` / `chunk` / `done` vía `service.ask_stream(...)`.
-- `GET /api/v1/assistant/conversations` (opcional `championship_id`).
-- `GET /api/v1/assistant/conversations/{id}`.
-- `DELETE /api/v1/assistant/conversations/{id}`.
-- `PUT /api/v1/assistant/conversations/{id}/title`.
-- `GET /api/v1/assistant/usage` → `service.usage_tracker.get_usage_summary()`.
+## Superficie interna — `DataSyncService` (`data_sync_service.py`)
 
-El endpoint consume la superficie pública `get_assistant_service()` +
-`await service.ask(...)` de `assistant_service.py` (contrato a preservar por el
-intent) y persiste conversaciones en `assistant_conversations` (tabla creada en
-caliente).
+Contrato público **a preservar** en el refactor. Clase `DataSyncService` (L67).
 
-## Contratos de autenticación/autorización
+### Las 10 operaciones `sync_*`
 
-- **Esquema**: Bearer JWT (`Authorization: Bearer <access>`), validado por
-  `verify_token(..., expected_type="access")`.
-- **Rutas públicas** (`AUTH_EXCLUDED_PATHS`): `/auth/login`, `/auth/refresh`,
-  `/auth/logout`, `/health`, `/`, `/docs`, `/openapi.json`, `/redoc`.
-- **CORS**: allowlist explícita de orígenes (`futmondo-app.fly.dev`,
-  `futmondo.localhost`, `localhost:4200/3000`) + `EXTRA_CORS_ORIGIN` opcional.
-- **Seguridad**: `JWT_SECRET` no-default obligatorio en arranque (NFR1.1); nunca
-  material de credencial en excepciones/logs (reglas afirmadas). Detalle de
-  postura de seguridad en `code-quality-assessment.md`.
+| Operación | Línea | Dominio |
+|-----------|-------|---------|
+| `sync_transactions` | L135 | transacciones |
+| `sync_clauses` | L452 | cláusulas |
+| `sync_punishments_bonuses` | L589 | castigos/bonificaciones |
+| `sync_dream_teams_mvps` | L681 | dream teams / MVP |
+| `sync_player_performance` | L842 | rendimiento de jugadores |
+| `sync_rosters` | L1065 | plantillas |
+| `sync_round_rankings` | L1215 | clasificación por jornada |
+| `sync_players_full` | L1429 | jugadores (primero por FK) |
+| `sync_match_odds` | L1564 | odds de partidos |
+| `sync_prizes` | L1622 | premios (ya delega en `prizes/`) |
 
-## Integraciones salientes (API consumidas)
+### Coordinador `sync_all()` (L1925–1955)
 
-Evidencia: `backend/app/services/`. Contratos externos consumidos:
+Coordinador **fino**: invoca los 10 `sync_*` en orden (players primero por FK) y
+agrega los resultados en un dict `{dominio: resultado}`. Es el molde del `sync_all`
+"thin" objetivo.
 
-- **API Futmondo** — `futmondo_client.py` — autenticación de usuario y datos de
-  campeonato (transacciones, plantillas, cláusulas, etc.).
-- **API Sofascore** — `sofascore_client.py` vía `curl_cffi` — ratings/odds; error
-  tipado `SofascoreIPBanError` (`integration_errors.py`).
-- **LLM externos** (solo asistente) — Groq (`openai/gpt-oss-120b`) con **fallback
-  a Gemini** (`google-genai`).
+### `sync_prizes` — patrón de referencia (L1622)
 
-Detalle de versiones de librería en `technology-stack.md`; grafo de dependencias
-en `dependencies.md`.
+Orquesta: (a) ingesta desde `FutmondoClient`; (b) materialización de
+`RoundTeamEntry` / `PrizeConfig` (L~1817–1835); (c) delegación del cálculo puro a
+`calculate_round_prizes(...)` de `prizes/calculator.py` (L1836); (d) persistencia
+atómica vía `replace_team_prizes(db, championship_id, all_prizes_to_save, valid_matchdays)`
+de `prizes/team_prizes_writer.py` (L1868). Manejo de errores tipados en
+L~1888–1924, espejado en el router `sync.py`. Comportamiento a preservar:
+pseudo-rondas adelantadas (matchday sintético negativo), gating
+`round_fully_played` / `all(m.get("status")=="F")`, y throttling `time.sleep()`.

@@ -1,109 +1,91 @@
-# Component Inventory — futmondo-analytics
+# Component Inventory
 
-Lista completa de componentes lógicos con responsabilidad y dependencias. Los
-nombres de encabezado `###` de esta lista se usan **verbatim** en
-`analyzed.components` del bloque Scope of Analysis
-(`reverse-engineering-timestamp.md`). Los tamaños/deuda no se repiten aquí; ver
-`code-quality-assessment.md`.
+Inventario de componentes lógicos del codebase. Los encabezados de componente son
+la fuente de verdad para el bloque `Scope of Analysis` de
+`reverse-engineering-timestamp.md` (coincidencia literal por el rerun guard).
 
-### backend-app-core
+## backend-fastapi-app
 
-- **Responsabilidad**: bootstrap ASGI FastAPI (`main.py`): CORS, `AuthMiddleware`
-  JWT, montaje de ~20 routers, arranque idempotente de esquemas durables, mount
-  estático de fotos; configuración en `core/config.py` (`JWT_SECRET` NFR1.1).
-- **Dependencias**: `api-v1-endpoints`, `auth-jwt`, `services-*`, `stores-durable`.
-- **Evidencia**: `backend/app/main.py`, `backend/app/core/config.py`.
+- **Responsabilidad**: servicio web FastAPI (Python 3.12); arranque, routing y
+  wiring de capas (`backend/app/main.py`, `core/`, `models/`, `security/`).
+- **Dependencias**: `api-v1-routers`, `auth-jwt`, `services-layer`, Neon vía
+  `data-manager-v2`.
 
-### api-v1-endpoints
+## api-v1-routers
 
-- **Responsabilidad**: routers HTTP delgados bajo `/api/v1/*` que delegan en la
-  capa de servicios; incluye el router `assistant` y helpers (`_helpers.py`,
-  `_sofascore_helpers.py`).
-- **Dependencias**: `services-analytics`, `services-prizes`, `assistant-service`,
-  clientes de integración, `db-connection`.
-- **Evidencia**: `backend/app/api/v1/endpoints/` (~20 módulos-router).
+- **Responsabilidad**: 21 routers REST bajo `backend/app/api/v1/endpoints/`
+  (superficie HTTP interna; ver `api-documentation.md`).
+- **Dependencias**: `services-layer`, `data-sync-service`; deuda de SQL-en-router
+  contra `data-manager-v2`.
 
-### auth-jwt
+## auth-jwt
 
-- **Responsabilidad**: login/refresh/logout, emisión y verificación de JWT,
-  almacén de tokens.
-- **Dependencias**: `stores-durable`, `core/config.py`.
-- **Evidencia**: `backend/app/auth/` (`routes.py`, `jwt_utils.py`, `token_store.py`).
+- **Responsabilidad**: autenticación JWT y session/token stores
+  (`backend/app/auth/`, `stores/`); login/refresh/logout.
+- **Dependencias**: `futmondo-client` (validación de credenciales), Neon.
 
-### assistant-service
+## data-sync-service
 
-- **Responsabilidad**: asistente IA (god-file **objetivo del intent**):
-  guardrails, respuestas factuales, `ContextBuilder`, `AssistantUsageTracker`,
-  orquestación `ask()`/`ask_stream()` con fallback LLM Groq→Gemini. Superficie
-  pública `get_assistant_service()` + `async ask(...)`.
-- **Dependencias**: `db-connection`, LLM externos (Groq/Gemini).
-- **Evidencia**: `backend/app/services/assistant_service.py`.
+- **Responsabilidad**: coordinación de sincronización asíncrona; god-file
+  objetivo del intent (`data_sync_service.py`, clase `DataSyncService`: 10 `sync_*`
+  + `sync_all()`). Ver `api-documentation.md`.
+- **Dependencias**: `futmondo-client`, `sofascore-client`, `prizes-context`,
+  `data-manager-v2`, `integration-errors`, `core.config`.
 
-### services-analytics
+## prizes-context
 
-- **Responsabilidad**: analítica derivada (bounded context DDD Oleada 1 de
-  referencia): fachada + domain/ports + application + infrastructure.
-- **Dependencias**: `db-connection` (vía adaptador), `data-manager-v2`.
-- **Evidencia**: `backend/app/services/analytics/`, `analytics_service.py` (shim).
+- **Responsabilidad**: contexto acotado DDD de premios (`services/prizes/`):
+  cálculo puro (`calculator.py`) + persistencia atómica set-replacement
+  (`team_prizes_writer.py`). Patrón de referencia del refactor.
+- **Dependencias**: Neon (transacción atómica); consumido por `data-sync-service`.
 
-### services-prizes
+## analytics-context
 
-- **Responsabilidad**: cálculo de premios (patrón secundario Oleada 1): cálculo
-  puro + writer de persistencia.
-- **Dependencias**: `db-connection`.
-- **Evidencia**: `backend/app/services/prizes/` (`calculator.py`, `team_prizes_writer.py`).
+- **Responsabilidad**: contexto acotado DDD oleada 1 (`services/analytics/`):
+  `domain/ports.py`, `application/calculations.py`,
+  `infrastructure/data_manager_adapter.py`, `facade.py`. Shim `analytics_service.py`.
+- **Dependencias**: `data-manager-v2` (solo en el adapter).
 
-### data-manager-v2
+## assistant-context
 
-- **Responsabilidad**: acceso/gestión de datos del dominio (god-file); superficie
-  de lectura consumida por `analytics/`.
-- **Dependencias**: `db-connection`.
-- **Evidencia**: `backend/app/services/data_manager_v2.py`.
+- **Responsabilidad**: contexto acotado DDD oleada 2 / FR13 (`services/assistant/`):
+  `domain/`, `application/`, `infrastructure/`, `facade.py`. Shim `assistant_service.py`.
+- **Dependencias**: `data-manager-v2` (solo en el adapter); posibles LLM
+  (`google-genai`, `groq`).
 
-### data-sync-service
+## data-manager-v2
 
-- **Responsabilidad**: sincronización asíncrona de 11 pasos desde Futmondo y
-  Sofascore hacia la BD (god-file); reemplazo transaccional atómico.
-- **Dependencias**: `futmondo-client`, `sofascore-client`, `db-connection`,
-  `sync-step-status`, `task-service`.
-- **Evidencia**: `backend/app/services/data_sync_service.py`.
+- **Responsabilidad**: acceso a datos monolítico (`DataManagerV2`,
+  `data_manager_v2.py` ~166 KB); dependencia de datos común de casi todos los
+  `sync_*` y routers. God-file (deuda, ver `code-quality-assessment.md`).
+- **Dependencias**: Neon PostgreSQL (`db_connection.py`).
 
-### integration-clients
+## external-integration-clients
 
-- **Responsabilidad**: clientes de integración saliente Futmondo y Sofascore, con
-  excepciones tipadas por modo de fallo.
-- **Dependencias**: `requests`, `curl_cffi`, `integration_errors`.
-- **Evidencia**: `backend/app/services/futmondo_client.py`, `sofascore_client.py`,
-  `futmondo_service.py`, `integration_errors.py`.
+- **Responsabilidad**: clientes salientes a APIs externas: `futmondo-client`
+  (`futmondo_client.py`, excepciones tipadas `Integration*Error`) y
+  `sofascore-client` (`sofascore_client.py`, `curl_cffi`). Incluye
+  `integration_errors.py`.
+- **Dependencias**: APIs Futmondo y Sofascore.
 
-### services-support
+## services-layer (otros)
 
-- **Responsabilidad**: soporte de dominio: tareas (`task_manager.py`,
-  `task_service.py`), sesión (`session_service.py`), fotos (`photo_service.py`,
-  god-file menor), inicialización (`data_initializer*.py`), estado de pasos
-  (`sync_step_status.py`).
-- **Dependencias**: `db-connection`, `stores-durable`.
-- **Evidencia**: `backend/app/services/` (módulos citados).
+- **Responsabilidad**: servicios y utilidades de soporte restantes
+  (`analytics_service.py`, `photo_service.py`, `data_initializer*.py`, `task_*`,
+  `session_*`, `sync_step_status.py`).
+- **Dependencias**: `data-manager-v2`, `data-sync-service`.
 
-### db-connection
+## angular-frontend
 
-- **Responsabilidad**: gestión de conexión y cursor; `adapt_params` para
-  compatibilidad de placeholders SQLite (`?`) / PostgreSQL.
-- **Dependencias**: `psycopg2-binary`.
-- **Evidencia**: `backend/app/services/db_connection.py`.
+- **Responsabilidad**: PWA Angular 22 (`angular-app/`): `core/`, `features/`,
+  `shared/`; consume la API v1 y muestra presupuesto, mercado, sync, finanzas,
+  analítica.
+- **Dependencias**: backend REST vía nginx.
 
-### stores-durable
+## infra-proxy-cron-ci
 
-- **Responsabilidad**: repositorios durables de sesión y tarea (esquema
-  idempotente, sweep de tareas interrumpidas al arranque).
-- **Dependencias**: `db-connection`.
-- **Evidencia**: `backend/app/stores/`.
-
-### frontend-angular-app
-
-- **Responsabilidad**: SPA/PWA Angular 22 (core/services, features, shared) que
-  consume la API; fuera del alcance de cambio del intent (solo sube ratchet de
-  cobertura).
-- **Dependencias**: `api-v1-endpoints` (vía HTTP/proxy nginx).
-- **Evidencia**: `angular-app/src/app/`, `angular-app/package.json`,
-  `angular-app/angular.json`.
+- **Responsabilidad**: infra de despliegue y operación: `proxy/` (nginx),
+  `cron/` (Fly one-shot sync programado), `.github/workflows/`
+  (`ci.yml`, `fly-deploy.yml`, `daily-sync.yml`, `sofascore-sync.yml`),
+  Dockerfiles, `fly.toml`, `docker-compose.yml`.
+- **Dependencias**: Fly.io, GitHub Actions, Neon.

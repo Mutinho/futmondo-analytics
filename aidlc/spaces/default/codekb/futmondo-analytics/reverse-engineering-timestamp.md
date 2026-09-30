@@ -1,64 +1,60 @@
-# Reverse Engineering Timestamp — futmondo-analytics
+# Reverse Engineering Timestamp
 
-- **Fecha del RE**: 2026-09-29
-- **Commit hash**: `git:8ae4fe91841fcc8d76b1e5390e821b012f3a8a9b`
-- **Intent**: `assistant-god-file` (Oleada 2 god-files, FR13 — `refactor`)
-- **Tipo de escaneo**: rescaneo completo (`kind: full`) — reemplazo total de los
-  9 artefactos, construyendo el bloque solo desde esta corrida.
-- **Store previo**: STALE (se corrió el backstop de cobertura antes de publicar).
+- **Fecha**: 2026-09-29
+- **Intent**: `sync-god-file`
+- **Tipo de escaneo**: FULL RESCAN (reemplazo total de los 9 artefactos).
+- **Repo**: `futmondo-analytics` (raíz del workspace = codebase).
+- **Commit / source fingerprint**: `git:e29abff624ef852aa6002d0d367bfc56a0fa21ca`
+- **Cobertura**: el escaneo cubrió `./` en profundidad (kind: full); áreas
+  skimmed listadas abajo. Detalle en la sección `Scan Coverage` del handoff del
+  desarrollador.
 
 ## Scope of Analysis
 
 ```yaml
 scope_version: 1
 kind: full
-intent: assistant-god-file
-fingerprint: 8ae4fe91841fcc8d76b1e5390e821b012f3a8a9b
+intent: sync-god-file
+fingerprint: e29abff624ef852aa6002d0d367bfc56a0fa21ca
 analyzed:
   paths:
     - ./
-    - backend/app/main.py
-    - backend/app/core/config.py
-    - backend/app/api/v1/endpoints/
-    - backend/app/services/
-    - backend/app/services/assistant_service.py
-    - backend/app/services/analytics/
-    - backend/app/services/analytics_service.py
+    - backend/app/services/data_sync_service.py
     - backend/app/services/prizes/
-    - backend/app/services/db_connection.py
-    - backend/tests/
+    - backend/app/services/analytics/
+    - backend/app/services/assistant_service.py
+    - backend/app/services/analytics_service.py
+    - backend/app/api/v1/endpoints/sync.py
     - backend/pytest.ini
     - backend/ruff.toml
     - backend/requirements.txt
     - backend/conftest.py
     - .github/workflows/ci.yml
-    - .github/workflows/fly-deploy.yml
-    - angular-app/
+    - angular-app/package.json
     - README.md
-    - docs/
   components:
-    - backend-app-core
-    - api-v1-endpoints
+    - backend-fastapi-app
+    - api-v1-routers
     - auth-jwt
-    - assistant-service
-    - services-analytics
-    - services-prizes
-    - data-manager-v2
     - data-sync-service
-    - integration-clients
-    - services-support
-    - db-connection
-    - stores-durable
-    - frontend-angular-app
+    - prizes-context
+    - analytics-context
+    - assistant-context
+    - data-manager-v2
+    - external-integration-clients
+    - services-layer (otros)
+    - angular-frontend
+    - infra-proxy-cron-ci
 shallow:
   paths:
+    - backend/app/
+    - backend/app/services/
+    - backend/tests/
     - backend/scripts/
-    - backend/app/auth/
-    - backend/app/stores/
-    - backend/app/security/
-    - backend/app/models/
-    - angular-app/src/app/features/
+    - angular-app/src/app/
+    - .github/workflows/
     - proxy/
+    - docs/
     - cron/
-    - docker-compose.yml
+    - scripts/
 ```

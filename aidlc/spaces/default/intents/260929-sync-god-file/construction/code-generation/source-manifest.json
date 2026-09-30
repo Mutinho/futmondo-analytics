@@ -1,0 +1,16 @@
+{
+  "stage": "code-generation",
+  "unit": "sync-god-file",
+  "version": 1,
+  "writes": [
+    { "path": "backend/app/services/sync/__init__.py" },
+    { "path": "backend/app/services/sync/match_odds/__init__.py" },
+    { "path": "backend/app/services/sync/match_odds/domain/__init__.py" },
+    { "path": "backend/app/services/sync/match_odds/domain/ports.py" },
+    { "path": "backend/app/services/sync/match_odds/infrastructure/__init__.py" },
+    { "path": "backend/app/services/sync/match_odds/infrastructure/match_odds_adapter.py" },
+    { "path": "backend/app/services/sync/match_odds/orchestrator.py" },
+    { "path": "backend/app/services/data_sync_service.py" },
+    { "path": "backend/tests/test_sync_match_odds_characterization.py" }
+  ]
+}

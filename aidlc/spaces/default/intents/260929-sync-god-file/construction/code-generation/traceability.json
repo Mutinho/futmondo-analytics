@@ -1,0 +1,15 @@
+{
+  "stage": "code-generation",
+  "unit": "sync-god-file",
+  "upstream_ids": ["FR1.1", "FR1.2", "FR2.1", "FR3.1", "FR3.2", "FR4.1", "FR5.1", "FR5.3"],
+  "coverage": [
+    { "id": "FR1.1", "status": "OK", "target": "backend/app/services/data_sync_service.py" },
+    { "id": "FR1.2", "status": "OK", "target": "backend/app/services/data_sync_service.py" },
+    { "id": "FR2.1", "status": "OK", "target": "backend/app/services/sync/match_odds/domain/ports.py" },
+    { "id": "FR3.1", "status": "OK", "target": "backend/app/services/sync/match_odds/infrastructure/match_odds_adapter.py" },
+    { "id": "FR3.2", "status": "OK", "target": "backend/app/services/sync/match_odds/infrastructure/match_odds_adapter.py" },
+    { "id": "FR4.1", "status": "OK", "target": "backend/tests/test_sync_match_odds_characterization.py" },
+    { "id": "FR5.1", "status": "OK", "target": "backend/app/services/sync/match_odds/orchestrator.py" },
+    { "id": "FR5.3", "status": "OK", "target": "backend/app/services/sync/match_odds/orchestrator.py" }
+  ]
+}
