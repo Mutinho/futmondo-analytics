@@ -1562,62 +1562,25 @@ class DataSyncService:
             }
     
     def sync_match_odds(self) -> Dict:
-        """Sync match odds for upcoming matches"""
-        start_time = time.time()
-        logger.info("Starting match odds sync...")
+        """Sync match odds for upcoming matches.
 
-        try:
-            odds_data = self.client.get_match_list(self.championship_id)
-            if not odds_data:
-                raise Exception("No match list data returned from API")
+        Thin delegation to the extracted ``match_odds`` sync orchestrator
+        (Wave 3, BR1.2). Same signature and same observable ``SyncResult``
+        payload as before (BR1.1, FR5). Persistence goes through a narrow port
+        wrapping ``DataManagerV2`` (BR2.2); the domain package is imported
+        lazily so the facade import graph is unchanged.
+        """
+        from app.services.sync.match_odds import MatchOddsSyncOrchestrator
+        from app.services.sync.match_odds.infrastructure.match_odds_adapter import (
+            DataManagerMatchOddsAdapter,
+        )
 
-            round_info = odds_data.get("round", {}) or {}
-            matches = odds_data.get("matches", []) or []
-            round_id = round_info.get("_id")
-            matchday = round_info.get("number")
-
-            if not matches:
-                logger.info("No matches found for odds sync")
-
-            self.dm.save_match_odds(self.championship_id, matches, round_id=round_id, matchday=matchday)
-
-            duration = time.time() - start_time
-            status = "success"
-
-            self.dm.update_sync_metadata(
-                championship_id=self.championship_id,
-                data_type="match_odds",
-                last_sync_matchday=matchday,
-                last_sync_date=datetime.now(),
-                records_synced=len(matches),
-                sync_duration_seconds=duration,
-                sync_status=status
-            )
-
-            return {
-                "status": status,
-                "records_synced": len(matches),
-                "matchday": matchday,
-                "duration_seconds": duration
-            }
-
-        except Exception as e:
-            duration = time.time() - start_time
-            logger.error(f"Match odds sync failed: {e}", exc_info=True)
-
-            self.dm.update_sync_metadata(
-                championship_id=self.championship_id,
-                data_type="match_odds",
-                sync_status="error",
-                error_message=str(e),
-                sync_duration_seconds=duration
-            )
-
-            return {
-                "status": "error",
-                "error": str(e),
-                "duration_seconds": duration
-            }
+        orchestrator = MatchOddsSyncOrchestrator(
+            client=self.client,
+            championship_id=self.championship_id,
+            data=DataManagerMatchOddsAdapter(dm=self.dm),
+        )
+        return orchestrator.sync()
 
     def sync_prizes(self) -> Dict:
         """Sync team prizes (ranking + MVP) for completed matchdays.
