@@ -1,87 +1,70 @@
-# Code Structure — futmondo-analytics
+# Code Structure
 
 ## Organización de paquetes/módulos
 
-Monorepo con dos raíces de aplicación (evidencia `README.md`, `docker-compose.yml`):
+Mono-repo con dos apps desplegables más soporte de infra:
 
-```
-futmondo-analytics/
-├── backend/            # FastAPI (Python 3.12) — futmondo-api
-│   └── app/
-│       ├── main.py                 # ASGI app: CORS, AuthMiddleware, montaje de routers
-│       ├── api/v1/endpoints/       # ~20 routers HTTP + helpers
-│       ├── services/               # capa de dominio + integraciones (incluye DDD y god-files)
-│       ├── auth/                   # JWT (routes, jwt_utils, token_store)
-│       ├── stores/                 # repositorios durables (session, task)
-│       ├── security/               # protección de credenciales
-│       ├── core/                   # config.py (JWT_SECRET NFR1.1)
-│       └── models/                 # modelos
-│   └── tests/                      # suite de caracterización pytest (32 test_*.py)
-├── angular-app/        # Angular 22 + Material 22 PWA — futmondo-app
-│   └── src/app/        # core/services, features, shared (+ *.spec.ts colocados)
-├── proxy/              # nginx reverse proxy (local)
-├── cron/               # jobs programados
-└── docs/               # BACKLOG, DEPLOY, ROLLBACK, PROJECT_CONTEXT
-```
+- `backend/app/` — servicio web FastAPI (Python 3.12). Capas:
+  - `api/v1/endpoints/` — 21 routers REST (ver `api-documentation.md`).
+  - `services/` — lógica de negocio + integraciones (núcleo del intent).
+  - `auth/` — JWT + session/token stores.
+  - `stores/` — repositorios de durabilidad.
+  - `core/` — config/constants.
+  - `models/`, `security/`.
+  - `main.py` — arranque FastAPI.
+- `angular-app/` — frontend Angular 22 (PWA, standalone components, signals,
+  Material 22): `src/app/{core,features,shared}`.
+- `proxy/` — nginx reverse proxy local.
+- `cron/` — máquinas Fly one-shot para sincronizaciones programadas.
+- `docs/`, `scripts/`, `docker-compose.yml`, `.github/workflows/`.
 
-## Clasificación de ficheros (capa de servicios)
+## Clasificación de ficheros (backend `services/`)
 
-Evidencia: listado de `backend/app/services/`.
+### Contextos DDD ya extraídos (patrón objetivo)
 
-- **Paquetes DDD ya extraídos (referencia)**: `analytics/` (bounded context
-  completo), `prizes/` (cálculo puro + writer).
-- **Shims de re-export**: `analytics_service.py` (511 bytes, re-exporta la
-  fachada para no romper imports históricos).
-- **God-files (deuda)**: `data_manager_v2.py` (166 173 bytes),
-  `data_sync_service.py` (84 591 bytes),
-  `assistant_service.py` (51 681 bytes, **objetivo del intent**),
-  `photo_service.py` (22 764 bytes).
-- **Clientes de integración**: `futmondo_client.py` (27 267 bytes),
-  `sofascore_client.py` (16 408 bytes), `futmondo_service.py`.
-- **Infra/soporte**: `db_connection.py` (adaptación de placeholders SQLite/PG
-  vía `adapt_params`), `task_manager.py`, `task_service.py`, `session_service.py`,
-  `data_initializer.py`, `data_initializer_v2.py`, `integration_errors.py`
-  (excepciones tipadas, p. ej. `SofascoreIPBanError`), `sync_step_status.py`
-  (`StepStatus.DEGRADED`).
+- `prizes/` — contexto acotado (oleada previa): `calculator.py` (cálculo puro),
+  `team_prizes_writer.py` (persistencia atómica set-replacement), `__init__.py`.
+- `analytics/` — oleada 1 (DDD completo): `domain/ports.py` (Protocol
+  consumer-owned, sin SQL), `application/calculations.py` (cálculo puro sobre el
+  port), `infrastructure/data_manager_adapter.py` (único sitio con SQL crudo sobre
+  `DataManagerV2`), `facade.py` (servicio de aplicación fino que preserva la
+  superficie pública).
+- `assistant/` — oleada 2 (FR13, DDD): `domain/`, `application/`,
+  `infrastructure/`, `facade.py`.
+- **Shims de re-export**: `analytics_service.py`, `assistant_service.py`
+  (ya reducido a shim) mantienen la ruta histórica de import sin romper llamadores.
 
-## Patrón de código de referencia — DDD Oleada 1 (`analytics/`, `prizes/`)
+### God-files (deuda; ver `code-quality-assessment.md`)
 
-Este es el patrón que el intent activo replicará en `assistant/`. Evidencia:
-`backend/app/services/analytics/facade.py`,
-`backend/app/services/analytics/domain/ports.py`.
+- `data_sync_service.py` (1955 líneas, ~84 KB) — **objetivo del intent**. Define
+  `DataSyncService` (L67) con 10 `sync_*` + `sync_all()` (L1925, coordinador fino).
+- `data_manager_v2.py` (3692 líneas, ~166 KB) — SQL/acceso a datos monolítico
+  (`DataManagerV2`), dependencia de datos común de casi todos los `sync_*`.
+- `photo_service.py` (492 líneas) — deuda `E722` registrada.
 
-- **`__init__.py`** — re-exporta la fachada del paquete.
-- **`facade.py`** (`AnalyticsService`) — **fachada delgada** que preserva la
-  superficie pública histórica (los 11 métodos `get_*` y el constructor sin
-  argumentos) y solo delega. Inyección por constructor con default
-  (`data: Optional[AnalyticsDataPort] = None`, patrón OCP): en producción
-  construye el adaptador real; en test se inyecta un stub port sin
-  monkeypatching. Expone atributos observables (`_team_cache`, `_player_cache`,
-  `dm`) por compatibilidad hacia atrás.
-- **`domain/ports.py`** (`AnalyticsDataPort`) — `typing.Protocol` estructural
-  consumer-owned que describe SOLO las operaciones de datos consumidas; **sin
-  SQL, sin framework**; el dominio no importa `infrastructure/`.
-- **`application/calculations.py`** — lógica pura sobre el port.
-- **`infrastructure/data_manager_adapter.py`** — **ÚNICO** sitio con SQL crudo
-  (`db.adapt_params` + placeholders `?`); implementa el `Protocol`.
-- **`prizes/`** — patrón secundario: cálculo puro (`calculator.py`) separado del
-  writer de persistencia (`team_prizes_writer.py`).
+### Otros módulos de servicios (skimmed)
 
-## Anti-patrón a descomponer — `assistant_service.py`
+`futmondo_client.py`, `sofascore_client.py`, `data_initializer*.py`,
+`task_*`, `session_*`, `db_connection.py`, `integration_errors.py`,
+`sync_step_status.py`.
 
-Seams identificados (evidencia de fichero en el handoff del developer; detalle
-de deuda en `code-quality-assessment.md`): superficie pública a preservar
-`get_assistant_service()` (~líneas 1150-1158) + `async def ask(...)` (~línea
-507), consumida por `backend/app/api/v1/endpoints/assistant.py`. Seams:
-`AssistantUsageTracker` (tabla `assistant_usage`), capa factual
-(`_try_factual_answer` + handlers `_factual_*`), `ContextBuilder`
-(`_build_context` + métodos `_ctx_*`, concentra la mayoría de los 42
-`cursor.execute`), y **guardrails** (`_check_guardrails`, módulo puro
-regex/strings). `ask()` queda como orquestador delgado.
+## Patrones de código
 
-## Convenciones visibles
-
-- Backend: snake_case Python; identifiers/docstrings/comments en **inglés**;
-  prosa de usuario (`HTTPException.detail`) en **castellano**. Tests bajo
-  `backend/tests/`, fakes in-memory en `conftest.py`.
-- Frontend: camelCase TS; `*.spec.ts` colocados junto a servicios/componentes.
+- **Patrón objetivo DDD (a replicar)**: domain port (Protocol) → application
+  (cálculo puro) → infrastructure (`*_adapter.py`, único SQL) → `facade.py` fino →
+  shim de re-export. Demostrado en `analytics/` y `assistant/`; `sync_prizes` es el
+  ejemplo dentro del propio god-file (orquesta ingesta, delega cálculo a
+  `calculate_round_prizes`, persiste con `replace_team_prizes`).
+- **Set-replacement + escritura atómica**: upsert de todo el conjunto y
+  `DELETE ... NOT IN (...)` de filas stale en una sola transacción
+  (`team_prizes_writer.replace_team_prizes`), all-or-nothing.
+- **Anti-patrones heredados (NO ampliar, regla afirmada)**:
+  - **SQL-en-router**: casi todos los routers ejecutan `cursor.execute`/SQL crudo
+    inline en vez de delegar en un servicio/adaptador.
+  - **Métodos mixtos**: 8 de 10 `sync_*` mezclan ingesta + SQL/persistencia +
+    cálculo en el mismo método; solo `sync_prizes` ya delega.
+  - **`except Exception → return {"status":"error"}`** como red final por método;
+    `time.sleep()` de throttling incrustado.
+- **Convenciones**: identificadores/docstrings/comentarios en inglés; texto de
+  usuario y mensajes de commit en castellano; snake_case Python, camelCase TS.
+  Docstrings ricos en el código nuevo (waves DDD), escasos en los god-files.

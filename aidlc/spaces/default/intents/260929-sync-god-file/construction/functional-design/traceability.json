@@ -1,0 +1,37 @@
+{
+  "stage": "functional-design",
+  "unit": "sync-god-file",
+  "upstream_ids": [
+    "FR1.1", "FR1.2", "FR1.3", "FR1.3.1",
+    "FR2.1", "FR2.2", "FR2.3",
+    "FR3.1", "FR3.2",
+    "FR4.1", "FR4.2", "FR4.3",
+    "FR5.1", "FR5.1.1", "FR5.2", "FR5.3", "FR5.4",
+    "NFR2", "NFR3"
+  ],
+  "coverage": [
+    { "id": "FR1.1", "status": "OK", "target": "BR1.1" },
+    { "id": "FR1.2", "status": "OK", "target": "BR1.2" },
+    { "id": "FR1.3", "status": "OK", "target": "BR1.3" },
+    { "id": "FR1.3.1", "status": "OK", "target": "BR1.3" },
+    { "id": "FR2.1", "status": "OK", "target": "BR2.1" },
+    { "id": "FR2.2", "status": "OK", "target": "BR3.1" },
+    { "id": "FR2.3", "status": "OK", "target": "BR2.3" },
+    { "id": "FR3.1", "status": "OK", "target": "BR2.1" },
+    { "id": "FR3.2", "status": "OK", "target": "BR2.2" },
+    { "id": "FR4.1", "status": "OK", "target": "BR6.1" },
+    { "id": "FR4.2", "status": "OK", "target": "BR6.1" },
+    { "id": "FR4.3", "status": "OK", "target": "BR6.1" },
+    { "id": "FR5.1", "status": "OK", "target": "BR3.2" },
+    { "id": "FR5.1.1", "status": "OK", "target": "BR3.1" },
+    { "id": "FR5.2", "status": "OK", "target": "BR3.1" },
+    { "id": "FR5.3", "status": "OK", "target": "BR4.1" },
+    { "id": "FR5.4", "status": "OK", "target": "BR5.1" },
+    { "id": "NFR2", "status": "OK", "target": "BR6.1" },
+    { "id": "NFR3", "status": "OK", "target": "BR2.2" }
+  ],
+  "reverse": [
+    { "id": "BR4.2", "status": "N/A", "target": "regla afirmada de no-credenciales-en-excepciones; extiende FR5.3, sin AC directa (refactor sin user stories)" },
+    { "id": "BR2.1", "status": "N/A", "target": "FR2.1 enuncia el layering completo de 4 capas; el diseno lo REFINA de forma proporcional (Q1=B, aprobado por el humano): 4 capas donde hay calculo/SQL sustancial, forma ligera estilo prizes/ donde es passthrough. En AMBAS formas el dato va tras el port estrecho (BR2.1), por lo que FR2.1 queda cubierto sin sobre-construir; la forma ligera es refinamiento, no incumplimiento." }
+  ]
+}
