@@ -110,5 +110,12 @@
     "dirName": "260929-sync-god-file",
     "scope": "refactor",
     "status": "complete"
+  },
+  {
+    "uuid": "01a0f604-f361-7d40-ae19-f5931fffed61",
+    "slug": "sync-god-file-resto",
+    "dirName": "261001-sync-god-file-resto",
+    "scope": "refactor",
+    "status": "complete"
   }
 ]

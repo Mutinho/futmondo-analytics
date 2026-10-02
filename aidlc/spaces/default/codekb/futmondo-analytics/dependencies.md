@@ -16,32 +16,41 @@ Versiones pinneadas en `technology-stack.md`. Resumen por categoría:
   `backend/.pip-audit-allowlist`; `npm audit` en el frontend. Ver
   `code-quality-assessment.md`.
 
-## Dependencias internas cross-módulo (backend)
+## Dependencias internas cross-módulo (backend, foco del scan)
 
 Componentes en `component-inventory.md`; grafo de relaciones en `architecture.md`.
-Aristas clave (build/import):
+Aristas clave (build/import) del área analizada:
 
-- `api/v1/endpoints/sync.py` → `DataSyncService`.
+- `api/v1/endpoints/sync.py` → `DataSyncService` (surface público), `task_service`,
+  `sync_step_status`, `data_manager_v2` (SQL inline del router), `db_connection`,
+  `integration_errors`.
 - `DataSyncService` (`data_sync_service.py`) →
   - `DataManagerV2` (`data_manager_v2.py`) — persistencia (SQL).
   - `futmondo_client` — ingesta API Futmondo.
   - `sofascore_client` — ingesta API Sofascore.
   - `prizes/` — `PrizeConfig`, `RoundTeamEntry`, `calculate_round_prizes`
     (`calculator.py`), `replace_team_prizes` (`team_prizes_writer.py`).
+  - `sync.match_odds` (lazy) — delegación de `sync_match_odds` al orchestrator.
   - `integration_errors` — excepciones tipadas.
   - `core.config`.
+- `sync/match_odds/orchestrator.py` → `domain/ports.py` (abstracción) +
+  `infrastructure/match_odds_adapter.py` (implementación por defecto) +
+  `FutmondoClient` (ingesta inyectada); el adapter → `data_manager_v2`.
+- `prizes/calculator.py` → sin dependencias de I/O (puro);
+  `prizes/team_prizes_writer.py` → sólo un `_DbLike` Protocol (DB inyectada).
 - `data_initializer.py` → `DataSyncService.sync_all()`.
 - **Routers → servicios/datos**: la mayoría de routers `api/v1/endpoints/*`
-  acceden a `DataManagerV2` con SQL crudo inline (SQL-en-router, deuda a NO ampliar).
-- **Contextos DDD → datos**: `analytics/` y `assistant/` dependen de
+  (incluido `sync.py`) acceden a `DataManagerV2` con SQL crudo inline
+  (SQL-en-router, deuda a NO ampliar).
+- **Contextos DDD → datos**: `sync/`, `analytics/` y `assistant/` dependen de
   `DataManagerV2` **solo** en su `infrastructure/*_adapter.py` (dependency
-  inversion vía Protocol en `domain/ports.py`); los shims `analytics_service.py`
+  inversion vía `Protocol` en `domain/ports.py`); los shims `analytics_service.py`
   y `assistant_service.py` re-exportan para no romper imports históricos.
-- `prizes/team_prizes_writer.py` → `db.get_connection()` (transacción atómica).
 
 ## Dependencia crítica compartida
 
 `data_manager_v2.py` (`DataManagerV2`, ~166 KB) es la dependencia de datos común
 de casi todos los `sync_*` y routers. El refactor debe apoyarse en él vía
-Protocol/adapter (como `analytics/infrastructure/data_manager_adapter.py`) sin
-tocarlo ni engordarlo (regla afirmada).
+`Protocol`/adapter (como `sync/match_odds/infrastructure/match_odds_adapter.py` y
+`analytics/infrastructure/data_manager_adapter.py`) sin tocarlo ni engordarlo
+(regla afirmada).

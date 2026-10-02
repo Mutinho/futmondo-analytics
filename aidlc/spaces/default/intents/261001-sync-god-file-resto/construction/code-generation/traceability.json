@@ -1,0 +1,40 @@
+{
+  "stage": "code-generation",
+  "unit": "clauses",
+  "upstream_ids": ["FR1.1", "FR1.2", "FR2.1", "FR2.2", "FR3.1", "FR5.1", "FR5.2", "FR5.3", "FR5.4", "FR6.1", "FR6.2", "FR6.3", "FR7.1", "FR7.2", "FR7.3", "NFR2.1", "NFR3.1", "BR1.1", "BR1.2", "BR2.1", "BR3.1", "BR4.1", "BR4.2", "BR5.1", "BR6.1", "BR8.1", "BR8.2"],
+  "coverage": [
+    {"id": "FR1.1", "status": "OK", "target": "backend/app/services/sync/clauses/__init__.py"},
+    {"id": "FR1.2", "status": "OK", "target": "backend/app/services/sync/clauses/orchestrator.py"},
+    {"id": "FR2.1", "status": "OK", "target": "backend/app/services/data_sync_service.py (sync_clauses thin delegation)"},
+    {"id": "FR2.2", "status": "OK", "target": "backend/app/services/data_sync_service.py (signature + SyncResult preserved)"},
+    {"id": "FR3.1", "status": "OK", "target": "backend/app/services/sync/clauses/infrastructure/clauses_adapter.py"},
+    {"id": "FR5.1", "status": "OK", "target": "test_sync_all_keeps_clauses_key_in_order"},
+    {"id": "FR5.2", "status": "OK", "target": "test_sync_all_keeps_clauses_key_in_order (10 keys, order)"},
+    {"id": "FR5.3", "status": "OK", "target": "test_success_returns_frozen_payload_and_persists"},
+    {"id": "FR5.4", "status": "OK", "target": "backend/app/api/v1/endpoints/sync.py _run_sync_in_background unchanged"},
+    {"id": "FR6.1", "status": "OK", "target": "backend/app/services/sync/clauses/orchestrator.py (ingestion/throttling)"},
+    {"id": "FR6.2", "status": "OK", "target": "test_per_page_exception_is_recoverable_break_not_raise, test_outer_exception_is_error"},
+    {"id": "FR6.3", "status": "OK", "target": "test_error_message_carries_no_credentials"},
+    {"id": "FR7.1", "status": "OK", "target": "test_success_returns_frozen_payload_and_persists (SyncResult frozen)"},
+    {"id": "FR7.2", "status": "OK", "target": "backend/tests/test_sync_clauses_characterization.py (DataManagerV2 calls frozen)"},
+    {"id": "FR7.3", "status": "OK", "target": "same test green against current and refactored code"},
+    {"id": "NFR2.1", "status": "OK", "target": "pytest -q --cov=app --cov-fail-under=27 -> 35.73%"},
+    {"id": "NFR3.1", "status": "OK", "target": "no new dependency; stdlib typing.Protocol"},
+    {"id": "BR1.1", "status": "OK", "target": "backend/app/services/sync/clauses/ package structure mirrors match_odds"},
+    {"id": "BR1.2", "status": "OK", "target": "clauses_adapter.py delegates 1:1 to DataManagerV2"},
+    {"id": "BR2.1", "status": "OK", "target": "domain/ports.py Protocol, no SQL/framework"},
+    {"id": "BR3.1", "status": "OK", "target": "test_sync_all_keeps_clauses_key_in_order"},
+    {"id": "BR4.1", "status": "OK", "target": "orchestrator.py error handling verbatim"},
+    {"id": "BR4.2", "status": "OK", "target": "test_error_message_carries_no_credentials"},
+    {"id": "BR5.1", "status": "OK", "target": "full suite green: 259 passed, 3 xfailed"},
+    {"id": "BR6.1", "status": "OK", "target": "characterization-first: test written and green before extraction"},
+    {"id": "BR8.1", "status": "OK", "target": "data_manager_v2.py not expanded/modified"},
+    {"id": "BR8.2", "status": "OK", "target": "--cov-fail-under=27 floor not lowered"}
+  ],
+  "reverse": [
+    {"id": "backend/app/services/sync/clauses/orchestrator.py", "status": "OK", "target": "FR1.2/FR6"},
+    {"id": "backend/app/services/sync/clauses/domain/ports.py", "status": "OK", "target": "BR2.1"},
+    {"id": "backend/app/services/sync/clauses/infrastructure/clauses_adapter.py", "status": "OK", "target": "BR1.2/BR2.2"},
+    {"id": "backend/tests/test_sync_clauses_characterization.py", "status": "OK", "target": "FR7"}
+  ]
+}
