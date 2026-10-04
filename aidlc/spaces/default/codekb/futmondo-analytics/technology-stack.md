@@ -14,7 +14,7 @@
 | `uvicorn[standard]` | 0.54.0 | servidor ASGI |
 | `pydantic` | 2.13.5 | validación/serialización |
 | `PyJWT` | 2.15.0 | JWT auth |
-| `psycopg2-binary` | 2.9.13 | driver PostgreSQL (Neon); fakes SQLite en tests |
+| `psycopg2-binary` | 2.9.13 | driver PostgreSQL (Neon); fakes SQLite en tests; rama `psycopg2.extras.execute_values` en `_save_favorites` |
 | `requests` | 2.34.2 | HTTP (API Futmondo) |
 | `curl_cffi` | 0.16.3 | HTTP con impersonación (API Sofascore) |
 | `google-genai` | 1.14.0 | LLM (asistente) |
@@ -24,7 +24,9 @@
 
 > Nota: `requirements.txt` tiene rangos abiertos (deuda de pin); las versiones de
 > arriba reflejan el entorno resuelto reportado por el scan. Base del patrón de
-> ports: `typing.Protocol` (stdlib) y DTOs `dataclasses` `frozen=True` (stdlib).
+> ports: `typing.Protocol` (stdlib) y DTOs `dataclasses` (stdlib);
+> `threading`/`logging`/`time` (stdlib) sostienen el sync en background y el
+> throttling.
 
 ### Test backend
 

@@ -1,0 +1,40 @@
+{
+  "stage": "code-generation",
+  "upstream_ids": [
+    "FR1.1", "FR1.2", "FR1.3", "FR2.1", "FR2.2",
+    "FR3.1", "FR3.2", "FR3.3", "FR4.1", "FR4.2",
+    "FR5.1", "FR5.2", "FR5.3", "FR6.1", "FR6.2",
+    "NFR1", "NFR2", "NFR3", "NFR5", "NFR6", "NFR7", "NFR8", "NFR9",
+    "BR4.3"
+  ],
+  "coverage": [
+    { "id": "FR1.1", "status": "OK", "target": "backend/app/services/sync/transactions/orchestrator.py" },
+    { "id": "FR1.2", "status": "OK", "target": "backend/app/services/data_sync_service.py" },
+    { "id": "FR1.3", "status": "OK", "target": "backend/app/services/sync/transactions/infrastructure/transactions_adapter.py" },
+    { "id": "FR2.1", "status": "OK", "target": "backend/app/services/sync/prizes/orchestrator.py" },
+    { "id": "FR2.2", "status": "OK", "target": "backend/app/services/prizes/team_prizes_writer.py" },
+    { "id": "FR3.1", "status": "OK", "target": "backend/app/services/data_sync_service.py" },
+    { "id": "FR3.2", "status": "OK", "target": "backend/app/services/data_sync_service.py" },
+    { "id": "FR3.3", "status": "OK", "target": "backend/app/services/data_sync_service.py" },
+    { "id": "FR4.1", "status": "OK", "target": "backend/app/services/sync/players_full/infrastructure/players_full_adapter.py" },
+    { "id": "FR4.2", "status": "OK", "target": "backend/app/services/sync/dream_teams_mvps/orchestrator.py" },
+    { "id": "FR5.1", "status": "OK", "target": "backend/tests/test_sync_transactions_characterization.py" },
+    { "id": "FR5.2", "status": "OK", "target": "backend/tests/test_sync_rosters_characterization.py" },
+    { "id": "FR5.3", "status": "OK", "target": "backend/app/services/sync/transactions/infrastructure/transactions_adapter.py" },
+    { "id": "FR6.1", "status": "OK", "target": "backend/tests/test_sync_punishments_bonuses_characterization.py" },
+    { "id": "FR6.2", "status": "OK", "target": "backend/tests/test_sync_players_full_characterization.py" },
+    { "id": "NFR1", "status": "OK", "target": "backend/tests/test_sync_round_rankings_characterization.py" },
+    { "id": "NFR2", "status": "OK", "target": "backend/app/services/data_manager_v2.py" },
+    { "id": "NFR3", "status": "OK", "target": "backend/pytest.ini" },
+    { "id": "NFR5", "status": "OK", "target": "backend/app/services/sync/transactions/orchestrator.py" },
+    { "id": "NFR6", "status": "OK", "target": "backend/requirements.txt" },
+    { "id": "NFR7", "status": "OK", "target": "backend/app/services/sync/transactions/orchestrator.py" },
+    { "id": "NFR8", "status": "OK", "target": "backend/app/services/sync/transactions/domain/ports.py" },
+    { "id": "NFR9", "status": "OK", "target": "backend/tests/test_sync_dream_teams_mvps_characterization.py" },
+    { "id": "BR4.3", "status": "OK", "target": "backend/app/services/sync/transactions/domain/pricing.py" }
+  ],
+  "reverse": [
+    { "id": "prizes-uniformise", "status": "OK", "target": "backend/app/services/sync/prizes/orchestrator.py" },
+    { "id": "player_performance", "status": "OK", "target": "backend/app/services/sync/player_performance/orchestrator.py" }
+  ]
+}

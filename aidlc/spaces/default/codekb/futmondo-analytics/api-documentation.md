@@ -23,21 +23,22 @@ Todos los endpoints `/api/v1/*` requieren Bearer token. Routers:
 
 | Endpoint | Método | Descripción |
 |----------|--------|-------------|
-| `/api/v1/sync/status` | GET | Estado del sync |
-| `/api/v1/sync/last-sync` | GET | Última fecha de sync (`get_last_sync_date`, SQL inline) |
-| `/api/v1/sync/trigger` | POST | Lanza sync async (202 + `task_id`, lanza thread) |
-| `/api/v1/sync/task/{task_id}` | GET | Polling del progreso del sync |
+| `/api/v1/sync/status` | GET | Estado del sync por data_type (lee `get_last_sync_metadata`) |
+| `/api/v1/sync/last-sync` | GET | `MAX(last_sync_date)` por championship (SQL directo inline) |
+| `/api/v1/sync/trigger` | POST | Lanza sync async (202 + `task_id`, thread daemon); 409 si hay sync en curso; `valid_types=("all","transactions","clauses","dream_teams","rosters","players")` |
+| `/api/v1/sync/task/{task_id}` | GET | Polling del progreso (pending\|running\|completed\|failed) |
 
-El worker `_run_sync_in_background` invoca el surface público de `DataSyncService`
-(`sync_players_full`, `sync_transactions`, `sync_clauses`,
-`sync_punishments_bonuses`, `sync_dream_teams_mvps`, `sync_player_performance`,
-`sync_rosters`, `sync_round_rankings`, `sync_match_odds`, `sync_prizes`) con el
-**mismo orden y claves** que `sync_all`, más `phantoms` (helper del router
-`_check_phantoms`). El router tiene SQL inline (`_check_phantoms`,
+El worker `_run_sync_in_background(task_id, sync_type, …)` invoca el surface
+público de `DataSyncService` con el **mismo orden y claves** que `sync_all` para
+`sync_type=="all"`, actualizando `progress[step]` con las claves literales
+(incluidas `team_standings`→`sync_round_rankings` y
+`dream_teams`→`sync_dream_teams_mvps`), más `phantoms` (helper del router
+`_check_phantoms`). El manejo DEGRADED de `prizes`/`phantoms` vive en el router
+vía `record_degraded_step`. El router tiene SQL inline (`_check_phantoms`,
 `get_last_sync_date`): patrón SQL-en-router que NO debe ampliarse.
 
 > Resto de endpoints principales (market, balances, finances, championships) y
-> deuda de SQL-en-router: ver versión previa del store y `code-quality-assessment.md`.
+> deuda de SQL-en-router: ver `code-quality-assessment.md`.
 
 ## Integraciones externas (clientes salientes)
 
@@ -49,61 +50,90 @@ El worker `_run_sync_in_background` invoca el surface público de `DataSyncServi
   `get_championship_players`, `get_player_fullprofile`, `get_userteam_roster`.
   Expone excepciones tipadas por modo de fallo (`IntegrationBanError` fatal;
   `IntegrationTimeoutError` / `IntegrationUnparseableError` / `IntegrationRequestError`
-  recuperables). Contrato caracterizado en `test_futmondo_client_characterization.py`.
+  recuperables); mantiene las credenciales fuera de sus propios errores.
 - **API Sofascore** — `backend/app/services/sofascore_client.py` vía `curl_cffi`.
   Ratings deportivos.
 
 ## Superficie interna — `DataSyncService` (`data_sync_service.py`)
 
-Contrato público **a preservar byte-a-byte** en el refactor (FR5). Clase
-`DataSyncService`.
+Contrato público **a preservar byte-a-byte** en el refactor (equivalencia
+observable, FR5). Clase `DataSyncService`.
 
-### Las 10 operaciones `sync_*`
+### Constructor y atributos públicos
 
-| Operación | Línea | Dominio | Clave en `sync_all` |
-|-----------|-------|---------|---------------------|
-| `sync_transactions` | L135 | transacciones | `transactions` |
-| `sync_clauses` | L452 | cláusulas | `clauses` |
-| `sync_punishments_bonuses` | L589 | castigos/bonificaciones | `punishments_bonuses` |
-| `sync_dream_teams_mvps` | L681 | dream teams / MVP | `dream_teams` |
-| `sync_player_performance` | L842 | rendimiento de jugadores | `player_performance` |
-| `sync_rosters` | L1065 | plantillas | `rosters` |
-| `sync_round_rankings` | L1215 | clasificación por jornada | `team_standings` |
-| `sync_players_full` | L1429 | jugadores (primero por FK) | `players` |
-| `sync_match_odds` | L1564 | odds de partidos (ya delega) | `match_odds` |
-| `sync_prizes` | L1585 | premios (delega en `prizes/`) | `prizes` |
+- `DataSyncService(futmondo_client=None)` — `__init__` crea
+  `DataManagerV2(skip_init=True)`, `ensure_championship_exists`, auth del cliente
+  si no se inyecta. Atributos públicos: `self.dm`, `self.client`,
+  `self.championship_id`, `self.league_id`, `self.user_id`.
 
-### Coordinador `sync_all()` (L1888)
+### Las 10 operaciones `sync_*` (firma `() -> Dict`)
 
-Coordinador **fino**: invoca los 10 `sync_*` en **orden fijo** (players primero
-por FK) y agrega los resultados en un dict con **10 claves literales**: `players`,
-`transactions`, `clauses`, `punishments_bonuses`, `dream_teams`,
+| Operación | Dominio | Clave en `sync_all` | Estado |
+|-----------|---------|---------------------|--------|
+| `sync_transactions` | transacciones | `transactions` | inline (helpers `_store_bids`/`_enrich_market_values`/`_find_price_at_date`) |
+| `sync_clauses` | cláusulas | `clauses` | **extraído** (piloto) |
+| `sync_punishments_bonuses` | castigos/bonificaciones | `punishments_bonuses` | inline |
+| `sync_dream_teams_mvps` | dream teams / MVP | `dream_teams` | inline (usa `_find_championship`) |
+| `sync_player_performance` | rendimiento de jugadores | `player_performance` | inline |
+| `sync_rosters` | plantillas | `rosters` | inline (usa `_find_championship`) |
+| `sync_round_rankings` | clasificación por jornada | `team_standings` | inline |
+| `sync_players_full` | jugadores (primero por FK) | `players` | inline (usa `_save_favorites`) |
+| `sync_match_odds` | odds de partidos | `match_odds` | **extraído** (piloto) |
+| `sync_prizes` | premios | `prizes` | delega cálculo/escritura en `prizes/`; falta facade |
+
+### Coordinador `sync_all()`
+
+Coordinador **fino**: invoca los 10 `sync_*` en **orden FIJO** (players primero
+por FKs) y agrega los resultados en un dict con **10 claves LITERALES**:
+`players`, `transactions`, `clauses`, `punishments_bonuses`, `dream_teams`,
 `player_performance`, `rosters`, `team_standings`, `match_odds`, `prizes`. Mapeo
-no obvio: `players` ↔ `sync_players_full`, `dream_teams` ↔ `sync_dream_teams_mvps`,
+no obvio (crítico): `players` ↔ `sync_players_full`,
+`dream_teams` ↔ `sync_dream_teams_mvps`,
 `team_standings` ↔ `sync_round_rankings`.
+
+### Helpers privados consumidos por los dominios
+
+`_find_championship()` (dream_teams + rosters),
+`_store_bids`/`_enrich_market_values`/`_find_price_at_date` (transactions),
+`_save_favorites` (players, toca `self.dm.db` crudo + `self.client.user_id`),
+`_log_integration_failure` (prizes, log key=value sin credenciales).
 
 ### Forma del `SyncResult` (NO uniforme entre dominios — preservar por dominio)
 
-La forma observable del resultado varía por dominio y debe preservarse exacta:
-- `match_odds` (ya delegado): `status` + `records_synced` + `matchday` +
-  `duration_seconds` (happy); `status:error` + `error` + `duration_seconds` (fallo).
-- `transactions` / `clauses`: devuelven `last_sync_id`.
-- dominios basados en matchday: devuelven `last_sync_matchday`.
-- `round_rankings`: devuelve `rounds_synced` + `last_matchday`.
-- `prizes`: devuelve `rounds_processed` + `stale_prizes_removed`.
+La forma observable del resultado varía por dominio y debe reproducirse exacta
+(cada orquestador la replica byte-a-byte):
+- `transactions` / `clauses`: `{status, records_synced, last_sync_id, duration_seconds}`.
+- `punishments_bonuses`: `{status, records_synced, last_sync_id, duration_seconds}`
+  (`status = "success" if total_synced > 0 or from_id else "no_new_data"`).
+- `dream_teams` / `rosters` / `player_performance`:
+  `{status, records_synced, last_sync_matchday, duration_seconds}`
+  (performance tiene dos retornos tempranos `no_new_data` que también escriben
+  metadata).
+- `round_rankings` (clave `team_standings`): forma DISTINTA —
+  `{status, rounds_synced, records_synced, last_matchday, duration_seconds}`.
+- `players_full`: `{status, records_synced, duration_seconds}` (sin `last_sync_*`).
+- `match_odds` (ya delegado): `{status, records_synced, matchday, duration_seconds}`
+  (happy); `{status:"error", error, duration_seconds}` (fallo).
+- `prizes`: set de status más rico
+  (`success|no_new_data|no_config|no_prizes_configured|no_standings|no_teams|no_rounds|error`),
+  `{… rounds_processed, records_synced, stale_prizes_removed, duration_seconds}` —
+  preservar TODOS los early-returns.
 
-### `sync_match_odds` — patrón de referencia ya aplicado (L1564)
+### `sync_match_odds` / `sync_clauses` — patrón de referencia ya aplicado
 
-Delegación fina a `MatchOddsSyncOrchestrator` (`sync/match_odds/orchestrator.py`),
-que ingesta vía `FutmondoClient`, persiste a través de `MatchOddsSyncDataPort`
-(`domain/ports.py`) implementado por `DataManagerMatchOddsAdapter`
-(`infrastructure/match_odds_adapter.py`, envuelve `DataManagerV2` verbatim).
+Delegación fina al `<Domain>SyncOrchestrator` (`sync/<domain>/orchestrator.py`),
+que ingesta vía `FutmondoClient`, persiste a través del
+`<Domain>SyncDataPort` (`domain/ports.py`) implementado por
+`DataManager<Domain>Adapter` (`infrastructure/<domain>_adapter.py`, envuelve
+`DataManagerV2` verbatim).
 
-### `sync_prizes` — patrón de referencia de cálculo/escritura (L1585)
+### `sync_prizes` — patrón de cálculo/escritura (falta facade uniforme)
 
-Orquesta: (a) ingesta desde `FutmondoClient`; (b) delegación del cálculo puro a
-`calculate_round_prizes(...)` de `prizes/calculator.py`; (c) persistencia atómica
-vía `replace_team_prizes(...)` de `prizes/team_prizes_writer.py`. Comportamiento a
-preservar: pseudo-rondas adelantadas (matchday sintético negativo), gating
-`round_fully_played` / `all(m.get("status")=="F")`, throttling `time.sleep()`, y
-manejo de errores tipado (fatal propaga / recoverable degrada).
+Orquesta: (a) ingesta desde `FutmondoClient` + lectura de config vía SQL directo
+sobre `get_db()`; (b) pseudo-rondas adelantadas (matchday sintético negativo),
+gating `round_fully_played` / `all(m.get("status")=="F")`; (c) delegación del
+cálculo puro a `calculate_round_prizes(...)` de `prizes/calculator.py`;
+(d) persistencia atómica vía `replace_team_prizes(...)` de
+`prizes/team_prizes_writer.py`. Manejo de errores tipado (fatal propaga /
+recoverable degrada vía `_log_integration_failure`). Falta mover la orquestación
+a `sync/<prizes>/` dejando la delegación delgada.
