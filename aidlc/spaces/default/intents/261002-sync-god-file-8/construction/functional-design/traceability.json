@@ -1,0 +1,43 @@
+{
+  "stage": "functional-design",
+  "unit": "sync-domains-decomposition",
+  "upstream_ids": [
+    "FR1.1", "FR1.2", "FR1.3", "FR1.4",
+    "FR2.1", "FR2.2",
+    "FR3.1", "FR3.2", "FR3.3",
+    "FR4.1", "FR4.2",
+    "FR5.1", "FR5.2", "FR5.3",
+    "FR6.1", "FR6.2",
+    "NFR1", "NFR2", "NFR3", "NFR5", "NFR6", "NFR7", "NFR8", "NFR9"
+  ],
+  "coverage": [
+    { "id": "FR1.1", "status": "OK", "target": "BR1.1" },
+    { "id": "FR1.2", "status": "OK", "target": "BR1.2" },
+    { "id": "FR1.3", "status": "OK", "target": "BR1.3" },
+    { "id": "FR1.4", "status": "OK", "target": "BR6.2" },
+    { "id": "FR2.1", "status": "OK", "target": "BR2.1" },
+    { "id": "FR2.2", "status": "OK", "target": "BR3.3" },
+    { "id": "FR3.1", "status": "OK", "target": "BR3.1" },
+    { "id": "FR3.2", "status": "OK", "target": "BR3.2" },
+    { "id": "FR3.3", "status": "OK", "target": "BR3.3" },
+    { "id": "FR4.1", "status": "OK", "target": "BR4.1" },
+    { "id": "FR4.2", "status": "OK", "target": "BR4.2" },
+    { "id": "FR5.1", "status": "OK", "target": "BR5.1" },
+    { "id": "FR5.2", "status": "OK", "target": "BR5.2" },
+    { "id": "FR5.3", "status": "OK", "target": "BR5.3" },
+    { "id": "FR6.1", "status": "OK", "target": "BR6.1" },
+    { "id": "FR6.2", "status": "OK", "target": "BR6.2" },
+    { "id": "NFR1", "status": "OK", "target": "BR5.2" },
+    { "id": "NFR2", "status": "OK", "target": "BR7.2" },
+    { "id": "NFR3", "status": "OK", "target": "BR5.2" },
+    { "id": "NFR5", "status": "OK", "target": "BR7.1" },
+    { "id": "NFR6", "status": "OK", "target": "BR7.3" },
+    { "id": "NFR7", "status": "OK", "target": "BR7.2" },
+    { "id": "NFR8", "status": "OK", "target": "BR7.3" },
+    { "id": "NFR9", "status": "OK", "target": "BR7.3" }
+  ],
+  "reverse": [
+    { "id": "BR4.3", "status": "OK", "target": "Q2 interview decision: _find_price_at_date pure helper placement in transactions domain/" },
+    { "id": "NFR4", "status": "N/A", "target": "CI blocking gate (gitleaks + pytest + ng test) is enforced at build-and-test / ci-pipeline, not a functional-design business rule" }
+  ]
+}

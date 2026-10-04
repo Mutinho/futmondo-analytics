@@ -1,0 +1,77 @@
+{
+  "stage": "code-generation",
+  "version": 1,
+  "writes": [
+    { "path": "backend/app/services/data_sync_service.py" },
+
+    { "path": "backend/app/services/sync/transactions/__init__.py" },
+    { "path": "backend/app/services/sync/transactions/domain/__init__.py" },
+    { "path": "backend/app/services/sync/transactions/domain/ports.py" },
+    { "path": "backend/app/services/sync/transactions/domain/pricing.py" },
+    { "path": "backend/app/services/sync/transactions/infrastructure/__init__.py" },
+    { "path": "backend/app/services/sync/transactions/infrastructure/transactions_adapter.py" },
+    { "path": "backend/app/services/sync/transactions/orchestrator.py" },
+
+    { "path": "backend/app/services/sync/punishments_bonuses/__init__.py" },
+    { "path": "backend/app/services/sync/punishments_bonuses/domain/__init__.py" },
+    { "path": "backend/app/services/sync/punishments_bonuses/domain/ports.py" },
+    { "path": "backend/app/services/sync/punishments_bonuses/infrastructure/__init__.py" },
+    { "path": "backend/app/services/sync/punishments_bonuses/infrastructure/punishments_bonuses_adapter.py" },
+    { "path": "backend/app/services/sync/punishments_bonuses/orchestrator.py" },
+
+    { "path": "backend/app/services/sync/dream_teams_mvps/__init__.py" },
+    { "path": "backend/app/services/sync/dream_teams_mvps/domain/__init__.py" },
+    { "path": "backend/app/services/sync/dream_teams_mvps/domain/ports.py" },
+    { "path": "backend/app/services/sync/dream_teams_mvps/infrastructure/__init__.py" },
+    { "path": "backend/app/services/sync/dream_teams_mvps/infrastructure/dream_teams_mvps_adapter.py" },
+    { "path": "backend/app/services/sync/dream_teams_mvps/orchestrator.py" },
+
+    { "path": "backend/app/services/sync/rosters/__init__.py" },
+    { "path": "backend/app/services/sync/rosters/domain/__init__.py" },
+    { "path": "backend/app/services/sync/rosters/domain/ports.py" },
+    { "path": "backend/app/services/sync/rosters/infrastructure/__init__.py" },
+    { "path": "backend/app/services/sync/rosters/infrastructure/rosters_adapter.py" },
+    { "path": "backend/app/services/sync/rosters/orchestrator.py" },
+
+    { "path": "backend/app/services/sync/round_rankings/__init__.py" },
+    { "path": "backend/app/services/sync/round_rankings/domain/__init__.py" },
+    { "path": "backend/app/services/sync/round_rankings/domain/ports.py" },
+    { "path": "backend/app/services/sync/round_rankings/infrastructure/__init__.py" },
+    { "path": "backend/app/services/sync/round_rankings/infrastructure/round_rankings_adapter.py" },
+    { "path": "backend/app/services/sync/round_rankings/orchestrator.py" },
+
+    { "path": "backend/app/services/sync/player_performance/__init__.py" },
+    { "path": "backend/app/services/sync/player_performance/domain/__init__.py" },
+    { "path": "backend/app/services/sync/player_performance/domain/ports.py" },
+    { "path": "backend/app/services/sync/player_performance/infrastructure/__init__.py" },
+    { "path": "backend/app/services/sync/player_performance/infrastructure/player_performance_adapter.py" },
+    { "path": "backend/app/services/sync/player_performance/orchestrator.py" },
+
+    { "path": "backend/app/services/sync/players_full/__init__.py" },
+    { "path": "backend/app/services/sync/players_full/domain/__init__.py" },
+    { "path": "backend/app/services/sync/players_full/domain/ports.py" },
+    { "path": "backend/app/services/sync/players_full/infrastructure/__init__.py" },
+    { "path": "backend/app/services/sync/players_full/infrastructure/players_full_adapter.py" },
+    { "path": "backend/app/services/sync/players_full/orchestrator.py" },
+
+    { "path": "backend/app/services/sync/prizes/__init__.py" },
+    { "path": "backend/app/services/sync/prizes/domain/__init__.py" },
+    { "path": "backend/app/services/sync/prizes/domain/ports.py" },
+    { "path": "backend/app/services/sync/prizes/infrastructure/__init__.py" },
+    { "path": "backend/app/services/sync/prizes/infrastructure/prizes_adapter.py" },
+    { "path": "backend/app/services/sync/prizes/orchestrator.py" },
+
+    { "path": "backend/tests/test_sync_transactions_characterization.py" },
+    { "path": "backend/tests/test_sync_punishments_bonuses_characterization.py" },
+    { "path": "backend/tests/test_sync_dream_teams_mvps_characterization.py" },
+    { "path": "backend/tests/test_sync_rosters_characterization.py" },
+    { "path": "backend/tests/test_sync_round_rankings_characterization.py" },
+    { "path": "backend/tests/test_sync_player_performance_characterization.py" },
+    { "path": "backend/tests/test_sync_players_full_characterization.py" },
+    { "path": "backend/tests/test_sync_prizes_characterization.py" },
+
+    { "path": "backend/tests/test_prizes_characterization.py" },
+    { "path": "backend/tests/test_sync_clauses_characterization.py" },
+    { "path": "backend/tests/test_sync_match_odds_characterization.py" }
+  ]
+}

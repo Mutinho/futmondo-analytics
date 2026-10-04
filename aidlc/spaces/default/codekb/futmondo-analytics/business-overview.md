@@ -41,13 +41,19 @@ calcular las finanzas de cada participante y decidir pujas con datos objetivos
 - **Analítica y asistente**: evolución, estadísticas, clausulables y un asistente
   (contextos DDD `analytics/` y `assistant/`).
 
-## Contexto del intent activo (`261001-sync-god-file-resto`)
+## Contexto del intent activo (`261002-sync-god-file-8`)
 
-El intent es un **refactor** (continuación de `260929-sync-god-file`, FR13):
-descomponer TODO el resto del god-file `data_sync_service.py` (~84 KB)
-extrayendo los 9 dominios de sync pendientes al patrón DDD ya probado por el
-piloto `match_odds` en la oleada anterior, y uniformar `prizes/` (ya extraído)
-al patrón de facade. El contrato público (los 10 `sync_*` + `sync_all()` con sus
-10 claves literales y orden fijo) se preserva byte-a-byte (FR5), sin ampliar los
-god-files ni relajar el piso de cobertura. La deuda técnica y el patrón objetivo
-se documentan en `code-quality-assessment.md` y `code-structure.md`.
+El intent es un **refactor** (continuación de `260929-sync-god-file` y
+`261001-sync-god-file-resto`): descomponer los **8 dominios de sync que SIGUEN
+inline** en `data_sync_service.py` (~77 KB / ~1806 líneas) al patrón DDD ya
+**probado por DOS pilotos** (`match_odds` y `clauses`), y uniformar `sync_prizes`
+(cuya lógica pura y escritor atómico ya viven en `prizes/`) al patrón de facade.
+Dominios restantes a extraer (orden propuesto de menor a mayor acoplamiento):
+`transactions`, `punishments_bonuses`, `dream_teams_mvps`, `rosters`,
+`round_rankings` (clave literal `team_standings`), `player_performance`,
+`players_full`; más la uniformización de `sync_prizes`. El contrato público (los
+10 `sync_*` + `sync_all()` con sus 10 claves literales y orden fijo) se preserva
+byte-a-byte (FR5), sin ampliar los god-files ni relajar el piso de cobertura, con
+**characterization-first estricto por dominio** y una unidad de trabajo por
+dominio (gate por unidad). La deuda técnica y el patrón objetivo se documentan en
+`code-quality-assessment.md` y `code-structure.md`.
