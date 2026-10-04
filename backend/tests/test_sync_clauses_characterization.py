@@ -25,7 +25,8 @@ import os
 # BEFORE importing the app so instantiating the service does not fail at import.
 os.environ.setdefault("JWT_SECRET", "test-secret-not-default-000")
 
-import app.services.data_sync_service as dss  # noqa: E402
+import app.services.data_sync_service as dss  # noqa: E402,F401
+import app.services.sync.clauses.orchestrator as clauses_orch  # noqa: E402
 from app.services.data_sync_service import DataSyncService  # noqa: E402
 
 CHAMPIONSHIP_ID = "592416daa3a2dd871a7a9956"
@@ -89,7 +90,7 @@ def _make_service(monkeypatch, client, dm):
         self.client = client
 
     monkeypatch.setattr(DataSyncService, "__init__", fake_init)
-    monkeypatch.setattr(dss.time, "sleep", lambda *a, **k: None)
+    monkeypatch.setattr(clauses_orch.time, "sleep", lambda *a, **k: None)
     return DataSyncService()
 
 
