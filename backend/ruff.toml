@@ -32,6 +32,11 @@ ignore = ["E501", "E402"]
 #  - data_manager_v2.py (~166 KB): E722 (bare-except) = deuda registrada afirmada.
 #  - data_sync_service.py (~84 KB), assistant_service.py (~51 KB): imports.
 "app/services/data_manager_v2.py" = ["E722", "F841", "F401", "I001"]
+# Extracted DDD adapters (intent 261005): the god-file's bare-except (E722) and
+# unused-locals (F841) move VERBATIM as registered debt (BR3.2/BR3.3, NFR4) — the
+# decomposition preserves byte-for-byte behavior, it does not sanitise legacy
+# error handling. Scoped to the adapters that received verbatim SQL/except blocks.
+"app/services/data_manager/**/infrastructure/*_adapter.py" = ["E722", "F841"]
 "app/services/data_sync_service.py" = ["F401", "I001"]
 "app/services/assistant_service.py" = ["I001"]
 # photo_service.py: el bare-except (E722) es deuda registrada afirmada (Q6); el

@@ -114,3 +114,43 @@ def fake_db():
         yield db
     finally:
         db.close()
+
+
+@pytest.fixture(autouse=True)
+def _no_real_db_on_data_manager_construction(monkeypatch):
+    """Prevent ``DataManagerV2()`` from opening a real PostgreSQL connection.
+
+    ``DBConnection.__init__`` eagerly builds a psycopg2 pool and runs a
+    ``SELECT 1;`` liveness probe, so ``DataManagerV2(skip_init=True)`` would hit
+    a real database at construction time — before a test can reassign
+    ``dm.db = fake_db``. The facade constructor also calls
+    ``_ensure_schema_updates()`` eagerly against that connection. In CI (where no
+    PostgreSQL runs, by design — the suite uses the in-memory fake, NFR6) that
+    raised ``psycopg2.OperationalError`` for every characterization test that
+    builds the facade.
+
+    This autouse fixture makes ``DBConnection.__init__`` back its connection with
+    an in-memory SQLite double (the same ``_FakeInMemoryDB`` the suite already
+    uses), test-only and without touching production code: the eager
+    ``_ensure_schema_updates`` on construction runs harmlessly against memory,
+    and tests immediately reassign ``dm.db = fake_db`` for their own seeded
+    schema. The characterized ``_ensure_schema_updates`` method is NOT stubbed —
+    the schema-lifecycle test that calls it explicitly against its injected fake
+    still exercises the real delegation. Tests that build a hollow
+    ``DBConnection`` via ``__new__`` are unaffected (they never run ``__init__``).
+    """
+    from app.services.db_connection import DBConnection
+
+    def _no_connect(self, *args, **kwargs):
+        # Stable attributes real callers read; no pool, no network. Back the
+        # connection surface with an in-memory SQLite fake so the facade's eager
+        # construction-time schema hook runs against memory, never PostgreSQL.
+        _backing = _FakeInMemoryDB()
+        self.db_type = "postgresql"
+        self._pool = None
+        self.get_connection = _backing.get_connection
+        self.get_cursor = _backing.get_cursor
+        self.adapt_params = _backing.adapt_params
+        self.adapt_sql = lambda sql: sql
+
+    monkeypatch.setattr(DBConnection, "__init__", _no_connect, raising=True)

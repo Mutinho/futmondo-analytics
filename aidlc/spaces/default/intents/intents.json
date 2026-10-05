@@ -124,5 +124,12 @@
     "dirName": "261002-sync-god-file-8",
     "scope": "refactor",
     "status": "complete"
+  },
+  {
+    "uuid": "01a10b19-d780-7ad0-9beb-acf41274ca68",
+    "slug": "data-manager-god-file",
+    "dirName": "261005-data-manager-god-file",
+    "scope": "refactor",
+    "status": "complete"
   }
 ]

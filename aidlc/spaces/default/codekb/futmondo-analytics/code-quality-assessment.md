@@ -4,103 +4,85 @@
 
 - **Backend**: piso **BLOQUEANTE** `--cov-fail-under=27` (line-only, SIN
   `--cov-branch`) en `backend/pytest.ini` (`addopts = -ra --cov-fail-under=27`;
-  requiere `--cov=app` en la invocación — paridad `ci.yml` ↔ job `verify` de
-  `fly-deploy.yml`). Sube solo por trinquete; nunca se relaja para pasar el gate.
-  Fakes in-memory en `backend/conftest.py` (`_RecordingDM`, `_FakeFutmondoClient`,
-  `_FakeInMemoryDB`/`_FakeCursor` sobre SQLite `:memory:`, `clean_jwt_env`,
-  `fake_db`); `time.sleep` monkeypatched a no-op: sin red, sin BD real, sin
-  credenciales reales.
+  cobertura real medida 27.52%, piso=27 por trinquete). Requiere `--cov=app` en la
+  invocación — paridad `ci.yml` ↔ job `verify` de `fly-deploy.yml`. Sube solo por
+  trinquete; nunca se relaja para pasar el gate.
+- **Fakes in-memory (patrón de characterization)**: `backend/conftest.py`
+  (raíz del runner, no en `tests/`) define `_FakeInMemoryDB` + `_FakeCursor`
+  (SQLite `:memory:`, convierte `?`→`%s` espejo del `adapt_params` real), fixture
+  `fake_db`, `clean_jwt_env`. Sin red, sin BD real, sin credenciales reales.
+- **Suite**: `backend/tests/` (≈40+ `test_*.py`, muchos `*_characterization.py`).
+  Tests que ya referencian `DataManagerV2` directamente (base de partida para la
+  characterization del objetivo): `test_analytics_service.py`,
+  `test_db_admin_guard.py`, `test_finance_characterization.py`.
 - **Frontend**: umbrales por métrica en `angular.json` (`coverageThresholds`:
   statements 15 / branches 15 / functions 13 / lines 14), enforcement dentro de
-  `ng test` (builder `@angular/build:unit-test` + Vitest).
-- **Suites de caracterización relevantes al intent (área sync)**: congelan el
-  `SyncResult` observable y la posición de la clave literal en `sync_all`:
-  `test_sync_match_odds_characterization.py`, `test_sync_clauses_characterization.py`
-  (ambos pilotos verdes contra el código extraído → equivalencia), más
-  `test_prizes_characterization.py`, `test_prizes_calculator.py`,
-  `test_team_prizes_atomic_replacement.py`, `test_sync_degraded_steps.py`,
-  `test_sync_step_status.py`, `test_sync_integration_failure_effect.py`.
+  `ng test` (builder `@angular/build:unit-test` + Vitest). Prosa preservada.
 
 ## Linting
 
-- **`ruff`** backend (`backend/ruff.toml`: `py312`, line-length 100,
-  `select=["E","F","I"]`, `ignore=["E501","E402"]`), modo advisory escalonado hacia
-  bloqueante. La deuda de los god-files se registra con `[lint.per-file-ignores]`
-  en lugar de sanearla tocándolos (`E722` bare-except re-habilitado como advisory
-  por trinquete).
-- **ESLint frontend**: advisory / **deuda diferida** (no instalado como
-  devDependency; `ci.yml` tolera su ausencia).
+- **`ruff`** backend (`backend/ruff.toml`: `py312`, `line-length = 100`,
+  `select = ["E","F","I"]`, `ignore = ["E501","E402"]`), modo **ADVISORY** escalonado.
+  La deuda del god-file está **REGISTRADA en `per-file-ignores`**:
+  `"app/services/data_manager_v2.py" = ["E722","F841","F401","I001"]` (E722/bare-except
+  como deuda afirmada; saneo diferido a este refactor dedicado, NUNCA tocando/ampliando
+  el fichero antes). Al descomponer, esa deuda se sanea en los ficheros **NUEVOS**;
+  el original se vacía por extracción, no por reescritura in-place.
 - Regla afirmada: **NUNCA** `ruff format` masivo sobre ficheros brownfield;
-  formatear solo ficheros nuevos (por dominio) o de forma quirúrgica. La reviewer
-  sólo corre `ruff check`.
+  formatear solo ficheros nuevos o de forma quirúrgica. La reviewer sólo corre
+  `ruff check`.
 
 ## CI/CD
 
-- **`.github/workflows/ci.yml`** (PR gate) y **`fly-deploy.yml`** job `verify`
-  (push a `main`, en paridad): gitleaks + `ruff` + `pytest`+cov + `pip-audit` +
-  `ng test` + `npm audit`; cadena de deploy `verify` → `deploy-backend` →
-  `deploy-frontend` → `smoke-test` (Fly.io on-merge, región `cdg`). No leídos en
-  profundidad (fuera del área focalizada). Allowlist versionada
-  `backend/.pip-audit-allowlist`. Crons de coste ~0: `daily-sync.yml`,
-  `sofascore-sync.yml`.
+- **`.github/workflows/ci.yml`** (PR gate): gitleaks (bloqueante), `ruff check`
+  (`ruff==0.16.9`, advisory), `pytest` con `--cov=app` (bloqueante, piso 27),
+  `pip-audit==2.10.1` + allowlist-expiry (bloqueante), `npm audit --audit-level=high`
+  (bloqueante). **`fly-deploy.yml`** replica el gate en el job `verify` antes de
+  desplegar a Fly.io (`cdg`). Crons `daily-sync.yml`, `sofascore-sync.yml`.
 
 ## Calidad de documentación
 
-- `README.md` completo; `docs/` extensa.
-- Docstrings ricos y en INGLÉS en el código nuevo (`match_odds/*`, `clauses/*`,
-  `prizes/*`), citando reglas de negocio (BR*, FR*, NFR*); **escasos en los
-  god-files**, que mezclan orquestación, SQL inline y throttling.
+- `README.md` extenso (es); `docs/` presente. Docstrings de módulo/clase ricos y en
+  inglés en los contextos DDD (`analytics`/`assistant`/`sync`/`prizes` documentan
+  BR/FR y el "único módulo con SQL"). El god-file tiene docstring de módulo +
+  docstrings por método razonables.
 
-## Deuda técnica (foco del scan: dominio sync)
+## Deuda técnica (foco del scan: `data_manager_v2.py`)
 
-- **God-files — NEVER ampliar/reescribir (regla afirmada)**:
-  - `data_sync_service.py` (~1806 líneas, ~77 KB) — **objetivo del intent**;
-    `sync_match_odds` y `sync_clauses` ya delegan, `sync_prizes` delega
-    cálculo/escritura. Alberga 8 dominios inline + 5 helpers privados.
-  - `data_manager_v2.py` (~3692 líneas, ~166 KB) — SQL/acceso a datos monolítico;
-    dependencia común. **NO ampliar/reescribir**; los adapters la envuelven
-    verbatim.
-  - `photo_service.py` (~492 líneas) — `E722` registrado.
-- **SyncResult NO uniforme entre dominios**: `round_rankings` devuelve
-  `rounds_synced`/`last_matchday`; `players_full` no devuelve `last_sync_*`;
-  `prizes` tiene el set de status más rico (`no_config`/`no_prizes_configured`/
-  `no_standings`/`no_teams`/`no_rounds` + early-returns). Cada orquestador debe
-  reproducir su payload byte-a-byte (riesgo de regresión).
-- **Characterization-first gap (mandato de equipo)**: los 8 dominios inline
-  (`transactions`, `punishments_bonuses`, `dream_teams_mvps`,
-  `player_performance`, `rosters`, `round_rankings`, `players_full`) **NO tienen
-  test de caracterización dedicado todavía**. Hay que congelar el `SyncResult`
-  observable y el modo de fallo (recuperable vs fatal) por dominio ANTES de
-  extraer, como ya se hizo para `match_odds`/`clauses`.
-- **SQL crudo sobre `self.dm.db` dentro de métodos de servicio (no sólo en el
-  DataManager)**: `sync_transactions` (`ALTER TABLE ... ADD COLUMN IF NOT EXISTS`
-  oportunista en caliente + UPDATE `bids_json`), `_enrich_market_values`
-  (`SELECT`/`UPDATE`), `_save_favorites` (`CREATE TABLE IF NOT EXISTS` +
-  `DELETE`/`INSERT`, rama Postgres `psycopg2.extras.execute_values`), `sync_prizes`
-  (`SELECT ... FROM user_championships` vía `get_db()`). El router `sync.py`
-  también tiene SQL inline (`_check_phantoms`, `get_last_sync_date`) — patrón
-  SQL-en-router a NO ampliar. El SQL debe envolverse **verbatim** tras
-  port+adapter, SIN reescribirlo ni ampliar `data_manager_v2.py`.
-- **Broad/bare excepts**: 1 `except: pass` silencioso (`ALTER TABLE` idempotente
-  en `sync_transactions`); el enriquecimiento de market value y la limpieza de
-  huérfanos degradan con `logger.warning`. Son deuda registrada de intents previos
-  (god-file) — NO entran al alcance de este refactor salvo que el patrón atómico
-  los sustituya.
-- **Dependencia de clave literal divergente (alto riesgo de regresión)**:
-  `team_standings`≠`sync_round_rankings` y `dream_teams`≠`sync_dream_teams_mvps`;
-  el worker del router (`_run_sync_in_background`) depende de esas claves
-  literales. Cualquier cambio de surface rompería el worker — mantener firma y
-  retorno idénticos (FR5).
-- **Comportamiento de ingesta a preservar por dominio**: `time.sleep`
-  (0.3/0.2/0.1/0.05), límites de paginación (50 vs 1000), condiciones de parada
-  (misses consecutivos, `previous_last_id`), y la lógica de pseudo-rounds
-  avanzados de prizes (número float → matchday sintético negativo).
-  `_find_championship()` lo comparten `dream_teams` y `rosters`.
-- **Manejo de errores tipado a preservar**: `_log_integration_failure` (log
-  key=value sin credenciales, NFR1/BR4.2) y clasificación fatal
-  (`IntegrationBanError` propaga) vs recoverable (`IntegrationTimeout/Unparseable/
-  Request` → `record_degraded_step`). Ninguna credencial/token debe llegar a
-  mensajes de excepción, `repr` ni logs en los adapters extraídos.
-- **Reemplazo de conjunto atómico** (`team_prizes_writer`) es el patrón de
-  referencia para full-refresh; `_save_favorites` (DELETE+INSERT) es candidato a
-  elevarse o quedar como deuda registrada según el alcance refactor/Minimal.
+- **God-file (señal principal)**: `data_manager_v2.py`, 3692 líneas / ~162–166 KB,
+  una sola clase `DataManagerV2` con 57 métodos y 14 clusters de responsabilidad
+  mezclados. SQL embebido masivo: 148 sentencias (34 `INSERT` / 75 `SELECT` / 14
+  `UPDATE` / 15 `CREATE TABLE` / 24 `ON CONFLICT`). Es el **último god-file original
+  sin descomponer**; `ruff` lo tiene en `per-file-ignores`. **NEVER ampliar/reescribir**.
+- **Punto de corrupción — reemplazo de conjunto por DELETE**: `delete_orphan_players`
+  (L549–595) ejecuta `DELETE FROM players ... WHERE player_id NOT IN (...) AND NOT
+  EXISTS (...)` (rama Postgres `<> ALL(%s)`, rama SQLite `NOT IN (placeholders)`).
+  Tiene guardia (`if not live_player_ids: return 0`) pero el borrado y los upserts
+  previos NO comparten una transacción explícita a nivel del método: patrón de
+  reemplazo de conjunto a elevar al **patrón atómico de referencia**
+  (`prizes/team_prizes_writer.py`: upsert + DELETE stale en UNA transacción,
+  rollback todo-o-nada). El `team_prizes_writer` documenta el anti-patrón histórico
+  a NO replicar (DELETE separado cuyo fallo se tragaba con `except: logger.warning`
+  dejando estado MIXTO).
+- **Broad/bare excepts**: 18 `except Exception` + 5 `except:` desnudos en el
+  god-file (L57, L68, L672, L1388, L1628, …). Deuda afirmada (E722 en
+  per-file-ignores). A caracterizar y preservar comportamiento observable antes de
+  extraer; no silenciar fallos nuevos.
+- **`return None` como posible señal de fallo**: 16 `return None` en el god-file.
+  Varios legítimos (`get_*_by_id` con tipo `Optional[...]`), pero debe distinguirse
+  el `None` "no encontrado" (contrato legítimo) del `None` "fallo tragado" (deuda),
+  conforme a la regla afirmada NEVER usar `return None` silencioso como señal de fallo.
+- **SQL-en-router (deuda existente, NO ampliar)**: 17 de 23 routers con
+  `cursor.execute` inline; entre los consumidores del objetivo
+  `clausulable_players.py` (L75–79, L170–179), `player_finances.py` (L38),
+  `user_stats.py`, `sync.py` mezclan SQL inline con el facade. A preservar/observar,
+  no a tocar en esta etapa.
+- **Acoplamiento amplio del objetivo**: `DataManagerV2` lo consumen 8 routers + los
+  10 adapters de `sync/*` + adapters de `analytics`/`assistant` +
+  `data_sync_service` + `data_initializer_v2` + `futmondo_service`. El refactor debe
+  **preservar la superficie pública exacta** (constructor `skip_init=True`, nombres
+  y firmas de los 57 métodos); romperla rompe las 4 oleadas DDD ya entregadas.
+- **Divergencia de ramas SQL por engine**: métodos con `if self.db.db_type in
+  ["postgresql","postgres"]: ... else: (SQLite)`. Producción es PostgreSQL/Neon
+  exclusivamente; la rama SQLite sobrevive para el fake de tests. Characterization
+  debe cubrir la rama productiva sin romper la ejecución contra `_FakeInMemoryDB`.
