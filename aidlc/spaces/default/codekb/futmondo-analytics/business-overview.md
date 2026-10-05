@@ -25,13 +25,12 @@ calcular las finanzas de cada participante y decidir pujas con datos objetivos
 - **Presupuesto**: saldos por equipo con altas/bajas, puja máxima y rendimiento.
 - **Mercado**: jugadores del computer con puja sugerida, rating Sofascore y
   tendencia; modal de puja con min/max validados.
-- **Sincronización asíncrona (dominio central de este intent)**: sync en background
-  con progreso paso a paso que ingesta jugadores, transacciones, cláusulas,
-  castigos, dream teams, rendimiento, plantillas, clasificación, odds y sofascore
-  desde las integraciones externas hacia Neon. Coordinada por `DataSyncService`
-  (10 operaciones `sync_*` + `sync_all()`). Cada dominio produce un `SyncResult`
-  observable cuya forma **no es uniforme** entre dominios (ver `api-documentation.md`
-  y `architecture.md` para la superficie y el flujo).
+- **Sincronización asíncrona**: sync en background con progreso paso a paso que
+  ingesta jugadores, transacciones, cláusulas, castigos, dream teams, rendimiento,
+  plantillas, clasificación, odds y sofascore desde las integraciones externas
+  hacia Neon. Coordinada por `DataSyncService`. El detalle del dominio sync vive en
+  los artefactos del store previo (prosa preservada); esta pasada focaliza la
+  **capa de acceso a datos** que todos esos dominios consumen.
 - **Finanzas**: cálculo de dinero por usuario (presupuesto + puntos×€ + profit de
   transacciones + dream team + MVP + clasificación con fórmula proporcional +
   castigos/bonificaciones).
@@ -41,19 +40,31 @@ calcular las finanzas de cada participante y decidir pujas con datos objetivos
 - **Analítica y asistente**: evolución, estadísticas, clausulables y un asistente
   (contextos DDD `analytics/` y `assistant/`).
 
-## Contexto del intent activo (`261002-sync-god-file-8`)
+## Acceso a datos como capacidad transversal (foco de esta pasada)
 
-El intent es un **refactor** (continuación de `260929-sync-god-file` y
-`261001-sync-god-file-resto`): descomponer los **8 dominios de sync que SIGUEN
-inline** en `data_sync_service.py` (~77 KB / ~1806 líneas) al patrón DDD ya
-**probado por DOS pilotos** (`match_odds` y `clauses`), y uniformar `sync_prizes`
-(cuya lógica pura y escritor atómico ya viven en `prizes/`) al patrón de facade.
-Dominios restantes a extraer (orden propuesto de menor a mayor acoplamiento):
-`transactions`, `punishments_bonuses`, `dream_teams_mvps`, `rosters`,
-`round_rankings` (clave literal `team_standings`), `player_performance`,
-`players_full`; más la uniformización de `sync_prizes`. El contrato público (los
-10 `sync_*` + `sync_all()` con sus 10 claves literales y orden fijo) se preserva
-byte-a-byte (FR5), sin ampliar los god-files ni relajar el piso de cobertura, con
-**characterization-first estricto por dominio** y una unidad de trabajo por
-dominio (gate por unidad). La deuda técnica y el patrón objetivo se documentan en
-`code-quality-assessment.md` y `code-structure.md`.
+Toda la funcionalidad anterior (sync, finanzas, premios, analítica, asistente,
+estadísticas) comparte una **única capa de acceso a datos**: la clase
+`DataManagerV2` (`backend/app/services/data_manager_v2.py`). Según el handoff del
+desarrollador, concentra la persistencia y lectura históricas sobre
+PostgreSQL/Neon en 57 métodos públicos (19 `save_*`, 26 `get_*`, 6 privados `_*`)
+que cubren ~14 responsabilidades de negocio: players, teams/standings,
+performance, transactions, clauses, punishments/bonuses, dream-teams/MVP, prizes,
+market/roster, match-odds, news/articles, users/stats/evolution,
+sync-metadata/cache y schema/lifecycle. Es la fuente de verdad de lectura y
+escritura del campeonato: cualquier dato que el usuario ve en la PWA pasó por uno
+de sus `get_*`, y cualquier ingesta de las integraciones externas se materializó
+en Neon por uno de sus `save_*`.
+
+## Contexto del intent activo (`261005-data-manager-god-file`)
+
+El intent es un **refactor** (continuación de las oleadas de `sync` y `assistant`):
+descomponer el **último god-file original sin tocar**, `data_manager_v2.py` (~162
+KB / 3692 líneas, clase única `DataManagerV2`), al patrón DDD ya probado en el
+mismo repo (facade delgado → orchestrator → domain/ports `Protocol`
+consumer-owned sin SQL + `infrastructure/*_adapter` que envuelve el SQL verbatim;
+reemplazo de conjunto atómico). El objetivo es **preservar la superficie pública
+exacta** (constructor `skip_init=True`, nombres y firmas de los 57 métodos) porque
+8 routers + los adapters de las 4 oleadas DDD la envuelven verbatim, con
+**characterization-first estricto por responsabilidad** y sin ampliar god-files ni
+el patrón SQL-en-router. La deuda técnica y el patrón objetivo se documentan en
+`code-quality-assessment.md`, `architecture.md` y `code-structure.md`.

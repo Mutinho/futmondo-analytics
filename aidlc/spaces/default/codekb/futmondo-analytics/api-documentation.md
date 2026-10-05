@@ -10,130 +10,105 @@
 | `/auth/refresh` | POST | Renovar access token desde la cookie HttpOnly |
 | `/auth/logout` | POST | Revocar sesión |
 
-### REST FastAPI v1 (`backend/app/api/v1/endpoints/`, 21 routers)
+### REST FastAPI v1 (`backend/app/api/v1/endpoints/`, 23 routers)
 
-Todos los endpoints `/api/v1/*` requieren Bearer token. Routers:
-`sync`, `market`, `balances`, `analytics`, `player_finances`, `transactions`,
-`clausulable_players`, `roster`, `sofascore_sync`, `sofascore_detail`, `user`,
-`user_stats`, `championships`, `favorites`, `phantoms`, `matchdays`,
-`statistics`, `initialize`, `reset_db`, más helpers `_helpers.py` y
-`_sofascore_helpers.py`.
+Todos los endpoints `/api/v1/*` requieren Bearer token. Esta pasada focaliza los
+**8 routers que consumen `DataManagerV2` directamente** (contrato del objetivo):
 
-### Sync router — `backend/app/api/v1/endpoints/sync.py` (foco del scan)
+| Router | Consumo de `DataManagerV2` |
+|--------|-----------------------------|
+| `statistics.py` | limpio vía facade: `dm.get_users_unique_players_stats` |
+| `player_finances.py` | mixto: facade + `cursor.execute` inline (L38) |
+| `clausulable_players.py` | mixto: facade + SQL inline (L75–79, L170–179) |
+| `user_stats.py` | mixto: facade + SQL inline |
+| `sync.py` | vía `DataSyncService.dm` + `get_last_sync_metadata`/`update_sync_metadata` |
+| `initialize.py` | directo |
+| `matchdays.py` | directo |
+| `reset_db.py` | directo (`reset_database`) |
 
-| Endpoint | Método | Descripción |
-|----------|--------|-------------|
-| `/api/v1/sync/status` | GET | Estado del sync por data_type (lee `get_last_sync_metadata`) |
-| `/api/v1/sync/last-sync` | GET | `MAX(last_sync_date)` por championship (SQL directo inline) |
-| `/api/v1/sync/trigger` | POST | Lanza sync async (202 + `task_id`, thread daemon); 409 si hay sync en curso; `valid_types=("all","transactions","clauses","dream_teams","rosters","players")` |
-| `/api/v1/sync/task/{task_id}` | GET | Polling del progreso (pending\|running\|completed\|failed) |
+Los demás endpoints (market, balances, analytics, transactions, roster,
+sofascore_*, user, championships, favorites, phantoms) y el detalle del dominio
+sync quedan como prosa preservada del store previo. La deuda de SQL-en-router (17
+de 23 routers con SQL inline) se detalla en `code-quality-assessment.md`.
 
-El worker `_run_sync_in_background(task_id, sync_type, …)` invoca el surface
-público de `DataSyncService` con el **mismo orden y claves** que `sync_all` para
-`sync_type=="all"`, actualizando `progress[step]` con las claves literales
-(incluidas `team_standings`→`sync_round_rankings` y
-`dream_teams`→`sync_dream_teams_mvps`), más `phantoms` (helper del router
-`_check_phantoms`). El manejo DEGRADED de `prizes`/`phantoms` vive en el router
-vía `record_degraded_step`. El router tiene SQL inline (`_check_phantoms`,
-`get_last_sync_date`): patrón SQL-en-router que NO debe ampliarse.
+## Superficie interna — `DataManagerV2` (contrato a PRESERVAR exacto)
 
-> Resto de endpoints principales (market, balances, finances, championships) y
-> deuda de SQL-en-router: ver `code-quality-assessment.md`.
+Clase `DataManagerV2` en `backend/app/services/data_manager_v2.py`. **Constructor**:
+`DataManagerV2(db_path=None, skip_init=True)`. Los 57 métodos y sus firmas se
+preservan byte-a-byte en el refactor (equivalencia observable estricta): 8 routers
++ los adapters de `analytics`/`assistant`/`sync` + `data_sync_service` +
+`data_initializer_v2` + `futmondo_service` la envuelven verbatim. Agrupación
+observada por responsabilidad candidata (a confirmar en Plan Approval), con línea
+de referencia:
+
+### 1. schema/lifecycle
+`_init_database` (L38), `reset_database` (L368), `_ensure_schema_updates` (L3009),
+`_ensure_user` (L835), `_get_or_create_user_id` (L1803),
+`_ensure_championship_in_transaction` (L2014), `ensure_championship_exists` (L1990).
+
+### 2. players
+`save_player` (L418), `save_players_batch` (L467), `save_players` (L733),
+`delete_orphan_players` (L549), `get_all_players_with_points` (L2369),
+`get_player_by_id` (L3611), `get_free_agent_candidates` (L3638),
+`get_player_streak_data` (L3665).
+
+### 3. teams/standings
+`save_team` (L799), `save_team_standing` (L595), `save_round_ranking` (L864),
+`get_team_by_id` (L3572), `get_team_standings_history` (L3386),
+`get_latest_matchday` (L3374).
+
+### 4. performance
+`save_player_performance` (L675), `save_player_performance_batch` (L688),
+`save_player_championship_stats` (L3089), `get_player_performance_history` (L3461),
+`get_clausulable_player_stats` (L3174).
+
+### 5. transactions
+`save_player_transactions` (L940), `save_pressroom_transactions` (L945),
+`get_all_player_transactions` (L2416), `get_user_transactions` (L2523),
+`get_transactions_raw` (L3504).
+
+### 6. clauses
+`parse_clause_text` (L1508), `save_clauses` (L1551), `get_user_clauses_stats`
+(L1705), `get_clauses_raw` (L3539).
+
+### 7. punishments/bonuses
+`save_punishments_bonuses` (L1330), `get_user_punishments_bonuses` (L1432).
+
+### 8. dream teams / MVP
+`save_dream_team_mvp` (L2132), `get_dream_team_bonus_stats` (L2959).
+
+### 9. prizes
+`get_prizes_by_team` (L3420).
+
+### 10. market/roster
+`save_market_players` (L1831), `save_team_roster` (L1892).
+
+### 11. match odds
+`save_match_odds` (L3215), `get_match_odds` (L3320).
+
+### 12. news/articles
+`save_matchday_article` (L1118), `get_matchday_article` (L1170),
+`save_pressroom_news` (L2256), `get_matchday_data_for_news` (L2794).
+
+### 13. users/stats/evolution
+`get_user_id_by_name` (L1204), `get_users_unique_players_stats` (L2266),
+`get_all_users_with_points` (L2464), `get_evolution_data_from_db` (L2695).
+
+### 14. sync-metadata/cache
+`get_last_sync_metadata` (L2040), `update_sync_metadata` (L2069),
+`should_update_cache` (L2262).
+
+> Nota de contrato: los adapters DDD reenvían **sólo** los kwargs que la llamada
+> original suministraba y no añaden métodos a `DataManagerV2`. Varios `get_*_by_id`
+> devuelven `Optional[...]` (`None` = "no encontrado", contrato legítimo); hay que
+> distinguirlos del `None` "fallo tragado" en characterization (ver
+> `code-quality-assessment.md`).
 
 ## Integraciones externas (clientes salientes)
 
-- **API Futmondo** — `backend/app/services/futmondo_client.py`. Validación de
-  credenciales y fuente de la mayor parte de los datos de sync. Métodos consumidos
-  por el sync: `get_pressroom_news`, `get_locker_news`, `get_match_list`,
-  `get_matchday_standings`, `get_userteam_rounds`, `get_user_roundlineup`,
-  `get_round_ranking`, `get_round_matches`, `get_dream_team`, `get_round_lineup`,
-  `get_championship_players`, `get_player_fullprofile`, `get_userteam_roster`.
-  Expone excepciones tipadas por modo de fallo (`IntegrationBanError` fatal;
-  `IntegrationTimeoutError` / `IntegrationUnparseableError` / `IntegrationRequestError`
-  recuperables); mantiene las credenciales fuera de sus propios errores.
-- **API Sofascore** — `backend/app/services/sofascore_client.py` vía `curl_cffi`.
-  Ratings deportivos.
-
-## Superficie interna — `DataSyncService` (`data_sync_service.py`)
-
-Contrato público **a preservar byte-a-byte** en el refactor (equivalencia
-observable, FR5). Clase `DataSyncService`.
-
-### Constructor y atributos públicos
-
-- `DataSyncService(futmondo_client=None)` — `__init__` crea
-  `DataManagerV2(skip_init=True)`, `ensure_championship_exists`, auth del cliente
-  si no se inyecta. Atributos públicos: `self.dm`, `self.client`,
-  `self.championship_id`, `self.league_id`, `self.user_id`.
-
-### Las 10 operaciones `sync_*` (firma `() -> Dict`)
-
-| Operación | Dominio | Clave en `sync_all` | Estado |
-|-----------|---------|---------------------|--------|
-| `sync_transactions` | transacciones | `transactions` | inline (helpers `_store_bids`/`_enrich_market_values`/`_find_price_at_date`) |
-| `sync_clauses` | cláusulas | `clauses` | **extraído** (piloto) |
-| `sync_punishments_bonuses` | castigos/bonificaciones | `punishments_bonuses` | inline |
-| `sync_dream_teams_mvps` | dream teams / MVP | `dream_teams` | inline (usa `_find_championship`) |
-| `sync_player_performance` | rendimiento de jugadores | `player_performance` | inline |
-| `sync_rosters` | plantillas | `rosters` | inline (usa `_find_championship`) |
-| `sync_round_rankings` | clasificación por jornada | `team_standings` | inline |
-| `sync_players_full` | jugadores (primero por FK) | `players` | inline (usa `_save_favorites`) |
-| `sync_match_odds` | odds de partidos | `match_odds` | **extraído** (piloto) |
-| `sync_prizes` | premios | `prizes` | delega cálculo/escritura en `prizes/`; falta facade |
-
-### Coordinador `sync_all()`
-
-Coordinador **fino**: invoca los 10 `sync_*` en **orden FIJO** (players primero
-por FKs) y agrega los resultados en un dict con **10 claves LITERALES**:
-`players`, `transactions`, `clauses`, `punishments_bonuses`, `dream_teams`,
-`player_performance`, `rosters`, `team_standings`, `match_odds`, `prizes`. Mapeo
-no obvio (crítico): `players` ↔ `sync_players_full`,
-`dream_teams` ↔ `sync_dream_teams_mvps`,
-`team_standings` ↔ `sync_round_rankings`.
-
-### Helpers privados consumidos por los dominios
-
-`_find_championship()` (dream_teams + rosters),
-`_store_bids`/`_enrich_market_values`/`_find_price_at_date` (transactions),
-`_save_favorites` (players, toca `self.dm.db` crudo + `self.client.user_id`),
-`_log_integration_failure` (prizes, log key=value sin credenciales).
-
-### Forma del `SyncResult` (NO uniforme entre dominios — preservar por dominio)
-
-La forma observable del resultado varía por dominio y debe reproducirse exacta
-(cada orquestador la replica byte-a-byte):
-- `transactions` / `clauses`: `{status, records_synced, last_sync_id, duration_seconds}`.
-- `punishments_bonuses`: `{status, records_synced, last_sync_id, duration_seconds}`
-  (`status = "success" if total_synced > 0 or from_id else "no_new_data"`).
-- `dream_teams` / `rosters` / `player_performance`:
-  `{status, records_synced, last_sync_matchday, duration_seconds}`
-  (performance tiene dos retornos tempranos `no_new_data` que también escriben
-  metadata).
-- `round_rankings` (clave `team_standings`): forma DISTINTA —
-  `{status, rounds_synced, records_synced, last_matchday, duration_seconds}`.
-- `players_full`: `{status, records_synced, duration_seconds}` (sin `last_sync_*`).
-- `match_odds` (ya delegado): `{status, records_synced, matchday, duration_seconds}`
-  (happy); `{status:"error", error, duration_seconds}` (fallo).
-- `prizes`: set de status más rico
-  (`success|no_new_data|no_config|no_prizes_configured|no_standings|no_teams|no_rounds|error`),
-  `{… rounds_processed, records_synced, stale_prizes_removed, duration_seconds}` —
-  preservar TODOS los early-returns.
-
-### `sync_match_odds` / `sync_clauses` — patrón de referencia ya aplicado
-
-Delegación fina al `<Domain>SyncOrchestrator` (`sync/<domain>/orchestrator.py`),
-que ingesta vía `FutmondoClient`, persiste a través del
-`<Domain>SyncDataPort` (`domain/ports.py`) implementado por
-`DataManager<Domain>Adapter` (`infrastructure/<domain>_adapter.py`, envuelve
-`DataManagerV2` verbatim).
-
-### `sync_prizes` — patrón de cálculo/escritura (falta facade uniforme)
-
-Orquesta: (a) ingesta desde `FutmondoClient` + lectura de config vía SQL directo
-sobre `get_db()`; (b) pseudo-rondas adelantadas (matchday sintético negativo),
-gating `round_fully_played` / `all(m.get("status")=="F")`; (c) delegación del
-cálculo puro a `calculate_round_prizes(...)` de `prizes/calculator.py`;
-(d) persistencia atómica vía `replace_team_prizes(...)` de
-`prizes/team_prizes_writer.py`. Manejo de errores tipado (fatal propaga /
-recoverable degrada vía `_log_integration_failure`). Falta mover la orquestación
-a `sync/<prizes>/` dejando la delegación delgada.
+Prosa preservada del store previo: **API Futmondo** (`futmondo_client.py`,
+excepciones tipadas `IntegrationBanError` fatal /
+`IntegrationTimeoutError`/`IntegrationUnparseableError`/`IntegrationRequestError`
+recuperables; mantiene credenciales fuera de sus errores) y **API Sofascore**
+(`sofascore_client.py` vía `curl_cffi`). `DataManagerV2` no habla con estas APIs:
+recibe los datos ya ingeridos y los persiste.

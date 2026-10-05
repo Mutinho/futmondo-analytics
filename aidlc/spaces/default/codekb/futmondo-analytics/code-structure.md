@@ -5,142 +5,100 @@
 Mono-repo con dos apps desplegables más soporte de infra:
 
 - `backend/app/` — servicio web FastAPI (Python 3.12). Capas:
-  - `api/v1/endpoints/` — 21 routers REST (ver `api-documentation.md`), entre
-    ellos `sync.py` (sync router + worker en background).
-  - `services/` — lógica de negocio + integraciones (núcleo del intent).
-  - `auth/` — JWT + session/token stores.
-  - `stores/` — repositorios de durabilidad.
-  - `core/` — config/constants.
+  - `api/v1/endpoints/` — 23 routers REST (ver `api-documentation.md`); 8 consumen
+    `DataManagerV2` directamente y 17 de 23 tienen SQL inline (deuda SQL-en-router).
+  - `services/` — lógica de negocio + integraciones + acceso a datos (foco de esta
+    pasada).
+  - `auth/` — JWT.
+  - `stores/` — capa de persistencia estrecha de referencia (durabilidad).
+  - `core/` — config/constants (`CACHE_DURATION_HOURS`, `DATABASE_PATH`).
   - `models/`, `security/`.
   - `main.py` — arranque FastAPI.
 - `angular-app/` — frontend Angular 22 (PWA, standalone components, signals,
-  Material 22): `src/app/{core,features,shared}`.
+  Material 22): `src/app/{core,features,shared}` (skimmed).
 - `proxy/` — nginx reverse proxy local.
 - `cron/` — máquinas Fly one-shot para sincronizaciones programadas.
 - `docs/`, `scripts/`, `docker-compose.yml`, `.github/workflows/`.
 
-## Clasificación de ficheros (backend `services/`, foco del scan)
+## Clasificación de ficheros (backend `services/` + `stores/`, foco del scan)
 
-### Dominio sync en extracción DDD — `services/sync/` (patrón objetivo probado)
+### God-file objetivo — `services/data_manager_v2.py` (deuda principal)
 
-Árbol con DOS pilotos completos (`match_odds` + `clauses`). Estructura por dominio
-bajo `backend/app/services/sync/<domain>/`:
+- `DataManagerV2` — clase única, 3692 líneas / ~162 KB, 57 métodos
+  (19 `save_*`, 26 `get_*`, 6 privados `_*`, resto varios). Constructor
+  `DataManagerV2(db_path=None, skip_init=True)`. SQL embebido masivo: 148
+  sentencias (34 `INSERT` / 75 `SELECT` / 14 `UPDATE` / 15 `CREATE TABLE` / 24
+  `ON CONFLICT`). Mezcla ~14 responsabilidades (ver `api-documentation.md` para la
+  superficie exacta con números de línea y `component-inventory.md` para los
+  clusters). Es el **último god-file original sin descomponer**; su deuda de lint
+  está registrada en `ruff.toml` `per-file-ignores`.
 
-```
-<domain>/
-  __init__.py                       # re-exporta <Domain>SyncOrchestrator; docstring del contrato
-  orchestrator.py                   # <Domain>SyncOrchestrator (application): ingesta (client inyectado) + throttling + manejo de errores + delegacion al port
-  domain/
-    __init__.py
-    ports.py                        # <Domain>SyncDataPort: typing.Protocol consumer-owned; SOLO ops consumidas; sin SQL, sin framework
-  infrastructure/
-    __init__.py
-    <domain>_adapter.py             # DataManager<Domain>Adapter: UNICO punto que toca DataManagerV2; delega verbatim
-```
+### Capa de persistencia estrecha de referencia — `services/db_connection.py` + `stores/`
 
-- `sync/__init__.py` — raíz del paquete de contextos sync; documenta el patrón DDD.
-- `sync/match_odds/` — contexto PILOTO (shape ligero): `sync_match_odds` ya
-  extraído end-to-end.
-- `sync/clauses/` — contexto PILOTO (shape paginado): `sync_clauses` ya extraído.
+- `services/db_connection.py` — `DBConnection` (pool PostgreSQL/Neon,
+  `get_connection`/`get_cursor`/`adapt_params` que convierte `?`→`%s`), singleton
+  vía `get_db()`. Clasificación recuperable/fatal ya endurecida. Es el punto único
+  de acceso físico a Neon que `DataManagerV2` y los stores comparten.
+- `stores/__init__.py`, `stores/session_repository.py`, `stores/task_repository.py`
+  — `SessionRepository`, `TaskRepository`, esquemas `ensure_*`. **Modelo de
+  referencia** de "SQL fuera de routers y god-files, todo parametrizado": la forma
+  a la que debe tender el SQL extraído del god-file.
 
-**Invariantes del patrón (observadas en los pilotos, no aspiracionales):**
+### Contextos DDD ya entregados (patrón objetivo probado)
 
-1. **Thin facade delegation** — el método `DataSyncService.sync_<domain>` queda
-   como delegación delgada: import perezoso del orquestador + del adapter,
-   instancia con `client=self.client`, `championship_id=self.championship_id`,
-   `data=DataManager<Domain>Adapter(dm=self.dm)`, y `return orchestrator.sync()`.
-   El import perezoso mantiene el grafo de imports de la fachada sin cambios.
-2. **Orchestrator** — `__init__(self, client, championship_id, data=None)`; `data`
-   por defecto construye el adapter de producción
-   (`DataManager<Domain>Adapter()` → `DataManagerV2(skip_init=True)`), permitiendo
-   inyectar un stub en tests. `sync()` reproduce byte-a-byte el `SyncResult` del
-   método inline previo.
-3. **Port consumer-owned** — `typing.Protocol` estructural en `domain/ports.py`;
-   refleja la superficie de `DataManagerV2` verbatim (mismos nombres, misma firma
-   por keyword); no importa `infrastructure/` ni framework; sin SQL.
-4. **Adapter** — implementa el Protocol; `__init__(self, dm=None)` con default
-   `DataManagerV2(skip_init=True)`; delega cada llamada verbatim; para
-   `update_sync_metadata` reenvía SOLO los kwargs que la llamada inline original
-   suministraba (preserva los defaults de `DataManagerV2`). NO se añade ningún
-   método a `data_manager_v2.py`.
-5. **No credenciales en errores/logs** — la ruta de fallo loguea `str(e)` y lo
-   guarda como `error_message`; el `FutmondoClient` ya mantiene credenciales fuera
-   de sus errores.
-6. **Set-replacement atómico** (patrón `team_prizes_writer`) para dominios con
-   reemplazo-de-conjunto.
+- `services/analytics/` (Wave 1): `facade.py` (`AnalyticsService`) →
+  `application/calculations.py` → `domain/ports.py` (`AnalyticsDataPort`, Protocol
+  consumer-owned, sin SQL) + `infrastructure/data_manager_adapter.py` (único SQL,
+  envuelve `DataManagerV2` verbatim). Shim `analytics_service.py`.
+- `services/assistant/` (Wave 2): `facade.py` + `application/{context,factual}.py`
+  + `domain/{ports,guardrails}.py` + `infrastructure/{read_adapter,llm_adapter,usage_adapter}.py`.
+- `services/sync/` (Wave 3): 10 contextos (`match_odds`, `clauses`, `transactions`,
+  `rosters`, `players_full`, `player_performance`, `dream_teams_mvps`,
+  `round_rankings`, `punishments_bonuses`, `prizes`), cada uno con
+  `orchestrator.py` + `domain/ports.py` + `infrastructure/*_adapter.py`. Facade
+  `data_sync_service.py` (`DataSyncService`). Prosa de detalle del dominio sync
+  preservada del store previo (no re-verificada esta pasada).
+- `services/prizes/`: `calculator.py` (cálculo puro, DTOs `dataclasses`) +
+  `team_prizes_writer.py` (`replace_team_prizes`, **patrón de reemplazo atómico de
+  referencia**: DELETE stale + repopulado en UNA transacción, todo-o-nada;
+  documenta el bug histórico que corrigió).
 
-> Los 8 dominios pendientes (`transactions`, `punishments_bonuses`,
-> `dream_teams`, `player_performance`, `rosters`,
-> `round_rankings`→`team_standings`, `players_full`, y la uniformización de
-> `prizes`) deben replicar este molde orchestrator + domain port + infrastructure
-> adapter.
+### Otros módulos de servicios (clasificados)
 
-### Contexto `prizes/` — parcial (a uniformar al patrón)
-
-- `prizes/__init__.py`
-- `prizes/calculator.py` — cálculo puro de premios (sin I/O ni SQL); DTOs
-  `dataclasses` (`PrizeConfig`/`RoundTeamEntry`/`TeamRoundPrize`).
-- `prizes/team_prizes_writer.py` — `replace_team_prizes`: escritura transaccional
-  atómica set-replacement sobre un `_DbLike` Protocol (DB inyectada).
-
-Falta mover la ORQUESTACIÓN de `sync_prizes` a un dominio `sync/<prizes>/`,
-dejando la delegación delgada igual que `match_odds`/`clauses` (comparar también
-con `analytics/__init__.py` / `assistant/__init__.py`, que re-exportan desde
-`facade.py`).
-
-### God-files (deuda; ver `code-quality-assessment.md`)
-
-- `data_sync_service.py` (~1806 líneas, ~77 KB) — **objetivo del intent**. Define
-  `DataSyncService` con 10 `sync_*` + `sync_all()` (coordinador fino).
-  `sync_match_odds` y `sync_clauses` ya son delegación fina; `sync_prizes` delega
-  cálculo/escritura a `prizes/`. Aloja aún 8 dominios inline + 5 helpers privados.
-- `data_manager_v2.py` (~3692 líneas, ~166 KB) — SQL/acceso a datos monolítico
-  (`DataManagerV2`), dependencia de datos común de casi todos los `sync_*`.
-- `photo_service.py` (~492 líneas) — deuda `E722` registrada.
-
-### Otros módulos de servicios (skimmed)
-
-`futmondo_client.py`, `sofascore_client.py`, `data_initializer*.py`,
-`task_*`, `session_*`, `db_connection.py`, `integration_errors.py`
-(`IntegrationBanError`/`IntegrationTimeoutError`/`IntegrationUnparseableError`/
-`IntegrationRequestError`), `sync_step_status.py` (`record_degraded_step` +
-`StepStatus` running/done/degraded), `analytics/`, `assistant/` (contextos
-completos de oleadas 1-2, patrón de facade uniforme).
+`futmondo_client.py`, `sofascore_client.py` (clientes de integración),
+`data_sync_service.py`, `data_initializer_v2.py`, `futmondo_service.py`,
+`sync_step_status.py` (`record_degraded_step` + `StepStatus`),
+`integration_errors.py` (`IntegrationBanError`/`IntegrationTimeoutError`/
+`IntegrationUnparseableError`/`IntegrationRequestError`), `photo_service.py`,
+`task_*`, `session_*`.
 
 ## Patrones de código
 
-- **Patrón objetivo DDD (probado y a replicar)**: delegación fina en el método
-  público → `orchestrator.py` (application, ingesta + throttling + errores) →
-  domain port (`Protocol` consumer-owned, sin SQL) → `infrastructure/*_adapter.py`
-  (único SQL, envuelve `DataManagerV2` verbatim). Demostrado end-to-end en
-  `sync/match_odds/` y `sync/clauses/`.
-- **Helpers privados compartidos del god-file (a decidir ubicación)**:
-  `_find_championship()` (compartido por `dream_teams` + `rosters`),
-  `_store_bids`/`_enrich_market_values`/`_find_price_at_date` (transactions),
-  `_save_favorites` (players), `_log_integration_failure` (prizes).
-  `_find_price_at_date` es puro (sin I/O) → candidato a `domain/`.
-- **Set-replacement + escritura atómica**: upsert de todo el conjunto y
+- **Patrón objetivo DDD (probado y a replicar)**: facade delgado que preserva la
+  superficie → `orchestrator.py` (application, sin SQL) → domain port (`Protocol`
+  consumer-owned, sin SQL) → `infrastructure/*_adapter.py` (único SQL, envuelve
+  `DataManagerV2` verbatim, `skip_init=True`, kwargs originales). Demostrado
+  end-to-end en `analytics/`, `assistant/`, los 10 `sync/*` y (cálculo/escritura)
+  en `prizes/`.
+- **Set-replacement + escritura atómica**: upsert del conjunto completo +
   `DELETE ... NOT IN (...)` de filas stale en una sola transacción
-  (`team_prizes_writer.replace_team_prizes`), all-or-nothing.
+  (`team_prizes_writer.replace_team_prizes`), all-or-nothing. Patrón al que debe
+  migrar `delete_orphan_players`.
+- **Divergencia de ramas SQL por engine**: `if self.db.db_type in
+  ["postgresql","postgres"]: ... else: (SQLite)` en múltiples métodos del god-file;
+  productiva es la rama PostgreSQL, la SQLite sostiene el `_FakeInMemoryDB` de
+  tests. A preservar en characterization.
 - **Anti-patrones heredados (NO ampliar, regla afirmada)**:
-  - **SQL-en-router**: el propio `sync.py` ejecuta SQL crudo inline
-    (`_check_phantoms`, `get_last_sync_date`).
-  - **Métodos mixtos**: 8 de 10 `sync_*` mezclan ingesta + SQL/persistencia +
-    cálculo; sólo `sync_match_odds` y `sync_clauses` delegan del todo y
-    `sync_prizes` parcialmente.
-  - **SQL crudo sobre `self.dm.db`** (no sólo métodos de `DataManagerV2`):
-    `sync_transactions` (`ALTER TABLE ... IF NOT EXISTS` oportunista + UPDATE
-    `bids_json`), `_enrich_market_values` (`SELECT`/`UPDATE`), `_save_favorites`
-    (`CREATE TABLE IF NOT EXISTS` + `DELETE`/`INSERT`, rama Postgres
-    `psycopg2.extras.execute_values`), `sync_prizes` (`SELECT user_championships`
-    vía `get_db()`). Debe migrar a un adapter de infraestructura por dominio,
-    NUNCA al DataManager.
-  - **`except Exception → return {"status":"error"}`** como red final por método;
-    1 `except: pass` silencioso (`ALTER TABLE` idempotente en `sync_transactions`);
-    `time.sleep()` de throttling incrustado (0.3/0.2/0.1/0.05 según dominio) y
-    límites de paginación distintos (50 vs 1000) — comportamiento observable a
-    preservar por orquestador.
+  - **SQL-en-router**: 17 de 23 routers con `cursor.execute` inline; entre los
+    consumidores del objetivo `clausulable_players.py` (L75–79, L170–179),
+    `player_finances.py` (L38), `user_stats.py`, `sync.py` mezclan SQL inline con
+    el facade.
+  - **Broad/bare excepts**: 18 `except Exception` + 5 `except:` desnudos en el
+    god-file (L57, L68, L672, L1388, L1628, …). Deuda afirmada (E722 en
+    per-file-ignores).
+  - **`return None` como posible señal de fallo silenciosa**: 16 `return None` en
+    el god-file — distinguir `Optional` "no encontrado" de fallo tragado.
 - **Convenciones**: identificadores/docstrings/comentarios en inglés; texto de
   usuario y mensajes de commit en castellano; snake_case Python, camelCase TS.
-  Docstrings ricos en el código nuevo (`match_odds/*`, `clauses/*`, `prizes/*`,
-  citando BR*/FR*/NFR*), escasos en los god-files.
+  Docstrings ricos en los contextos DDD; razonables (módulo/clase/método) en el
+  god-file.

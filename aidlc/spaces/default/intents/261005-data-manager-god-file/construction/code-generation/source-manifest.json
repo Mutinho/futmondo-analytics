@@ -1,0 +1,349 @@
+{
+  "stage": "code-generation",
+  "unit": "code-generation",
+  "version": 1,
+  "writes": [
+    {
+      "path": "backend/app/services/data_manager/clauses/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/clauses/application/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/clauses/application/clauses.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/clauses/domain/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/clauses/domain/ports.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/clauses/infrastructure/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/clauses/infrastructure/clauses_adapter.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/punishments_bonuses/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/punishments_bonuses/application/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/punishments_bonuses/application/punishments_bonuses.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/punishments_bonuses/domain/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/punishments_bonuses/domain/ports.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/punishments_bonuses/infrastructure/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/punishments_bonuses/infrastructure/punishments_bonuses_adapter.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/dream_teams_mvp/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/dream_teams_mvp/application/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/dream_teams_mvp/application/dream_teams_mvp.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/dream_teams_mvp/domain/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/dream_teams_mvp/domain/ports.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/dream_teams_mvp/infrastructure/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/dream_teams_mvp/infrastructure/dream_teams_mvp_adapter.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/prizes/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/prizes/application/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/prizes/application/prizes.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/prizes/domain/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/prizes/domain/ports.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/prizes/infrastructure/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/prizes/infrastructure/prizes_adapter.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/market_roster/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/market_roster/application/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/market_roster/application/market_roster.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/market_roster/domain/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/market_roster/domain/ports.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/market_roster/infrastructure/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/market_roster/infrastructure/market_roster_adapter.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/transactions/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/transactions/application/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/transactions/application/transactions.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/transactions/domain/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/transactions/domain/ports.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/transactions/infrastructure/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/transactions/infrastructure/transactions_adapter.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/teams_standings/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/teams_standings/application/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/teams_standings/application/teams_standings.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/teams_standings/domain/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/teams_standings/domain/ports.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/teams_standings/infrastructure/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/teams_standings/infrastructure/teams_standings_adapter.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/players/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/players/application/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/players/application/players.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/players/domain/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/players/domain/ports.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/players/infrastructure/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/players/infrastructure/players_adapter.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/users_stats_evolution/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/users_stats_evolution/application/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/users_stats_evolution/application/users_stats_evolution.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/users_stats_evolution/domain/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/users_stats_evolution/domain/ports.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/users_stats_evolution/infrastructure/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/users_stats_evolution/infrastructure/users_stats_evolution_adapter.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/sync_metadata_cache/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/sync_metadata_cache/application/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/sync_metadata_cache/application/sync_metadata_cache.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/sync_metadata_cache/domain/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/sync_metadata_cache/domain/ports.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/sync_metadata_cache/infrastructure/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/sync_metadata_cache/infrastructure/sync_metadata_cache_adapter.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/schema_lifecycle/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/schema_lifecycle/application/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/schema_lifecycle/application/schema_lifecycle.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/schema_lifecycle/domain/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/schema_lifecycle/domain/ports.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/schema_lifecycle/infrastructure/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/schema_lifecycle/infrastructure/schema_lifecycle_adapter.py"
+    },
+    {
+      "path": "backend/tests/test_data_manager_clauses_dm_characterization.py"
+    },
+    {
+      "path": "backend/tests/test_data_manager_dream_teams_mvp_characterization.py"
+    },
+    {
+      "path": "backend/tests/test_data_manager_market_roster_characterization.py"
+    },
+    {
+      "path": "backend/tests/test_data_manager_players_characterization.py"
+    },
+    {
+      "path": "backend/tests/test_data_manager_prizes_read_characterization.py"
+    },
+    {
+      "path": "backend/tests/test_data_manager_punishments_bonuses_characterization.py"
+    },
+    {
+      "path": "backend/tests/test_data_manager_schema_lifecycle_characterization.py"
+    },
+    {
+      "path": "backend/tests/test_data_manager_sync_metadata_cache_characterization.py"
+    },
+    {
+      "path": "backend/tests/test_data_manager_teams_standings_characterization.py"
+    },
+    {
+      "path": "backend/tests/test_data_manager_transactions_characterization.py"
+    },
+    {
+      "path": "backend/tests/test_data_manager_users_stats_evolution_characterization.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/match_odds/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/match_odds/application/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/match_odds/application/match_odds.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/match_odds/domain/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/match_odds/domain/ports.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/match_odds/infrastructure/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/match_odds/infrastructure/match_odds_adapter.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/news_articles/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/news_articles/application/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/news_articles/application/news_articles.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/news_articles/domain/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/news_articles/domain/ports.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/news_articles/infrastructure/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/news_articles/infrastructure/news_articles_adapter.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/performance/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/performance/application/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/performance/application/performance.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/performance/domain/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/performance/domain/ports.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/performance/infrastructure/__init__.py"
+    },
+    {
+      "path": "backend/app/services/data_manager/performance/infrastructure/performance_adapter.py"
+    },
+    {
+      "path": "backend/tests/test_data_manager_match_odds_characterization.py"
+    },
+    {
+      "path": "backend/tests/test_data_manager_news_articles_characterization.py"
+    },
+    {
+      "path": "backend/tests/test_data_manager_performance_characterization.py"
+    },
+    {
+      "path": "backend/app/services/data_manager_v2.py"
+    },
+    {
+      "path": "backend/ruff.toml"
+    }
+  ]
+}
