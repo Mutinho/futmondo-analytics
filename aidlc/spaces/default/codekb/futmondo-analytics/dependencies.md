@@ -1,52 +1,61 @@
-# Dependencies
+# Dependencies — futmondo-analytics
 
-## Dependencias externas
+## External Dependencies
 
-Versiones pinneadas en `technology-stack.md`. Resumen por categoría:
+### Runtime services
 
-- **Servicios externos**: API Futmondo (auth + datos de sync), API Sofascore
-  (ratings), Neon PostgreSQL (almacén, único engine productivo), Fly.io (hosting),
-  GitHub Actions (CI/CD), LLM (`google-genai`, `groq`) para el asistente.
-- **Runtime backend**: `fastapi`, `uvicorn`, `pydantic`, `PyJWT`,
-  `psycopg2-binary`, `requests`, `curl_cffi`, `python-dotenv`, `python-multipart`.
-  `DataManagerV2` depende sólo de `psycopg2-binary` + stdlib para su SQL.
-- **Runtime frontend**: `@angular/*`, `@angular/material`, `chart.js`,
-  `ng2-charts`, `marked`, `rxjs`.
-- **Gobierno de deps**: `requirements.txt` con rangos abiertos (deuda de pin);
-  `pip-audit` sobre el entorno resuelto + allowlist versionada; `npm audit` en el
-  frontend. Ver `code-quality-assessment.md`.
+- **Neon PostgreSQL** (Frankfurt, tier free) — persistencia, vía `DATABASE_URL`.
+- **API Futmondo** — datos de campeonato + autenticación (`futmondo_client.py`,
+  auth por usuario, credenciales cifradas con `FUTMONDO_CRED_KEY`).
+- **API Sofascore** — ratings/rendimiento (`sofascore_client.py` vía `curl_cffi`).
+- **Gemini / Groq** — asistente IA (`google-genai`, `groq`).
+- **Fly.io** (región `cdg`) — hosting de ambas apps + crons one-shot.
+- **GitHub Actions** — CI/CD.
 
-## Dependencias internas cross-módulo (backend, foco del scan)
+Todas sostenibles en tiers gratuitos (coste 0 €).
 
-Componentes en `component-inventory.md`; grafo de relaciones en `architecture.md`.
-Aristas clave (build/import) del área analizada, centradas en **quién consume
-`DataManagerV2`**:
+### Library dependencies (versiones)
 
-- **Routers → `DataManagerV2`** (8 consumidores directos): `endpoints/`
-  `clausulable_players`, `initialize`, `matchdays`, `player_finances`, `reset_db`,
-  `statistics`, `sync`, `user_stats`. Varios además con SQL inline (SQL-en-router,
-  deuda a NO ampliar).
-- **Adapters DDD → `DataManagerV2`** (verbatim, dependency inversion vía `Protocol`
-  en `domain/ports.py`):
-  - `analytics/infrastructure/data_manager_adapter.py`.
-  - `assistant/infrastructure/read_adapter.py` (+ `db_connection`).
-  - los 10 `sync/<ctx>/infrastructure/*_adapter.py`.
-- **Servicios → `DataManagerV2`** (directo): `data_sync_service.DataSyncService`,
-  `data_initializer_v2`, `futmondo_service`.
-- **`DataManagerV2` → sus dependencias**: `app.core.config`
-  (`CACHE_DURATION_HOURS`, `DATABASE_PATH`) + `services.db_connection.DBConnection`
-  (pool PostgreSQL/Neon, `get_cursor`/`adapt_params` `?`→`%s`, singleton `get_db()`).
-- **`stores/` → Neon**: `SessionRepository`/`TaskRepository` acceden a Neon vía
-  `db_connection`, sin pasar por `DataManagerV2` (modelo de SQL parametrizado fuera
-  de god-files).
-- **Shims de compatibilidad**: `analytics_service.py` / `assistant_service.py`
-  re-exportan desde `facade.py` para no romper imports históricos.
+Versiones concretas de frontend y backend inventariadas en `technology-stack.md`
+(evitar duplicación). Resumen de pinning: backend `requirements.txt` pinneado a
+`==`; frontend con `vitest`/`@vitest/coverage-v8` en pin exacto `4.1.11` y resto en
+rangos `^`/`~` idiomáticos de Angular.
 
-## Dependencia crítica compartida
+## Internal Cross-Package Dependencies
 
-`data_manager_v2.py` (`DataManagerV2`, ~162 KB) es la dependencia de datos común
-del backend. El refactor debe apoyarse en él vía `Protocol`/adapter (como
-`analytics/infrastructure/data_manager_adapter.py` y los
-`sync/*/infrastructure/*_adapter.py`) **sin tocarlo ni engordarlo** (regla
-afirmada): romper su superficie pública rompe las 4 oleadas DDD ya entregadas,
-porque todos sus consumidores la envuelven verbatim.
+```mermaid
+graph LR
+  FE["angular-app"] -->|HTTP /api, /auth| NG["proxy-nginx"]
+  NG --> BE["backend (FastAPI)"]
+  BE --> AUTH["auth-and-security"]
+  BE --> PF["player-finances-endpoint"]
+  PF --> PRIZES["prizes-domain"]
+  SYNC["data-sync-service"] --> PRIZES
+  SYNC --> CLIENTS["external-clients"]
+  BE --> DM["data-manager"]
+  BE --> AA["analytics-and-assistant"]
+  CRON["cron-jobs"] --> SYNC
+  PRIZES --> DB[("team_prizes / Neon")]
+  PF --> DB
+```
+
+Texto fallback: `angular-app` llama vía nginx a `backend`; `backend` depende de
+`auth-and-security`, `player-finances-endpoint`, `data-manager` y
+`analytics-and-assistant`. `player-finances-endpoint` y `data-sync-service`
+dependen de `prizes-domain`, que escribe `team_prizes`; `player-finances-endpoint`
+lee esa misma tabla. `data-sync-service` usa `external-clients`; `cron-jobs`
+dispara el sync.
+
+### Dependencias clave para el intent
+
+- `calculator-component` → `rosterService` + `/api/v1/market/today` (**no** depende
+  de `player-finances-endpoint` hoy).
+- `player-finances-endpoint` → `prizes-domain` vía la tabla `team_prizes` (única
+  fuente de verdad). Punto de integración natural si la mejora añade cálculo
+  financiero a la Calculadora, tras una capa estrecha testeable.
+
+## Sources
+
+- `developer-scan.md`: Frameworks & Libraries, APIs Discovered, Handoff Summary.
+- Nombres de componente verbatim en `component-inventory.md`; versiones en
+  `technology-stack.md`.

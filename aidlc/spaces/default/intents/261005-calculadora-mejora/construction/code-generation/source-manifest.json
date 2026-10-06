@@ -1,0 +1,11 @@
+{
+  "stage": "code-generation",
+  "unit": "calculator-toggle",
+  "version": 1,
+  "writes": [
+    { "path": "angular-app/src/app/features/calculator/calculator.component.ts" },
+    { "path": "angular-app/src/app/features/calculator/calculator.component.html" },
+    { "path": "angular-app/src/app/features/calculator/calculator.component.scss" },
+    { "path": "angular-app/src/app/features/calculator/calculator.component.spec.ts" }
+  ]
+}

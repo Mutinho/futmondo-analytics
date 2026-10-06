@@ -29,10 +29,16 @@
           <span class="calc-header-label">Saldo futuro</span>
           <span class="calc-header-value" [class]="futureBalance() >= 0 ? 'positive' : 'negative'">{{ futureBalance() | money }}</span>
         </div>
+        <div class="calc-header-item calc-header-toggle">
+          <mat-slide-toggle [checked]="includeOnSale()" (change)="setIncludeOnSale($event.checked)">
+            Incorporar jugadores en venta
+          </mat-slide-toggle>
+        </div>
       </div>
 
-      <!-- On-sale players -->
-      @if (onSalePlayers().length > 0) {
+      <!-- On-sale players — the whole block is hidden when the toggle is OFF
+           (BR4.1/FR5.2); those players move into the selectable list instead. -->
+      @if (includeOnSale() && onSalePlayers().length > 0) {
         <div class="on-sale-section">
           <h3 class="on-sale-title">🏷️ En venta ({{ onSalePlayers().length }})</h3>
           <div class="on-sale-cards">

@@ -10,6 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatDatepickerModule } from '@angular/material/datepicker';
@@ -65,6 +66,7 @@ interface RosterPlayer {
     MatCheckboxModule, MatIconModule, MatTooltipModule, MatButtonModule,
     MatButtonToggleModule, MatFormFieldModule, MatSelectModule,
     MatDatepickerModule, MatNativeDateModule, MatInputModule, FormsModule,
+    MatSlideToggleModule,
     MoneyPipe, StarterCardBadgeComponent,
     SofascoreCardBadgeComponent, ScrollTopComponent, PageHeaderComponent
   ],
@@ -105,8 +107,17 @@ export class CalculatorComponent {
 
   columns = ['select', 'name', 'position', 'team', 'value', 'change', 'projected_value', 'profit'];
 
-  // Players signal for reactive computations
+  // Players signal for reactive computations (the ACTIVE selectable set,
+  // derived from the raw roster and the includeOnSale preference — FR5/BR5.1).
   players = signal<RosterPlayer[]>([]);
+
+  // Full roster as loaded from the backend (source for rebuilding the
+  // selectable list when the toggle flips, so no reload is needed — BR5.3).
+  private rawRoster = signal<RosterPlayer[]>([]);
+
+  // IDs of players currently on sale (used to include/exclude them from the
+  // selectable list depending on includeOnSale — BR5.1).
+  private onSaleIds = signal<Set<string>>(new Set());
 
   // Players currently on sale
   onSalePlayers = signal<any[]>([]);
@@ -120,6 +131,13 @@ export class CalculatorComponent {
 
   onSaleTotal = computed(() => this.onSalePlayers().reduce((sum, p) => sum + p.value, 0));
 
+  // UI preference: whether on-sale players' total is included in futureBalance.
+  // Restored from localStorage with fallback to ON (true) — any value other than
+  // the literal 'false' (absent, corrupt, non-boolean) resolves to true (BR3.2/BR3.3/BR3.4).
+  includeOnSale = signal<boolean>(
+    localStorage.getItem('futmondo_calc_include_onsale') === 'false' ? false : true
+  );
+
   selectedTotal = computed(() => {
     const ids = this.selectedIds();
     const days = this.daysAhead();
@@ -128,10 +146,13 @@ export class CalculatorComponent {
       .reduce((sum, p) => sum + p.value + (p.change * days), 0);
   });
 
-  // Future balance = current balance + income from selected sales + income from
-  // players already on sale − money committed in active market bids.
+  // Future balance = current balance + income from selected sales
+  // + income from players already on sale (ONLY when the toggle is ON, BR1.1/BR1.2)
+  // − money committed in active market bids (ALWAYS subtracted — invariant, BR2.1).
   futureBalance = computed(() =>
-    this.balance() + this.selectedTotal() + this.onSaleTotal() - this.activeBidsTotal()
+    this.balance() + this.selectedTotal()
+    + (this.includeOnSale() ? this.onSaleTotal() : 0)
+    - this.activeBidsTotal()
   );
 
   allSelected = computed(() => {
@@ -167,23 +188,38 @@ export class CalculatorComponent {
         this.rosterService.getOnSale(championshipId),
       ]);
 
-      this.dataSource.data = rosterData.players || [];
-      this.players.set(rosterData.players || []);
       this.balance.set(marketData.user_info?.balance || 0);
       this.activeBidsTotal.set(marketData.user_info?.active_bids_total || 0);
       this.activeBidsCount.set(marketData.user_info?.active_bids_count || 0);
       this.onSalePlayers.set(onSaleData.players || []);
 
-      // Filter out on-sale players from selectable list
-      const onSaleIds = new Set((onSaleData.players || []).map((p: any) => p.player_id));
-      const selectable = (rosterData.players || []).filter((p: any) => !onSaleIds.has(p.player_id));
-      this.dataSource.data = selectable;
-      this.players.set(selectable);
+      // Keep the full roster and the on-sale ID set so the selectable list can
+      // be rebuilt reactively when the toggle flips without a reload (BR5.3).
+      this.rawRoster.set(rosterData.players || []);
+      this.onSaleIds.set(new Set((onSaleData.players || []).map((p: any) => p.player_id)));
+
+      // Compose the active selectable list from the current includeOnSale
+      // preference (FR5.1/FR5.2/BR5.1).
+      this.rebuildSelectable();
     } catch (err: any) {
       this.error.set(err?.error?.detail || err.message || 'Error cargando datos');
     } finally {
       this.loading.set(false);
     }
+  }
+
+  // Compose the selectable list from the raw roster and the includeOnSale
+  // preference (BR5.1): with the toggle ON, on-sale players are EXCLUDED (their
+  // value counts via onSaleTotal); with OFF, they are INCLUDED so the user can
+  // manually select them to simulate a sale from scratch (FR5.2/FR5.3).
+  private rebuildSelectable() {
+    const roster = this.rawRoster();
+    const onSale = this.onSaleIds();
+    const selectable = this.includeOnSale()
+      ? roster.filter(p => !onSale.has(p.player_id))
+      : roster;
+    this.players.set(selectable);
+    this.dataSource.data = selectable;
   }
 
   // --- Selection ---
@@ -239,6 +275,26 @@ export class CalculatorComponent {
     localStorage.setItem('futmondo_view_calculator', mode);
   }
 
+  // Persist the on-sale inclusion preference (BR3.1), mirroring setViewMode,
+  // then rebuild the selectable list reactively (BR5.3). When turning the toggle
+  // back ON, re-exclude the on-sale players from the list and DISCARD any manual
+  // selection they had under OFF, so their value counts only via onSaleTotal
+  // (anti-double-counting invariant BR5.4).
+  setIncludeOnSale(v: boolean) {
+    this.includeOnSale.set(v);
+    localStorage.setItem('futmondo_calc_include_onsale', String(v));
+    if (v) {
+      const onSale = this.onSaleIds();
+      const current = this.selectedIds();
+      const cleaned: Record<string, boolean> = {};
+      for (const id of Object.keys(current)) {
+        if (!onSale.has(id)) cleaned[id] = true;
+      }
+      this.selectedIds.set(cleaned);
+    }
+    this.rebuildSelectable();
+  }
+
   onSortChange(value: string) {
     this.sortField.set(value);
     this.sortCards();
@@ -287,8 +343,10 @@ export class CalculatorComponent {
       const resp = await this.rosterService.sell(this.championshipService.activeId(), ids);
       if (resp.sold === resp.total) {
         this.sellResult.set({ success: true, message: `✅ ${resp.sold} jugador${resp.sold > 1 ? 'es' : ''} puesto${resp.sold > 1 ? 's' : ''} a la venta` });
-        // Remove sold players from the list
+        // Remove sold players from the list and the raw roster so the
+        // selectable set stays coherent on later toggle rebuilds (BR5.3).
         const remaining = this.players().filter(p => !this.selectedIds()[p.player_id]);
+        this.rawRoster.set(this.rawRoster().filter(p => !this.selectedIds()[p.player_id]));
         this.players.set(remaining);
         this.dataSource.data = remaining;
         this.selectedIds.set({});

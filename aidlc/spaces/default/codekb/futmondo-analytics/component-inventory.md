@@ -1,126 +1,98 @@
-# Component Inventory
+# Component Inventory — futmondo-analytics
 
-Inventario de componentes lógicos del codebase. Los encabezados de componente son
-la fuente de verdad para el bloque `Scope of Analysis` de
-`reverse-engineering-timestamp.md` (coincidencia literal por el rerun guard).
+Lista completa de componentes con responsabilidad y dependencias. Los encabezados
+`###` son los nombres de componente usados verbatim en el bloque Scope of Analysis
+de `reverse-engineering-timestamp.md`.
 
-## data-manager-v2
+### angular-app (frontend SPA/PWA)
 
-- **Responsabilidad**: capa de acceso a datos monolítica (`DataManagerV2`,
-  `backend/app/services/data_manager_v2.py`, ~162 KB / 3692 líneas, 57 métodos,
-  148 sentencias SQL). **God-file objetivo del intent**; dependencia de datos común
-  de casi todos los `sync_*`, los contextos DDD y 8 routers. Agrupa ~14
-  responsabilidades (schema/lifecycle, players, teams/standings, performance,
-  transactions, clauses, punishments/bonuses, dream-teams/MVP, prizes,
-  market/roster, match-odds, news, users/stats/evolution, sync-metadata/cache; ver
-  `api-documentation.md`). **NUNCA ampliar/reescribir**: los adapters la envuelven
-  verbatim (`DataManagerV2(skip_init=True)`, kwargs originales preservados). Deuda:
-  ver `code-quality-assessment.md`.
-- **Dependencias**: `stores-layer`/`db_connection` (acceso físico a Neon),
-  `core.config` (`CACHE_DURATION_HOURS`, `DATABASE_PATH`).
+- **Responsabilidad**: SPA/PWA Angular 22; pantallas de usuario, servicios HTTP,
+  interceptor de auth, service worker.
+- **Dependencias**: Angular Material/CDK, Chart.js + ng2-charts, rxjs, marked;
+  consume `backend` vía `/api/v1/*` y `/auth/*` a través de nginx.
 
-## services-layer
+### calculator-component
 
-- **Responsabilidad**: lógica de negocio e integraciones en
-  `backend/app/services/`. Incluye los facades y contextos DDD ya entregados que
-  envuelven `data-manager-v2` sólo en su adapter de infraestructura: `analytics/`
-  (Wave 1: `facade.py` + `application/calculations.py` + `domain/ports.py`
-  `AnalyticsDataPort` + `infrastructure/data_manager_adapter.py`), `assistant/`
-  (Wave 2), los 10 contextos `sync/*` (Wave 3, facade `data_sync_service.py`
-  `DataSyncService`), y `prizes/` (`calculator.py` puro +
-  `team_prizes_writer.replace_team_prizes`, patrón de reemplazo atómico de
-  referencia). Más módulos de soporte: `db_connection.py` (`DBConnection` pool +
-  `get_db()` singleton, `adapt_params` `?`→`%s`), `futmondo_client.py` /
-  `sofascore_client.py` (`Integration*Error`), `data_initializer_v2.py`,
-  `futmondo_service.py`, `sync_step_status.py`, `integration_errors.py`,
-  `photo_service.py`, `task_*`, `session_*`.
-- **Dependencias**: `data-manager-v2` (sólo en los adapters, salvo
-  `DataSyncService`/`data_initializer_v2` que lo usan directo),
-  `external-integration-clients`, Neon vía `db_connection`.
+- **Responsabilidad**: pantalla `/calculator` (`calculator.component.ts/.html`),
+  planificador de ventas/proyección de balance. `loadData()` lee en paralelo
+  `rosterService.getMyRoster()`, `GET /api/v1/market/today`,
+  `rosterService.getOnSale()`; `computed()` calcula `selectedTotal`, `onSaleTotal`,
+  `futureBalance`; acciones `sellPlayers()` → `POST /api/v1/roster/sell`,
+  `cancelSale()`. Proyección temporal lineal (`getProjectedValue`).
+- **Dependencias**: `rosterService`, `/api/v1/market/today`, `authGuard`. **Sin
+  spec** hoy (characterization-first pendiente). Foco del intent.
 
-## api-v1-routers
+### backend (FastAPI app)
 
-- **Responsabilidad**: 23 routers REST bajo `backend/app/api/v1/endpoints/`
-  (superficie HTTP interna; ver `api-documentation.md`). 8 consumen
-  `data-manager-v2` directamente (`statistics`, `player_finances`,
-  `clausulable_players`, `user_stats`, `sync`, `initialize`, `matchdays`,
-  `reset_db`); 17 de 23 tienen SQL inline (deuda SQL-en-router a NO ampliar).
-- **Dependencias**: `services-layer`, `data-manager-v2`, `data-sync-service`,
-  `sync_step_status`.
+- **Responsabilidad**: app FastAPI (`main.py`), montaje de routers, `AuthMiddleware`,
+  mount público de fotos, configuración fail-fast (`config.py`).
+- **Dependencias**: servicios de dominio, sync, auth; Neon PostgreSQL.
 
-## stores-layer
+### prizes-domain
 
-- **Responsabilidad**: capa de persistencia estrecha de referencia
-  (`backend/app/stores/`): `SessionRepository`, `TaskRepository`, esquemas
-  `ensure_*`. **Modelo de referencia** de "SQL fuera de routers y god-files, todo
-  parametrizado" — la forma a la que debe tender el SQL extraído del god-file.
-- **Dependencias**: Neon vía `db_connection` (`DBConnection` pool).
+- **Responsabilidad**: cálculo de dinero de premio. `calculator.py:calculate_round_prizes()`
+  (función pura, reglas BR1.1-BR3.2) y `team_prizes_writer.py:replace_team_prizes()`
+  (reemplazo transaccional atómico sobre `team_prizes`).
+- **Dependencias**: consumido por `DataSyncService.sync_prizes()`; `team_prizes`
+  leída por `player-finances`. Patrón de referencia para lógica nueva testeable.
 
-## data-sync-service
+### player-finances-endpoint
 
-- **Responsabilidad**: coordinación de sincronización asíncrona
-  (`data_sync_service.py`, clase `DataSyncService`). Prosa de detalle preservada
-  del store previo (no re-verificada esta pasada). Consume `data-manager-v2` como
-  dependencia de datos.
-- **Dependencias**: `external-integration-clients`, `sync-context`,
-  `prizes-context`, `data-manager-v2`.
+- **Responsabilidad**: `GET /api/v1/player-finances/` (`player_finances.py`); agrega
+  finanzas por usuario leyendo `team_prizes` como única fuente de verdad.
+- **Dependencias**: `prizes-domain` (vía `team_prizes`), Neon. Contiene SQL inline
+  (`_get_finance_config`) — deuda registrada (ver `code-quality-assessment.md`).
 
-## sync-context
+### data-sync-service
 
-- **Responsabilidad**: 10 contextos acotados DDD por dominio de sync
-  (`services/sync/*`). Prosa preservada del store previo.
-- **Dependencias**: `external-integration-clients`, `data-manager-v2` (sólo en el
-  adapter).
+- **Responsabilidad**: orquestación del sync asíncrono de 11 pasos
+  (`data_sync_service.py` + `sync/**`); llama a `sync_prizes()`. Reporta `StepStatus`
+  (OK/DEGRADED).
+- **Dependencias**: `prizes-domain`, clientes Futmondo/Sofascore, Neon. God-file en
+  descomposición DDD.
 
-## prizes-context
+### data-manager
 
-- **Responsabilidad**: contexto DDD de premios (`services/prizes/`): cálculo puro +
-  persistencia atómica set-replacement de referencia.
-- **Dependencias**: Neon (transacción atómica, DB inyectada); consumido por
-  `data-sync-service`.
+- **Responsabilidad**: gestión de datos del dominio; `data_manager_v2.py` (fachada
+  delgada) delega a 12 submódulos DDD `data_manager/<responsabilidad>/{application,
+  infrastructure,domain}`.
+- **Dependencias**: Neon, puertos de dominio. God-file en descomposición.
 
-## analytics-context
+### analytics-and-assistant
 
-- **Responsabilidad**: contexto DDD Wave 1 (`services/analytics/`). Shim
-  `analytics_service.py`.
-- **Dependencias**: `data-manager-v2` (sólo en el adapter).
+- **Responsabilidad**: analítica (`analytics/**`) y asistente IA (`assistant/**`,
+  `assistant_service.py` fachada fina) con fachadas + puertos + adaptadores.
+- **Dependencias**: Neon; proveedores IA Gemini/Groq (asistente).
 
-## assistant-context
+### auth-and-security
 
-- **Responsabilidad**: contexto DDD Wave 2 (`services/assistant/`). Shim
-  `assistant_service.py`.
-- **Dependencias**: `data-manager-v2` (sólo en el adapter); LLM (`google-genai`,
-  `groq`).
+- **Responsabilidad**: autenticación JWT y `AuthMiddleware` (`auth/**`), almacenes de
+  sesión/estado (`stores/**`), cifrado de credenciales (`security/**`,
+  `FUTMONDO_CRED_KEY`).
+- **Dependencias**: API Futmondo (validación de login), Neon. `config.py` fuerza
+  `JWT_SECRET` no-default.
 
-## external-integration-clients
+### external-clients
 
-- **Responsabilidad**: clientes salientes a APIs externas: `futmondo-client`
-  (`Integration*Error`) y `sofascore-client` (`curl_cffi`). Incluye
-  `integration_errors.py`.
-- **Dependencias**: APIs Futmondo y Sofascore.
+- **Responsabilidad**: clientes de integración saliente — `futmondo_client.py`
+  (auth por usuario), `sofascore_client.py` (`curl_cffi`).
+- **Dependencias**: APIs externas Futmondo y Sofascore.
 
-## auth-jwt
+### proxy-nginx
 
-- **Responsabilidad**: autenticación JWT (`backend/app/auth/`); login/refresh/logout.
-- **Dependencias**: `external-integration-clients` (validación de credenciales),
-  `stores-layer`, Neon.
+- **Responsabilidad**: reverse proxy nginx (local `proxy/` y prod
+  `angular-app/nginx*.conf`); sirve SPA y hace proxy de `/api/*` y `/auth/*`.
+- **Dependencias**: `backend`.
 
-## backend-fastapi-app
+### cron-jobs
 
-- **Responsabilidad**: servicio web FastAPI (`backend/app/main.py`, `core/`,
-  `models/`, `security/`); arranque, routing y wiring de capas.
-- **Dependencias**: `api-v1-routers`, `auth-jwt`, `services-layer`, Neon vía
-  `data-manager-v2`.
+- **Responsabilidad**: máquinas Fly one-shot para sync programado
+  (`daily-sync.yml`, `sofascore-sync.yml`, `cron/`).
+- **Dependencias**: `backend` / `data-sync-service`.
 
-## angular-frontend
+## Sources
 
-- **Responsabilidad**: PWA Angular 22 (`angular-app/`). Prosa preservada.
-- **Dependencias**: backend REST vía nginx.
-
-## infra-proxy-cron-ci
-
-- **Responsabilidad**: infra de despliegue y operación: `proxy/` (nginx), `cron/`
-  (Fly one-shot), `.github/workflows/` (`ci.yml`, `fly-deploy.yml`,
-  `daily-sync.yml`, `sofascore-sync.yml`), Dockerfiles, `fly.toml`,
-  `docker-compose.yml`.
-- **Dependencias**: Fly.io, GitHub Actions, Neon.
+- `developer-scan.md`: Packages Found, APIs Discovered, Handoff Summary, Technical
+  Debt Signals.
+- Responsabilidades cruzadas en `architecture.md`, `code-structure.md`,
+  `api-documentation.md`.

@@ -1,88 +1,88 @@
-# Code Quality Assessment
+# Code Quality Assessment — futmondo-analytics
 
-## Cobertura de tests
+## Test Coverage
 
-- **Backend**: piso **BLOQUEANTE** `--cov-fail-under=27` (line-only, SIN
-  `--cov-branch`) en `backend/pytest.ini` (`addopts = -ra --cov-fail-under=27`;
-  cobertura real medida 27.52%, piso=27 por trinquete). Requiere `--cov=app` en la
-  invocación — paridad `ci.yml` ↔ job `verify` de `fly-deploy.yml`. Sube solo por
-  trinquete; nunca se relaja para pasar el gate.
-- **Fakes in-memory (patrón de characterization)**: `backend/conftest.py`
-  (raíz del runner, no en `tests/`) define `_FakeInMemoryDB` + `_FakeCursor`
-  (SQLite `:memory:`, convierte `?`→`%s` espejo del `adapt_params` real), fixture
-  `fake_db`, `clean_jwt_env`. Sin red, sin BD real, sin credenciales reales.
-- **Suite**: `backend/tests/` (≈40+ `test_*.py`, muchos `*_characterization.py`).
-  Tests que ya referencian `DataManagerV2` directamente (base de partida para la
-  characterization del objetivo): `test_analytics_service.py`,
-  `test_db_admin_guard.py`, `test_finance_characterization.py`.
-- **Frontend**: umbrales por métrica en `angular.json` (`coverageThresholds`:
-  statements 15 / branches 15 / functions 13 / lines 14), enforcement dentro de
-  `ng test` (builder `@angular/build:unit-test` + Vitest). Prosa preservada.
+- **Backend**: `backend/tests/` (~55 archivos, mayoría `*_characterization.py`:
+  prizes, `sync_*`, `data_manager_*` por responsabilidad, auth, finance, durable
+  session/task, integration errors, jwt startup). Fakes in-memory en `conftest.py`
+  (`_FakeInMemoryDB`/`_FakeCursor` sobre SQLite `:memory:`, `clean_jwt_env`,
+  `fake_db`) — sin red, sin BD real, sin credenciales/tokens reales.
+  - **Piso bloqueante** `--cov-fail-under=27` en `pytest.ini` (line-only, sin
+    `--cov-branch`; cobertura real medida ~27.52 %). Ratchet: sólo sube.
+- **Frontend**: specs junto al código (`*.spec.ts` en `core/services`, `core/guards`,
+  `core/interceptors`, `features/market`). `calculator` **no tiene spec**.
+  - Umbrales por métrica en `angular.json > test.coverageThresholds`: statements 19 /
+    branches 19 / functions 17 / lines 18 (ratchet manual, sólo sube).
 
 ## Linting
 
-- **`ruff`** backend (`backend/ruff.toml`: `py312`, `line-length = 100`,
-  `select = ["E","F","I"]`, `ignore = ["E501","E402"]`), modo **ADVISORY** escalonado.
-  La deuda del god-file está **REGISTRADA en `per-file-ignores`**:
-  `"app/services/data_manager_v2.py" = ["E722","F841","F401","I001"]` (E722/bare-except
-  como deuda afirmada; saneo diferido a este refactor dedicado, NUNCA tocando/ampliando
-  el fichero antes). Al descomponer, esa deuda se sanea en los ficheros **NUEVOS**;
-  el original se vacía por extracción, no por reescritura in-place.
-- Regla afirmada: **NUNCA** `ruff format` masivo sobre ficheros brownfield;
-  formatear solo ficheros nuevos o de forma quirúrgica. La reviewer sólo corre
-  `ruff check`.
+- **ruff** backend (`backend/ruff.toml`, `py312`, `line-length=100`,
+  `select=["E","F","I"]`, `ignore=["E501","E402"]`, `per-file-ignores` para
+  god-files/adaptadores/tests).
+- **ESLint** frontend: config presente (`eslint.config.js`) pero **advisory** y sus
+  devDependencies **no instaladas** (deuda diferida). `npx ng lint` tolerante a la
+  ausencia. Prettier configurado (`.prettierrc`).
+- **gitleaks** (escaneo de secretos), **pip-audit**, **npm audit** — ver CI/CD.
 
 ## CI/CD
 
-- **`.github/workflows/ci.yml`** (PR gate): gitleaks (bloqueante), `ruff check`
-  (`ruff==0.16.9`, advisory), `pytest` con `--cov=app` (bloqueante, piso 27),
-  `pip-audit==2.10.1` + allowlist-expiry (bloqueante), `npm audit --audit-level=high`
-  (bloqueante). **`fly-deploy.yml`** replica el gate en el job `verify` antes de
-  desplegar a Fly.io (`cdg`). Crons `daily-sync.yml`, `sofascore-sync.yml`.
+- **`.github/workflows/ci.yml`** — gate en `pull_request → main`. Estado ACTUAL del
+  código (ya endurecido por un intent previo): `ruff check`, `pip-audit` y
+  `npm audit --audit-level=high` son **BLOQUEANTES** (pins `ruff==0.16.9`,
+  `pip-audit==2.10.1`); `pytest --cov=app --cov-fail-under` y `ng test` bloqueantes;
+  `gitleaks-action@v3` bloqueante. **Sólo ESLint frontend sigue advisory**
+  (`continue-on-error`).
+  - Nota de divergencia regla↔código: varias afirmaciones de `team.md`/`project.md`
+    describen audits/lint como "advisory" y `requirements.txt` con rangos abiertos;
+    ese estado **ya fue endurecido/pinneado**. Este CodeKB refleja el **código
+    actual**, no el histórico de reglas.
+- **`.github/workflows/fly-deploy.yml`** — push a `main` → deploy Fly.io; job
+  `verify` replica el gate antes de desplegar.
+- **Crons**: `daily-sync.yml`, `sofascore-sync.yml` (máquinas Fly one-shot).
 
-## Calidad de documentación
+## Documentation Quality
 
-- `README.md` extenso (es); `docs/` presente. Docstrings de módulo/clase ricos y en
-  inglés en los contextos DDD (`analytics`/`assistant`/`sync`/`prizes` documentan
-  BR/FR y el "único módulo con SQL"). El god-file tiene docstring de módulo +
-  docstrings por método razonables.
+- README raíz detallado + `docs/` extenso (DEPLOY, ROLLBACK, PR-GATE,
+  PROJECT_CONTEXT, planes de migración/backlog). Docstrings de módulo ricos en los
+  componentes DDD nuevos.
 
-## Deuda técnica (foco del scan: `data_manager_v2.py`)
+## Technical Debt
 
-- **God-file (señal principal)**: `data_manager_v2.py`, 3692 líneas / ~162–166 KB,
-  una sola clase `DataManagerV2` con 57 métodos y 14 clusters de responsabilidad
-  mezclados. SQL embebido masivo: 148 sentencias (34 `INSERT` / 75 `SELECT` / 14
-  `UPDATE` / 15 `CREATE TABLE` / 24 `ON CONFLICT`). Es el **último god-file original
-  sin descomponer**; `ruff` lo tiene en `per-file-ignores`. **NEVER ampliar/reescribir**.
-- **Punto de corrupción — reemplazo de conjunto por DELETE**: `delete_orphan_players`
-  (L549–595) ejecuta `DELETE FROM players ... WHERE player_id NOT IN (...) AND NOT
-  EXISTS (...)` (rama Postgres `<> ALL(%s)`, rama SQLite `NOT IN (placeholders)`).
-  Tiene guardia (`if not live_player_ids: return 0`) pero el borrado y los upserts
-  previos NO comparten una transacción explícita a nivel del método: patrón de
-  reemplazo de conjunto a elevar al **patrón atómico de referencia**
-  (`prizes/team_prizes_writer.py`: upsert + DELETE stale en UNA transacción,
-  rollback todo-o-nada). El `team_prizes_writer` documenta el anti-patrón histórico
-  a NO replicar (DELETE separado cuyo fallo se tragaba con `except: logger.warning`
-  dejando estado MIXTO).
-- **Broad/bare excepts**: 18 `except Exception` + 5 `except:` desnudos en el
-  god-file (L57, L68, L672, L1388, L1628, …). Deuda afirmada (E722 en
-  per-file-ignores). A caracterizar y preservar comportamiento observable antes de
-  extraer; no silenciar fallos nuevos.
-- **`return None` como posible señal de fallo**: 16 `return None` en el god-file.
-  Varios legítimos (`get_*_by_id` con tipo `Optional[...]`), pero debe distinguirse
-  el `None` "no encontrado" (contrato legítimo) del `None` "fallo tragado" (deuda),
-  conforme a la regla afirmada NEVER usar `return None` silencioso como señal de fallo.
-- **SQL-en-router (deuda existente, NO ampliar)**: 17 de 23 routers con
-  `cursor.execute` inline; entre los consumidores del objetivo
-  `clausulable_players.py` (L75–79, L170–179), `player_finances.py` (L38),
-  `user_stats.py`, `sync.py` mezclan SQL inline con el facade. A preservar/observar,
-  no a tocar en esta etapa.
-- **Acoplamiento amplio del objetivo**: `DataManagerV2` lo consumen 8 routers + los
-  10 adapters de `sync/*` + adapters de `analytics`/`assistant` +
-  `data_sync_service` + `data_initializer_v2` + `futmondo_service`. El refactor debe
-  **preservar la superficie pública exacta** (constructor `skip_init=True`, nombres
-  y firmas de los 57 métodos); romperla rompe las 4 oleadas DDD ya entregadas.
-- **Divergencia de ramas SQL por engine**: métodos con `if self.db.db_type in
-  ["postgresql","postgres"]: ... else: (SQLite)`. Producción es PostgreSQL/Neon
-  exclusivamente; la rama SQLite sobrevive para el fake de tests. Characterization
-  debe cubrir la rama productiva sin romper la ejecución contra `_FakeInMemoryDB`.
+- **God-files** (regla afirmada: NUNCA ampliar/reescribir) — `data_manager_v2.py`
+  (~33 KB hoy, antes ~166 KB; delega a submódulos DDD), `data_sync_service.py`
+  (~15 KB tras extracciones), `assistant_service.py` (~2 KB, fachada fina). La
+  descomposición DDD está **en curso y avanzada**; los `per-file-ignores` de
+  `ruff.toml` registran `E722`/`F841`/`F401`/`I001` como **deuda registrada** movida
+  verbatim a los adaptadores (no saneada, para preservar comportamiento
+  byte-a-byte).
+- **SQL-en-router / SQL inline** — persiste en `player_finances.py`
+  (`_get_finance_config` ejecuta `SELECT` directo) y en `main.py` (ruta de fotos con
+  `SELECT` inline). Código nuevo debe ir tras una capa/función estrecha testeable.
+- **`bare-except` / broad-except** — deuda registrada en `data_manager_v2.py`,
+  `photo_service.py` y adaptadores; `E722` re-habilitado como advisory por trinquete
+  pero silenciado por fichero en los god-files.
+- **DB SQLite local commiteada** — `backend/futmondo_data.db` (65 KB) en el árbol;
+  en prod sólo Neon PostgreSQL.
+- **`node_modules.old-*`** — directorio obsoleto en `angular-app/` (ruido de
+  workspace, no afecta build).
+
+## Constraints (reglas afirmadas, reflejadas como invariantes)
+
+- **Seguridad (positivo observado)**: `config.py` fail-fast si falta/por defecto
+  `JWT_SECRET`; credenciales Futmondo nunca en claro (cifrado `FUTMONDO_CRED_KEY`);
+  sin secretos hardcodeados en el código de aplicación. Mantener: NEVER password
+  Futmondo en claro, NEVER `JWT_SECRET` por defecto en prod.
+- **Characterization-first**: `calculator.component.ts` y sus `computed()` de
+  proyección **no tienen spec**; congelar comportamiento antes de refactorizar.
+- **Trazabilidad del dinero**: respetar `team_prizes` como única fuente de verdad y
+  el reemplazo atómico (`replace_team_prizes`) para no reintroducir estado mixto.
+- **Ratchet de cobertura sólo sube** (backend 27, frontend 19/19/17/18); código
+  nuevo con specs que aseveren el efecto.
+- **Coste 0 €**: todo en tiers gratuitos.
+
+## Sources
+
+- `developer-scan.md`: Code Quality Indicators, Technical Debt Signals, Handoff
+  Summary (incl. correcciones de contexto regla↔código).
+- Reglas afirmadas en `team.md` / `project.md` (reflejadas como invariantes, no como
+  hallazgos nuevos).
