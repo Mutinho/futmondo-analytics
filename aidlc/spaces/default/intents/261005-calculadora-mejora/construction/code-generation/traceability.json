@@ -1,0 +1,35 @@
+{
+  "stage": "code-generation",
+  "unit": "calculator-toggle",
+  "upstream_ids": [
+    "FR1.1", "FR1.2", "FR1.3", "FR1.4",
+    "FR2.1",
+    "FR3.1", "FR3.2", "FR3.3", "FR3.4",
+    "FR5.1", "FR5.2", "FR5.3", "FR5.4", "FR5.5",
+    "NFR2", "NFR4"
+  ],
+  "coverage": [
+    { "id": "FR1.1", "status": "OK", "target": "angular-app/src/app/features/calculator/calculator.component.html" },
+    { "id": "FR1.2", "status": "OK", "target": "angular-app/src/app/features/calculator/calculator.component.ts" },
+    { "id": "FR1.3", "status": "OK", "target": "angular-app/src/app/features/calculator/calculator.component.ts" },
+    { "id": "FR1.4", "status": "OK", "target": "angular-app/src/app/features/calculator/calculator.component.ts" },
+    { "id": "FR2.1", "status": "OK", "target": "angular-app/src/app/features/calculator/calculator.component.ts" },
+    { "id": "FR3.1", "status": "OK", "target": "angular-app/src/app/features/calculator/calculator.component.ts" },
+    { "id": "FR3.2", "status": "OK", "target": "angular-app/src/app/features/calculator/calculator.component.ts" },
+    { "id": "FR3.3", "status": "OK", "target": "angular-app/src/app/features/calculator/calculator.component.ts" },
+    { "id": "FR3.4", "status": "OK", "target": "angular-app/src/app/features/calculator/calculator.component.ts" },
+    { "id": "FR5.1", "status": "OK", "target": "angular-app/src/app/features/calculator/calculator.component.ts" },
+    { "id": "FR5.2", "status": "OK", "target": "angular-app/src/app/features/calculator/calculator.component.html" },
+    { "id": "FR5.3", "status": "OK", "target": "angular-app/src/app/features/calculator/calculator.component.ts" },
+    { "id": "FR5.4", "status": "OK", "target": "angular-app/src/app/features/calculator/calculator.component.ts" },
+    { "id": "FR5.5", "status": "OK", "target": "angular-app/src/app/features/calculator/calculator.component.ts" },
+    { "id": "NFR2", "status": "OK", "target": "angular-app/src/app/features/calculator/calculator.component.html" },
+    { "id": "NFR4", "status": "OK", "target": "angular-app/src/app/features/calculator/calculator.component.spec.ts" }
+  ],
+  "reverse": [
+    { "id": "angular-app/src/app/features/calculator/calculator.component.spec.ts", "status": "OK", "target": "FR1.2/FR1.3/FR2.1/FR3.1-FR3.4/FR5.1-FR5.5/NFR4" },
+    { "id": "angular-app/src/app/features/calculator/calculator.component.ts", "status": "OK", "target": "FR1.2/FR1.3/FR1.4/FR2.1/FR3.1-FR3.4/FR5.1/FR5.3/FR5.4/FR5.5" },
+    { "id": "angular-app/src/app/features/calculator/calculator.component.html", "status": "OK", "target": "FR1.1/FR5.2/BR4.1/NFR2" },
+    { "id": "angular-app/src/app/features/calculator/calculator.component.scss", "status": "OK", "target": "BR4.1 (presentación)" }
+  ]
+}
