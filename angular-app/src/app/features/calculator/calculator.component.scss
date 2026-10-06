@@ -17,6 +17,7 @@
     .calc-header-value.sales { color: #1565c0; }
     .calc-header-value.on-sale { color: #e65100; }
     .calc-header-value.count { color: var(--mat-sys-on-surface); }
+    .calc-header-toggle { justify-content: center; flex: 1 1 100%; min-width: 100%; }
 
     /* On-sale section */
     .on-sale-section { margin-bottom: 20px; }
