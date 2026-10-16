@@ -146,6 +146,36 @@ archivos nuevos o de forma quirúrgica. (affirmed 2026-09-18)
 
 - NEVER reordenar la cadena `needs:` de `fly-deploy.yml` (`verify` → `deploy-backend` → `deploy-frontend` → `smoke-test`) al endurecer el gate; el endurecimiento refuerza el contenido de `verify`, no su topología. (affirmed 2026-09-25)
 
+- NEVER hardcodear secretos/tokens reales en el repo (código, specs, workflows ni (affirmed 2026-10-06)
+
+documentos de análisis): los secretos van vía `secrets` de GitHub Actions / (affirmed 2026-10-06)
+
+Fly.io y en CI el `JWT_SECRET` es efímero y no productivo (gitleaks escanea (affirmed 2026-10-06)
+
+todo el árbol). (affirmed 2026-10-06)
+
+- NEVER introducir dependencias de pago ni servicios que fuercen salir de los (affirmed 2026-10-06)
+
+tiers gratuitos (salvo la excepción acotada de publicación de distribución (affirmed 2026-10-06)
+
+nativa anotada arriba); cualquier librería que se proponga en la ruta de (affirmed 2026-10-06)
+
+implementación sería OSS y fijada a versión exacta. (affirmed 2026-10-06)
+
+- NEVER almacenar la contraseña Futmondo en claro (ni en memoria ni en base de (affirmed 2026-10-06)
+
+datos); cualquier modelo de sesión que proponga el análisis nativo debe (affirmed 2026-10-06)
+
+preservar esta garantía. Al perder la cookie `HttpOnly` del navegador, el (affirmed 2026-10-06)
+
+refresh token debe ir a **almacenamiento seguro nativo** (iOS Keychain / (affirmed 2026-10-06)
+
+Android Keystore vía `@nativescript/secure-storage`), **NUNCA** a (affirmed 2026-10-06)
+
+`ApplicationSettings` ni `localStorage` en claro (regla durable de seguridad, (affirmed 2026-10-06)
+
+central al riesgo de portabilidad del modelo de sesión). (affirmed 2026-10-06)
+
 ## Mandated
 
 <!-- Populated by practices-discovery affirmation gate. -->
@@ -261,6 +291,50 @@ Arrastradas (ya afirmadas, siguen vigentes): (affirmed 2026-09-18)
 - ALWAYS mantener `angular.json` (`coverageThresholds`) como fuente única de umbral de cobertura frontend, con el enforcement dentro de `ng test` (sin pasos extra ni `continue-on-error`); en este intent el frontend **sólo sube el ratchet**, no crea paridad (ya la tiene en ambos workflows). (affirmed 2026-09-25)
 
 - ALWAYS usar identificadores/docstrings/comentarios en INGLÉS y texto de usuario / mensajes de commit (Conventional Commits con scope) en CASTELLANO. (affirmed 2026-09-25)
+
+- ALWAYS mantener el proyecto a **coste 0 €**: sólo soluciones sostenibles en (affirmed 2026-10-06)
+
+tiers gratuitos (Neon free, Fly.io free allowance, GitHub Actions free); (affirmed 2026-10-06)
+
+descartar toda mejora o dependencia con gasto recurrente. **Excepción aceptada y (affirmed 2026-10-06)
+
+acotada**: el **coste de publicación de distribución nativa** (Apple Developer (affirmed 2026-10-06)
+
+Program ~99 €/año; Google Play Developer) es una excepción conocida y bounded a (affirmed 2026-10-06)
+
+este mandato, exclusivamente para habilitar la distribución de una app nativa; el (affirmed 2026-10-06)
+
+análisis de viabilidad lo documenta como coste recurrente de distribución. Para (affirmed 2026-10-06)
+
+todo lo demás, el mandato de coste 0 € sigue durable y sin relajar. (affirmed 2026-10-06)
+
+- ALWAYS pasar el **gate de CI bloqueante** (gitleaks + `ruff check` + `pytest` + (affirmed 2026-10-06)
+
+`pip-audit` + `ng test` + `npm audit`) antes de fusionar a `main`, también para (affirmed 2026-10-06)
+
+cambios puramente documentales; un rojo nunca llega a producción. (affirmed 2026-10-06)
+
+- ALWAYS mantener el **escaneo de dependencias (`pip-audit` / `npm audit`) y de (affirmed 2026-10-06)
+
+secretos (`gitleaks`) como control de cadena de suministro durable y (affirmed 2026-10-06)
+
+BLOQUEANTE en AMBOS gates** (`ci.yml` job `quality` y `fly-deploy.yml` job (affirmed 2026-10-06)
+
+`verify`), de modo que un secreto o una dependencia vulnerable nunca llegue a (affirmed 2026-10-06)
+
+producción. (Control permanente; separado de la mecánica intent-específica de (affirmed 2026-10-06)
+
+promoción escalonada, allowlist versionada con caducidad o pin de versiones (affirmed 2026-10-06)
+
+concretas de tooling, que NO es una regla de equipo durable.) (affirmed 2026-10-06)
+
+- ALWAYS usar **identificadores, docstrings y comentarios en INGLÉS** y **texto (affirmed 2026-10-06)
+
+de cara al usuario / mensajes de commit en CASTELLANO** (Conventional Commits (affirmed 2026-10-06)
+
+con scope); en los documentos de análisis, prosa en castellano y tokens (affirmed 2026-10-06)
+
+técnicos (frameworks, rutas, claves YAML) verbatim en inglés. (affirmed 2026-10-06)
 
 ## Corrections
 

@@ -1,61 +1,61 @@
 # Technology Stack — futmondo-analytics
 
-## Languages
+> Versiones tomadas del scan de este run. Frontend con rangos `^`/`~` de
+> `package.json`; backend con pins exactos de `requirements.txt`.
 
-- **TypeScript** `~6.0.2` — frontend Angular.
-- **Python** `3.12` (`backend/ruff.toml` `target-version = "py312"`, `.python-version`).
+## Lenguajes
 
-## Frontend (angular-app)
+- **TypeScript** `~6.0.2` (frontend) — Angular 22.
+- **Python** `3.12` (backend) — FastAPI. Node fijado en `.nvmrc` = `22.22.3`.
 
-| Librería | Versión | Propósito |
-|----------|---------|-----------|
-| `@angular/*` (core, material, cdk) | `^22.2.1` | SPA/PWA: standalone components, signals, `OnPush`, rutas lazy. |
-| `@angular/build` / `@angular/cli` | `^22.2.0` | Build (`@angular/build:application`), bundle PWA. |
-| `@angular/service-worker` | `^22.2.1` | PWA (service worker, `ngsw-config.json`). |
-| `chart.js` | `^4.5.1` | Gráficos. |
-| `ng2-charts` | `^10.0.0` | Integración Angular de Chart.js. |
-| `rxjs` | `~7.8.0` | Streams/async. |
-| `marked` | `^18.0.11` | Render Markdown (asistente). |
-| `vitest` | `4.1.11` | Runner de tests (`ng test`, builder `@angular/build:unit-test`). |
-| `@vitest/coverage-v8` | `4.1.11` | Cobertura (pin exacto, emparejado con `vitest`). |
-| `typescript` | `~6.0.2` | Lenguaje. |
-| `jsdom`, `prettier` | dev | Entorno de test / formateo. |
-
-- `packageManager: npm@11.12.1`; Node fijado en `.nvmrc` = `22.22.3`.
-
-## Backend (backend)
+## Frontend (`angular-app`, `version: 2.2.0`)
 
 | Librería | Versión | Propósito |
 |----------|---------|-----------|
-| `fastapi` | `0.141.1` | Framework API HTTP. |
-| `uvicorn` | `0.54.0` | ASGI server (`run.py`). |
-| `pydantic` | `2.13.5` | Validación/serialización. |
-| `PyJWT` | `2.15.0` | JWT (access/refresh). |
-| `psycopg2-binary` | `2.9.13` | Driver Neon PostgreSQL. |
-| `requests` | `2.34.2` | HTTP (Futmondo). |
-| `curl_cffi` | `0.16.3` | HTTP para Sofascore. |
-| `python-multipart`, `python-dotenv` | — | Multipart / `.env`. |
-| `google-genai` | `1.14.0` | Asistente IA (Gemini). |
-| `groq` | `0.25.0` | Asistente IA (Groq). |
-| `pytest` | `9.1.1` | Tests backend. |
-| `pytest-cov` | `7.1.0` | Cobertura backend. |
-| `httpx` | `0.28.1` | Cliente HTTP de test. |
+| `@angular/{core,common,router,forms,animations,compiler,platform-browser,service-worker}` | `^22.2.1` | Framework Angular + PWA |
+| `@angular/cdk`, `@angular/material` | `^22.2.1` | UI Material (DOM-dependiente) |
+| `chart.js` | `^4.5.1` | Gráficos (`<canvas>`) |
+| `ng2-charts` | `^10.0.0` | Wrapper Angular de Chart.js (lazy/`@defer`) |
+| `marked` | `^18.0.11` | Markdown del asistente (diferido) |
+| `rxjs` | `~7.8.0` | Reactividad |
+| `tslib` | `^2.3.0` | Helpers de TS |
 
-- **`requirements.txt` ya está pinneado a versión exacta (`==`)** — estado actual del
-  código; los rangos abiertos descritos en `team.md` corresponden a un estado
-  anterior ya resuelto (ver `code-quality-assessment.md`).
+**devDependencies frontend**: `@angular/build` + `@angular/cli` `^22.2.0`,
+`typescript` `~6.0.2`, `vitest` **`4.1.11`** (pin exacto) + `@vitest/coverage-v8`
+**`4.1.11`**, `jsdom` `^25.0.1`, `prettier` `^3.8.1`. `packageManager:
+npm@11.12.1`. **ESLint** flat config presente (`eslint.config.js`) pero sus
+devDependencies NO instaladas (lint frontend advisory/diferido).
 
-## Data & Infrastructure
+## Backend (`backend`, `version: 2.0.0`) — pins exactos
 
-- **Base de datos**: Neon PostgreSQL (serverless, Frankfurt, tier free).
-- **Deploy**: Fly.io (región `cdg`) — dos apps (`futmondo-api` puerto 8000 check
-  `/health`; `futmondo-app` nginx check `/`). CI/CD con GitHub Actions.
-- **Proxy**: Nginx (local `proxy/`, prod `angular-app/nginx*.conf`).
-- **Orquestación local**: Docker Compose.
-- **Restricción**: todo en tiers gratuitos — coste 0 €.
+| Librería | Versión | Propósito |
+|----------|---------|-----------|
+| `fastapi` | `0.141.1` | Framework web |
+| `uvicorn[standard]` | `0.54.0` | ASGI server |
+| `pydantic` | `2.13.5` | Validación/modelos |
+| `requests` | `2.34.2` | HTTP cliente (Futmondo) |
+| `python-dotenv` | `1.2.3` | Config `.env` |
+| `python-multipart` | `0.0.32` | Form/multipart |
+| `psycopg2-binary` | `2.9.13` | Driver PostgreSQL (Neon) |
+| `curl_cffi` | `0.16.3` | Cliente HTTP para Sofascore |
+| `PyJWT` | `2.15.0` | JWT |
+| `google-genai` | `1.14.0` | LLM Gemini |
+| `groq` | `0.25.0` | LLM fallback |
 
-## Sources
+**Test backend**: `pytest` `9.1.1`, `pytest-cov` `7.1.0`, `httpx` `0.28.1`.
 
-- `developer-scan.md`: Frameworks & Libraries, Build System, Test Coverage.
-- `README.md`: tabla de stack, diagrama de producción.
-- Versiones concretas en `dependencies.md`.
+## Base de datos y despliegue
+
+- **BD**: Neon PostgreSQL (serverless, Frankfurt / free tier).
+- **Empaquetado**: Docker (`docker-compose.yml` local; Dockerfiles por servicio).
+- **Deploy**: Fly.io (región `cdg`), apps `futmondo-api` y `futmondo-app`;
+  `backend/fly.toml`, `angular-app/fly.toml`, `cron/fly.toml`.
+- **CI/CD**: GitHub Actions (`ci.yml`, `fly-deploy.yml`, crons). Ver detalle en
+  `code-quality-assessment.md`.
+
+## Relevancia para el intent (viabilidad nativa)
+
+El stack de **presentación** web (Angular Material, Chart.js/`<canvas>`,
+PWA/service worker) es DOM-dependiente y no porta a NativeScript; servicios RxJS
+y modelos sí. Ver dependencias cruzadas en `dependencies.md` y riesgos en
+`code-quality-assessment.md`.

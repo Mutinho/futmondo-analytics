@@ -1,55 +1,56 @@
 # Business Overview — futmondo-analytics
 
-## Business Domain
+## Dominio de negocio
 
-Aplicación web multi-usuario de **analítica de fantasy football** construida sobre
-la liga **Futmondo**. Es una PWA (instalable en iPhone/Safari) que permite a cada
-usuario gestionar y analizar sus campeonatos privados: presupuestos, mercado,
-pujas, finanzas y estadísticas, enriquecidos con ratings externos de **Sofascore**.
+Futmondo Analytics es una aplicación web **multi-usuario** para gestionar y
+analizar campeonatos de **Futmondo** (fantasy football). Da a cada usuario un
+cuadro de mando sobre su liga: control de presupuestos, análisis de mercado,
+ratings de Sofascore, pujas por jugadores y cálculo de finanzas, accesible como
+PWA desde el móvil (iPhone en particular).
 
-## Purpose
+## Propósito
 
-Dar a cada participante de un campeonato Futmondo una capa analítica que la propia
-Futmondo no ofrece: proyección de balance, puja sugerida con histórico, rating y
-tendencia de jugadores, y un cálculo de dinero por usuario que reconcilia premios,
-transacciones y clasificación con la fórmula proporcional de Futmondo.
+Convertir los datos crudos de la API de Futmondo (más señales externas de
+Sofascore) en analítica accionable que un mánager de fantasy no obtiene en la
+app oficial: evolución histórica, puja sugerida por jugador, finanzas
+proyectadas por usuario y un asistente conversacional (LLM) sobre esos datos.
 
-## Key Functionality
+## Funcionalidad clave
 
-- **Autenticación por usuario**: login con credenciales Futmondo del propio usuario;
-  el backend valida contra la API de Futmondo y emite JWT (access en memoria,
-  refresh en cookie HttpOnly). No hay credenciales globales; cada endpoint usa la
-  sesión Futmondo del usuario logado (TTL 12h, re-auth automática).
-- **Multi-campeonato / multi-usuario**: campeonatos auto-detectados al primer login;
-  configuración (presupuesto, premios, cláusulas) obtenida de la API Futmondo. Los
-  datos del campeonato (transacciones, jugadores, standings) se comparten entre
-  usuarios.
-- **Calculadora** (foco del intent `calculadora-mejora`): pantalla
-  `/calculator` que hoy es un **planificador de ventas / proyección de balance**
-  (no un cálculo de premios). Combina plantilla propia, mercado del día y jugadores
-  en venta para proyectar un `futureBalance`. Detalle de implementación y flujo en
-  `architecture.md` (Interaction Diagrams) y `component-inventory.md`.
-- **Finanzas por usuario**: cálculo de dinero por participante agregando presupuesto
-  inicial, profit de transacciones, ranking, MVP, dream-team, puntos y ajustes,
-  leyendo todo el dinero de premio desde la tabla `team_prizes` como única fuente de
-  verdad. Es un flujo de backend distinto de la Calculadora frontend (ver
-  `component-inventory.md`).
-- **Sincronización asíncrona**: sync en background en 11 pasos (jugadores,
-  transacciones, cláusulas, castigos, dream teams, rendimiento, plantillas,
-  clasificación, odds, phantoms, sofascore) con progreso paso a paso y reconexión al
-  task.
-- **Analítica visual**: presupuestos, mercado, evolución, estadísticas,
-  clausulables y analytics con gráficos Chart.js; asistente IA (Gemini/Groq).
+- **Autenticación delegada en Futmondo**: el usuario entra con su email/password
+  de Futmondo; el backend valida contra la API de Futmondo y emite JWT propios.
+- **Multi-usuario / multi-campeonato**: cada usuario auto-detecta sus campeonatos
+  al primer login; la configuración (presupuesto, premios, cláusulas) se obtiene
+  de la API de Futmondo con las credenciales del usuario logado. Los datos del
+  campeonato (transacciones, jugadores, standings) se comparten entre usuarios.
+- **Presupuesto**: saldos por equipo con detalle de altas/bajas, puja máxima y
+  rendimiento.
+- **Mercado**: jugadores del computer con puja sugerida (historial), rating
+  Sofascore y tendencia; modal de puja con min/max validados.
+- **Sincronización asíncrona**: sync en background con progreso paso a paso
+  (jugadores, transacciones, cláusulas, castigos, dream teams, rendimiento,
+  plantillas, clasificación, odds, phantoms, sofascore); reconexión al task vía
+  `localStorage` si se cierra el modal.
+- **Finanzas**: dinero por usuario (presupuesto + puntos×€ + profit de
+  transacciones + dream team + MVP + clasificación + castigos/bonificaciones).
+- **Evolución, Estadísticas, Clausulables, Analytics**: gráficos (Chart.js) y
+  tablas interactivas con analítica avanzada por sub-pestañas.
+- **Asistente IA**: respuestas en lenguaje natural (Gemini con fallback a Groq)
+  sobre los datos del campeonato, renderizadas como markdown.
+- **PWA**: service worker, manifest y meta tags Apple; instalable en iPhone.
 
-## Integrations
+## Usuarios y valor
 
-- **API Futmondo** — fuente primaria de datos del campeonato y autenticación.
-- **API Sofascore** — ratings y rendimiento de jugadores (vía `curl_cffi`).
-- **Gemini / Groq** — asistente IA conversacional.
+- **Mánager de fantasy (usuario final)**: decide pujas y traspasos con datos de
+  mercado, rendimiento y finanzas que la app oficial no expone.
+- El valor diferencial es el **cruce de fuentes** (Futmondo + Sofascore) y el
+  **cálculo de premios/finanzas** replicando la fórmula de Futmondo.
 
-## Sources
+## Contexto del intent activo
 
-- Evidencia de escaneo: `developer-scan.md` (Handoff Summary, APIs Discovered).
-- `README.md` (dominio, funcionalidades, multi-usuario, PWA).
-- Detalle técnico cruzado en `architecture.md`, `component-inventory.md`,
-  `api-documentation.md`.
+El intent `angular-native-feasibili` evalúa la **viabilidad** de llevar esta
+presentación web (Angular 22 PWA + Material) a una **app nativa con Angular
+Native (NativeScript + Angular)**, conservando el backend FastAPI intacto. Es un
+intent de ANÁLISIS, no de implementación. Ver detalle arquitectónico en
+`architecture.md` y la deuda/riesgos de portabilidad en
+`code-quality-assessment.md`.

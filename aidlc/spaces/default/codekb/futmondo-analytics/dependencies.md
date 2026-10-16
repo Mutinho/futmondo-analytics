@@ -1,61 +1,53 @@
 # Dependencies — futmondo-analytics
 
-## External Dependencies
+## Dependencias externas (servicios de terceros)
 
-### Runtime services
+- **API Futmondo** — fuente de verdad de credenciales y datos de campeonato;
+  consumida por `futmondo_client.py` (vía `requests`). Acopla la autenticación
+  del sistema a la disponibilidad de Futmondo.
+- **API Sofascore** — ratings/odds; consumida por `sofascore_client.py` vía
+  **`curl_cffi`** (impersonación de navegador para sortear bloqueos).
+- **LLM Gemini** (`google-genai`) con **fallback a Groq** (`groq`) — asistente IA
+  (`assistant/infrastructure/llm_adapter.py`).
+- **Neon PostgreSQL** — persistencia (driver `psycopg2-binary`).
+- **Fly.io** — hosting (dos apps + cron one-shot). **GitHub Actions** — CI/CD.
+  Todo dentro de tiers gratuitos (restricción coste 0 €).
 
-- **Neon PostgreSQL** (Frankfurt, tier free) — persistencia, vía `DATABASE_URL`.
-- **API Futmondo** — datos de campeonato + autenticación (`futmondo_client.py`,
-  auth por usuario, credenciales cifradas con `FUTMONDO_CRED_KEY`).
-- **API Sofascore** — ratings/rendimiento (`sofascore_client.py` vía `curl_cffi`).
-- **Gemini / Groq** — asistente IA (`google-genai`, `groq`).
-- **Fly.io** (región `cdg`) — hosting de ambas apps + crons one-shot.
-- **GitHub Actions** — CI/CD.
+## Dependencias de librería
 
-Todas sostenibles en tiers gratuitos (coste 0 €).
+Versiones completas en `technology-stack.md`. Resumen de las de mayor impacto:
 
-### Library dependencies (versiones)
+- **Frontend**: ecosistema Angular 22 (`@angular/*` `^22.2.1`), `@angular/material`
+  + `@angular/cdk` (DOM), `chart.js`/`ng2-charts` (`<canvas>`), `marked`, `rxjs`.
+- **Backend**: `fastapi`/`uvicorn`/`pydantic`, `requests`, `curl_cffi`, `PyJWT`,
+  `psycopg2-binary`, `google-genai`/`groq`.
 
-Versiones concretas de frontend y backend inventariadas en `technology-stack.md`
-(evitar duplicación). Resumen de pinning: backend `requirements.txt` pinneado a
-`==`; frontend con `vitest`/`@vitest/coverage-v8` en pin exacto `4.1.11` y resto en
-rangos `^`/`~` idiomáticos de Angular.
+## Dependencias cruzadas internas (entre paquetes)
 
-## Internal Cross-Package Dependencies
+- **`angular-app` → `backend`**: acople único por contrato HTTP `/api/v1/*` +
+  `/auth/*` (12 servicios Angular ↔ 59 operaciones FastAPI). No hay código
+  compartido entre builds (no monorepo tooling).
+- **`cron` → `backend`**: comparte Dockerfile y ejecuta `backend/scripts/*`;
+  depende del código de servicios del backend.
+- **`proxy` → `angular-app` + `backend`**: enruta tráfico local (sólo
+  `docker-compose`).
 
-```mermaid
-graph LR
-  FE["angular-app"] -->|HTTP /api, /auth| NG["proxy-nginx"]
-  NG --> BE["backend (FastAPI)"]
-  BE --> AUTH["auth-and-security"]
-  BE --> PF["player-finances-endpoint"]
-  PF --> PRIZES["prizes-domain"]
-  SYNC["data-sync-service"] --> PRIZES
-  SYNC --> CLIENTS["external-clients"]
-  BE --> DM["data-manager"]
-  BE --> AA["analytics-and-assistant"]
-  CRON["cron-jobs"] --> SYNC
-  PRIZES --> DB[("team_prizes / Neon")]
-  PF --> DB
-```
+## Dependencias internas dentro del backend
 
-Texto fallback: `angular-app` llama vía nginx a `backend`; `backend` depende de
-`auth-and-security`, `player-finances-endpoint`, `data-manager` y
-`analytics-and-assistant`. `player-finances-endpoint` y `data-sync-service`
-dependen de `prizes-domain`, que escribe `team_prizes`; `player-finances-endpoint`
-lee esa misma tabla. `data-sync-service` usa `external-clients`; `cron-jobs`
-dispara el sync.
+- **`api/v1/endpoints/` → `services/` y `db_connection`**: la capa HTTP delega en
+  servicios; 17 endpoints además ejecutan SQL directo (SQL-en-router), acoplando
+  persistencia y HTTP (deuda; ver `code-quality-assessment.md`).
+- **`services/` → `db_connection` → Neon**: `data_manager`, `data_sync_service`,
+  `analytics`, `assistant`, `photo_service` persisten vía `db_connection`
+  (incluye el `adapt_params()` `? → %s` heredado).
+- **`services/` → `external-clients`**: `data_sync_service`/`task_service`
+  orquestan `futmondo_client`/`sofascore_client`; `assistant` usa `llm_adapter`.
+- **`auth/` → API Futmondo + Neon**: valida credenciales y persiste sesión/token.
 
-### Dependencias clave para el intent
+## Relevancia para el intent (viabilidad nativa)
 
-- `calculator-component` → `rosterService` + `/api/v1/market/today` (**no** depende
-  de `player-finances-endpoint` hoy).
-- `player-finances-endpoint` → `prizes-domain` vía la tabla `team_prizes` (única
-  fuente de verdad). Punto de integración natural si la mejora añade cálculo
-  financiero a la Calculadora, tras una capa estrecha testeable.
-
-## Sources
-
-- `developer-scan.md`: Frameworks & Libraries, APIs Discovered, Handoff Summary.
-- Nombres de componente verbatim en `component-inventory.md`; versiones en
-  `technology-stack.md`.
+Una app nativa (NativeScript + Angular) reutilizaría las **dependencias de
+servicio/datos** (mismo contrato HTTP al backend) pero **no** las dependencias de
+presentación DOM (`@angular/material`, `@angular/cdk`, `chart.js`/`ng2-charts`,
+service worker/PWA), que requieren equivalentes nativos. Detalle en
+`code-quality-assessment.md`.
