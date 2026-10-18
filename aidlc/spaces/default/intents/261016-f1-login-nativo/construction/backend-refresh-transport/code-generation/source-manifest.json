@@ -1,0 +1,10 @@
+{
+  "stage": "code-generation",
+  "unit": "backend-refresh-transport",
+  "version": 1,
+  "writes": [
+    { "path": "backend/app/auth/models.py" },
+    { "path": "backend/app/auth/routes.py" },
+    { "path": "backend/tests/test_auth_refresh_transport.py" }
+  ]
+}

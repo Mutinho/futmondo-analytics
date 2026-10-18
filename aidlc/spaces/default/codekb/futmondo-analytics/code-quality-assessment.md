@@ -1,122 +1,123 @@
-# Code Quality Assessment — futmondo-analytics
+# Code Quality Assessment — Futmondo Analytics
 
-## Cobertura de tests
+## Gate de CI (bloqueante)
 
-- **Backend**: `backend/tests/` con **62** ficheros `test_*.py`, muchos de
-  characterization (`test_sync_*`, `test_data_manager_*`, `test_prizes_*`,
-  `test_assistant_*`, `test_durable_*`, `test_auth_*`, `test_jwt_startup.py`).
-  Ejecutados DESDE `backend/` (`pythonpath = .`), con fixtures fake in-memory en
-  `conftest.py` (sin red, sin BD real, sin credenciales reales).
-- **Frontend**: **15** ficheros `*.spec.ts` colocados junto a sus fuentes en
-  `src/app/core/**` y `src/app/features/**`.
-- **Config de cobertura — PRESENTE y BLOQUEANTE en ambos**:
-  - Backend: `pytest.ini` `addopts = -ra --cov-fail-under=27` (line-only;
-    requiere `--cov=app`, que pasan `ci.yml` y el job `verify`). Piso real medido
-    **27.52% → 27**; el ratchet sólo sube.
-  - Frontend: `angular.json` target `test` `coverageThresholds` statements 19 /
-    branches 19 / functions 17 / lines 18 (fuente única de umbral; enforcement
-    dentro de `ng test`).
+El sistema tiene un **gate de CI bloqueante operativo** replicado en dos
+workflows para cubrir PR y push directo:
 
-## Linting
+- `.github/workflows/ci.yml` — job `quality`, disparo `pull_request → main`
+  (required status check vía branch protection).
+- `.github/workflows/fly-deploy.yml` — job `verify`, disparo `push → main`; los
+  deploys dependen de él vía `needs:` (los `needs:` no cruzan workflows, por eso
+  el gate se replica). Cadena: `verify → deploy-backend → deploy-frontend →
+  smoke-test`.
 
-- **Backend `ruff`** (`backend/ruff.toml`): `target-version = py312`,
-  `line-length = 100`, `select = ["E","F","I"]`, `ignore = ["E501","E402"]`.
-  `[lint.per-file-ignores]` registra verbatim la deuda de los god-files y los
-  adapters DDD extraídos (p. ej. `data_manager_v2.py` → `E722,F841,F401,I001`).
-  `ruff check` es **BLOQUEANTE** en ambos gates; `ruff format` **NUNCA** se corre
-  en masa (regla afirmada). `E722`/bare-except re-habilitado como advisory en
-  intents previos.
-- **Frontend ESLint** flat config (`eslint.config.js`) presente, pero sus
-  devDependencies **NO instaladas** → `ci.yml` corre `npx ng lint || echo …` en
-  modo **advisory** (deuda diferida).
+Pasos bloqueantes verificados en **ambos** gates:
 
-## CI/CD
+| Check | Herramienta | Nota |
+|---|---|---|
+| Secretos | gitleaks-action **@v3** (unificado) | Bloqueante desde el inicio |
+| Lint backend | `ruff check .` (ruff **0.16.9** pin) | Promovido a bloqueante; sin `--fix` ni `ruff format` |
+| Tests backend | `pytest -q --cov=app` con piso | `--cov-fail-under=27` (en `pytest.ini`) |
+| Allowlist pip-audit | `scripts/check-allowlist-expiry.sh` | Entrada caducada vuelve a bloquear |
+| Dep audit backend | `pip-audit` (entorno instalado, sin `-r`; pin **2.10.1**) | Bloquea findings CON fix; sin fix → allowlist versionada |
+| Tests frontend | `ng test --watch=false` (Vitest) | Umbrales de cobertura dentro de `ng test` |
+| Dep audit frontend | `npm audit --audit-level=high` | Trinquete de severidad solo endurece |
 
-- **`ci.yml`** (gate de PR, job `quality`): gitleaks + ruff + pytest+cov +
-  pip-audit + ng test + npm audit.
-- **`fly-deploy.yml`** (push a `main`): job `verify` replica el gate →
-  `deploy-backend` → `deploy-frontend` → `smoke-test` (`/health`). Cadena `needs:`
-  intacta.
-- **Crons**: `daily-sync.yml` y `sofascore-sync.yml` lanzan máquinas Fly
-  one-shot. gitleaks unificado a `@v3` en ambos gates. Secretos vía GitHub
-  Actions / Fly.io; `JWT_SECRET` efímero no-productivo en CI.
+CI inyecta un `JWT_SECRET` efímero no productivo (`ci-ephemeral-secret-not-a-real-one`)
+para que la app importe (fail-fast NFR1.1 en `config.resolve_jwt_secret`).
 
-## Documentación
+## Pisos de cobertura heredados (ratchet solo sube)
 
-- `README.md` raíz exhaustivo (arquitectura, stack, endpoints, auth, PWA).
-- `docs/` extenso: DEPLOY, ROLLBACK, PR-GATE, PROJECT_CONTEXT, varios BACKLOG,
-  V2_MIGRATION_PLAN, FRONTEND_IMPROVEMENTS_PLAN, SDD_ANGULAR_MIGRATION,
-  MOCKUPS_NAVIGATION.
-- Docstrings backend ricos (clasificación de errores FR3.2, notas de seguridad).
-  Comentarios mezclados castellano + inglés.
+- **Backend**: `--cov-fail-under=27` (line-coverage total, sin `--cov-branch`),
+  definido en `backend/pytest.ini`. Valor medido exacto sin margen (cobertura
+  real ~27.52% al fijarlo). Reportado en paridad en `ci.yml` y el job `verify`.
+- **Frontend**: `coverageThresholds` en `angular.json` (target `test`):
+  `statements 19`, `branches 19`, `functions 17`, `lines 18`. Enforcement dentro
+  de `ng test` (builder `@angular/build:unit-test`, runner Vitest), sin pasos
+  extra ni `continue-on-error`.
 
-## Deuda técnica (tamaños MEDIDOS en este scan)
+Regla afirmada: NUNCA bajar/relajar un umbral para pasar el gate; el flapping se
+arregla en el test no-determinista.
 
-> IMPORTANTE: estas cifras son las MEDIDAS por el scan de este run y
-> **sustituyen** a las de `project.md`, que están desactualizadas tras las
-> descomposiciones DDD de intents 261005/261003.
+## Suite de tests existente
 
-- **God-files backend** (tamaño real en disco):
-  - `app/services/analytics/application/calculations.py` — **872 líneas /
-    36.028 bytes** (el mayor por tamaño; lógica de cálculo analytics).
-  - `app/services/futmondo_client.py` — **720 líneas / 27.267 bytes**.
-  - `app/services/data_manager_v2.py` — **685 líneas / 33.368 bytes** (YA
-    descompuesto parcialmente a `data_manager/<resp>/{domain,application,
-    infrastructure}`; la facade mantiene nombres/firmas byte-for-byte). **La
-    memoria del proyecto lo cita como «~166 KB»; el valor ACTUAL en disco es
-    33 KB.**
-  - `app/api/v1/endpoints/market.py` — **580 líneas / 24.560 bytes**
-    (SQL-en-router).
-  - `app/services/photo_service.py` — **492 líneas / 22.764 bytes** (`E722`
-    registrado como deuda).
-  - `app/services/sofascore_client.py` — **392 líneas**.
-  - `app/api/v1/endpoints/sync.py` — **407 líneas / 16.864 bytes**.
-  - `app/services/data_sync_service.py` — **362 líneas / 15.397 bytes**.
-  - `assistant_service.py` — hoy sólo **60 líneas / 2.290 bytes** (shim; la lógica
-    real está en el paquete DDD `assistant/`). **La memoria lo cita «~51 KB» —
-    desactualizado.**
-- **SQL-en-router**: **17** ficheros de `api/v1/endpoints/` ejecutan SQL directo
-  (`.execute(`) — acopla persistencia↔HTTP; patrón heredado que las reglas
-  afirmadas prohíben ampliar.
-- **Dead-ish code multi-engine**: `db_connection.adapt_params()` reescribe
-  placeholders `? → %s` en runtime; `DATABASE_PATH` y ramas `db_type != postgres`
-  son herencia del soporte SQLite/Turso retirado (tolerado).
-- **Manejo de errores**: endurecido recientemente (clasificación
-  RECOVERABLE/FATAL en `main.py`, `db_connection.py`, `token_store.py`); los
-  `except:` amplios de los god-files quedan como deuda registrada.
+- **Backend** (`backend/tests/`): suite amplia **characterization-first** (~50+
+  ficheros `test_*.py`). Cubre:
+  - **Auth**: `test_auth_characterization.py`, `test_jwt_startup.py`
+    (endurecimiento NFR1.1), `test_token_store_migrations.py`,
+    `test_durable_session_*` (sesión durable), `test_durable_task_*`.
+  - **Integración/errores**: `test_integration_errors.py`,
+    `test_futmondo_client_typed_failures.py`, `test_error_layer_hardening.py`,
+    `test_sync_integration_failure_effect.py`, `test_sync_degraded_steps.py`,
+    `test_tls_verification.py`.
+  - **Dominio/sync/premios**: numerosos `test_sync_*` y `test_data_manager_*`
+    (characterization de ramas de sync y data manager), `test_prizes_*`,
+    `test_finance_characterization.py`, `test_analytics_service.py`,
+    `test_market_bid_*`, `test_assistant_*`.
+  - Fixtures fake in-memory en `conftest.py` (SQLite), **sin red, sin DB real y
+    sin credenciales/tokens reales** (gitleaks escanea también los tests).
+- **Frontend** (`angular-app/src/**`): specs Vitest, incluidos los de auth
+  **directamente relevantes para F1**: `auth.service.spec.ts`,
+  `auth.interceptor.spec.ts`, `auth.guard.spec.ts`, más specs de servicios de
+  feature (budget, stats, market, roster, sync, favorites, analytics, assistant,
+  championship, evolution) e `idle-preloading-strategy.spec.ts`.
 
-## Portabilidad a nativo — riesgos (preservados del scan; relevantes al intent)
+## God-files como deuda conocida (NO ampliar)
 
-1. **Acoplamiento web-DOM alto en la UI**: `features/*` usa Angular **Material +
-   CDK** (DOM) y plantillas `.html`; NativeScript no soporta Material ni DOM →
-   **toda la capa de vista se reescribe** con `@nativescript/angular`. Los
-   **servicios** (`core/services/*`, RxJS/`HttpClient`, signals) y **modelos**
-   (`core/models/*`) son portables casi 1:1; los **componentes** no.
-2. **PWA / service worker / `localStorage`**: `ngsw-config.json` +
-   `provideServiceWorker` + **17** usos de `localStorage` (sesión, tema,
-   reconexión de sync) → en nativo se sustituyen por `@nativescript/core`
-   ApplicationSettings / SecureStorage. El **access en memoria + refresh en cookie
-   HttpOnly** depende de cookies del navegador y `withCredentials` → el modelo de
-   sesión cookie-based **NO existe igual en nativo** y es el **riesgo de
-   portabilidad #1** (habrá que mover el refresh a almacenamiento seguro nativo).
-3. **Chart.js / ng2-charts** (Evolución, Analytics): dependen de `<canvas>` DOM →
-   requieren un plugin de charting nativo distinto (reescritura de gráficos).
-4. **Discrepancia tamaños god-file vs memoria** (ver arriba): usar las cifras
-   MEDIDAS, no las de `project.md`. Sigue siendo backend fuera del alcance de un
-   intent de viabilidad de UI nativa.
-5. **Coste 0 € y stack Fly.io/Neon**: la viabilidad debe respetar que
-   backend/deploy no cambian; NativeScript es OSS, pero distribuir a iPhone 13
-   Pro / Samsung A17 implica build nativo (Xcode / Android SDK) y potencialmente
-   coste de cuenta de desarrollador Apple — a señalar en feasibility, no resuelto
-   aquí.
+Regla durable afirmada: NUNCA ampliar ni reescribir los god-files; el código
+nuevo va tras una capa/función estrecha y testeable.
 
-## Hallazgo de UI relevante al intent
+- `app/services/data_manager_v2.py` — ~33 KB observado en disco (ref. histórica
+  ~166 KB; parte extraída a `data_manager/.../infrastructure/*_adapter.py`).
+  `ruff.toml` lo registra con `E722,F841,F401,I001` como deuda, en vez de
+  sanearlo tocando el fichero.
+- `app/services/data_sync_service.py` — ~15 KB observado (ref. histórica ~84 KB).
+  `ruff.toml`: `F401,I001`.
+- `app/services/assistant_service.py` (~2 KB real; `I001` en ignore) y
+  `photo_service.py` (~23 KB; `E722,F841` registrado como deuda afirmada Q6).
 
-La navegación actual es un **`mat-sidenav` lateral** (no una barra inferior):
-`app.html` define `<mat-sidenav>` con `<mat-nav-list>` de **12 items** + acciones
-Sincronizar/Modo oscuro/Cerrar sesión; en móvil se abre con `MatToolbar` + botón
-`menu` (`isMobile()` vía `BreakpointObserver`). **No existe** hoy ningún
-bottom-nav ni concepto de «4 opciones más usadas» → el menú inferior iOS 'liquid
-glass' con 4 opciones del intent es **construcción NUEVA** de UI nativa. **No hay
-ninguna superficie de widget** (iOS/Android) en el código (0 referencias) → es
-greenfield nativo.
+Patrón de SQL-en-router/endpoint también presente (p. ej. consultas inline en
+`auth/routes.py` y `api/v1/endpoints/user.py`): deuda a no ampliar.
+
+## Señales de calidad / endurecimientos positivos
+
+- **Manejo de errores tipado** (`integration_errors.py`): jerarquía
+  recoverable/fatal con constructor que **no acepta** material de credencial
+  (imposibilidad de fuga en `str/repr/args`, NFR3).
+- **Seguridad de credenciales**: password Futmondo **nunca** en memoria
+  (`session_store.UserSession`), handle de re-auth cifrado en reposo
+  (`FUTMONDO_CRED_KEY`); JWT fail-fast en arranque del web (NFR1.1,
+  `test_jwt_startup.py`).
+- **Arranque resiliente**: schemas idempotentes degradan a warning
+  (FR3.2.2/BR1.6) en vez de tumbar el proceso.
+- `ruff.toml` arranca con `select = ["E","F","I"]`, `line-length=100`,
+  `target-version=py312`; el comentario de cabecera quedó **stale** (describe modo
+  advisory) aunque el gate ya corre `ruff check` bloqueante — deuda de
+  documentación registrada en `team.md`.
+
+## Relevancia para F1 (login nativo iOS)
+
+- El contrato de auth está **bien cubierto por tests** (characterization backend +
+  specs frontend), lo que da una red de seguridad para el ajuste aditivo D-01:
+  cualquier cambio del transporte del refresh token debe preservar la suite verde
+  y respetar los pisos de cobertura (ratchet solo sube).
+- Reglas de seguridad durables aplicables a F1: refresh token en **Keychain**,
+  nunca en claro; nunca `JWT_SECRET` por defecto en producción; sin credenciales
+  reales en specs.
+
+## Sources
+
+- `.github/workflows/ci.yml`, `.github/workflows/fly-deploy.yml`
+- `backend/pytest.ini`, `backend/ruff.toml`, `backend/.pip-audit-allowlist`
+- `angular-app/angular.json`, `angular-app/package.json`, `angular-app/eslint.config.js`
+- Listado de `backend/tests/` y `angular-app/src/app/core/**/*.spec.ts`
+- `backend/app/services/integration_errors.py`, `backend/app/core/config.py`,
+  `backend/app/auth/session_store.py`
+
+## Assumptions & Open Questions
+
+- El porcentaje de cobertura actual no se recomputó en este escaneo; se reporta
+  el **piso** configurado (backend 27, frontend 19/19/17/18) y el valor histórico
+  (~27.52%) que motivó el piso backend, verificado por los comentarios de
+  `pytest.ini`.

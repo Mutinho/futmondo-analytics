@@ -1,0 +1,33 @@
+{
+  "stage": "user-stories",
+  "unit": null,
+  "upstream_ids": [
+    "FR-1", "FR-2", "FR-3", "FR-4", "FR-5", "FR-6", "FR-7", "FR-8", "FR-9",
+    "NFR-1", "NFR-2", "NFR-3", "NFR-4"
+  ],
+  "coverage": [
+    { "id": "FR-1", "status": "OK", "target": "US-1 — Iniciar sesión" },
+    { "id": "FR-2", "status": "OK", "target": "US-1 — access token en memoria" },
+    { "id": "FR-3", "status": "OK", "target": "US-2 — refresh token en iOS Keychain" },
+    { "id": "FR-4", "status": "OK", "target": "US-7 — transporte aditivo del refresh token (D-01)" },
+    { "id": "FR-5", "status": "OK", "target": "US-3 y US-4 — reanudar y refrescar sesión" },
+    { "id": "FR-6", "status": "OK", "target": "US-5 — cerrar sesión (red OK / red caída)" },
+    { "id": "FR-7", "status": "OK", "target": "US-8 y US-4 — cliente de red con Bearer + reintento" },
+    { "id": "FR-8", "status": "OK", "target": "US-6 — experiencia de login nativa (Reduce Motion)" },
+    { "id": "FR-9", "status": "OK", "target": "US-7 — sin regresión de la PWA (pytest ambos canales)" },
+    { "id": "NFR-1", "status": "OK", "target": "US-2 — seguridad de credenciales (nunca en claro)" },
+    { "id": "NFR-2", "status": "OK", "target": "US-6 — solo SDK de Apple, coste 0 € (criterio de assessment)" },
+    { "id": "NFR-3", "status": "OK", "target": "US-7 — verificación pytest; validación manual en iPhone (assessment)" },
+    { "id": "NFR-4", "status": "N/A", "target": "transversal — idioma inglés/castellano aplicado a todas las historias; sin historia propia (regla de estilo, no comportamiento de usuario)" }
+  ],
+  "reverse": [
+    { "id": "US-1", "status": "OK", "target": "FR-1, FR-2" },
+    { "id": "US-2", "status": "OK", "target": "FR-3, NFR-1" },
+    { "id": "US-3", "status": "OK", "target": "FR-5" },
+    { "id": "US-4", "status": "OK", "target": "FR-5, FR-7" },
+    { "id": "US-5", "status": "OK", "target": "FR-6" },
+    { "id": "US-6", "status": "OK", "target": "FR-8, NFR-2" },
+    { "id": "US-7", "status": "OK", "target": "FR-4, FR-9, NFR-3" },
+    { "id": "US-8", "status": "OK", "target": "FR-7" }
+  ]
+}

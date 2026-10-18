@@ -1,0 +1,23 @@
+{
+  "stage": "code-generation",
+  "unit": "ios-native-auth",
+  "version": 1,
+  "writes": [
+    { "path": "ios/Sources/FutmondoKit/Auth/KeychainStore.swift" },
+    { "path": "ios/Sources/FutmondoKit/Auth/KeychainTokenStore.swift" },
+    { "path": "ios/Sources/FutmondoKit/Auth/InMemoryKeychainStore.swift" },
+    { "path": "ios/Sources/FutmondoKit/Auth/TokenHolder.swift" },
+    { "path": "ios/Sources/FutmondoKit/Auth/AuthDTOs.swift" },
+    { "path": "ios/Sources/FutmondoKit/Auth/AuthError.swift" },
+    { "path": "ios/Sources/FutmondoKit/Auth/Session.swift" },
+    { "path": "ios/Sources/FutmondoKit/Auth/AuthService.swift" },
+    { "path": "ios/Sources/FutmondoKit/Auth/LogoutFlagStore.swift" },
+    { "path": "ios/Sources/FutmondoApp/AuthViewModel.swift" },
+    { "path": "ios/Sources/FutmondoApp/LoginView.swift" },
+    { "path": "ios/Sources/FutmondoApp/SplashView.swift" },
+    { "path": "ios/Sources/FutmondoApp/FutmondoApp.swift" },
+    { "path": "ios/Tests/FutmondoKitTests/AuthServiceTests.swift" },
+    { "path": "ios/Package.swift" },
+    { "path": "ios/xtool.yml" }
+  ]
+}

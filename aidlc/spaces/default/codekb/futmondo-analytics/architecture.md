@@ -1,151 +1,108 @@
-# Architecture — futmondo-analytics
+# Architecture — Futmondo Analytics
 
-## System Overview
+## Visión general
 
-Sistema de dos builds independientes acoplados por un contrato HTTP:
+Sistema brownfield de tres capas desplegado en Fly.io, con una PWA Angular
+servida por nginx que habla con un backend FastAPI, que persiste en Neon
+PostgreSQL y se integra con dos APIs externas (Futmondo y Sofascore).
 
-- **Frontend** `angular-app` (SPA/PWA, Angular 22 + Material 22), servido por
-  nginx. Consume `/api/v1/*` y `/auth/*`.
-- **Backend** `backend` (FastAPI, Python 3.12): autenticación JWT, sincronización
-  con Futmondo/Sofascore, cálculo de premios/finanzas, asistente LLM y servir
-  fotos. Persiste en **Neon PostgreSQL** (Frankfurt).
-- Dos piezas de despliegue auxiliares: `proxy` (nginx reverse proxy sólo para
-  `docker-compose` local) y `cron` (app Fly.io one-shot que ejecuta
-  `scripts/sync_data.py` y sale, compartiendo el Dockerfile del backend).
+- **Frontend**: Angular 22 + Material 22 (standalone components, signals, PWA).
+  Servido por nginx (`angular-app/nginx.prod.conf`, `Dockerfile`), app Fly.io
+  `futmondo-app`.
+- **Backend**: FastAPI (Python 3.12), app Fly.io `futmondo-api`, puerto `8000`,
+  healthcheck `/health`.
+- **Base de datos**: Neon PostgreSQL (serverless, Frankfurt / tier free). El
+  único engine soportado en producción es PostgreSQL vía `DATABASE_URL`
+  (`config.py`); existe una ruta SQLite para tests/local (`db_connection.py`,
+  `db.db_type`).
+- **Integraciones externas**: API Futmondo (`FutmondoClient`, `requests`) y API
+  Sofascore (`SofascoreClient`, documentado con `curl_cffi` en el stack).
 
-No hay monorepo tooling (ni workspaces npm ni Nx): son dos builds separados
-unidos por el contrato HTTP `/api/v1/*` + `/auth/*`.
-
-## Architectural Style
-
-**Monolito modular desplegado como dos servicios** (frontend estático + API
-monolítica), con **descomposición DDD parcial** dentro del backend. Evidencia:
-`backend/app/services/` contiene tanto god-files heredados como paquetes
-`data_manager/<resp>/{domain,application,infrastructure}`, `sync/*`,
-`analytics/`, `assistant/` ya extraídos en intents previos. No es microservicios
-(un único proceso FastAPI monta todos los routers en `main.py`); no es
-serverless (uvicorn long-running en Fly.io). Patrón heredado a vigilar:
-**SQL-en-router** (17 ficheros de `api/v1/endpoints/` ejecutan SQL directo),
-acoplando persistencia y capa HTTP. Ver inventario en `component-inventory.md` y
-deuda en `code-quality-assessment.md`.
-
-## Component Relationships
+## Diagrama de producción (mermaid)
 
 ```mermaid
-graph TD
-  Browser["iPhone / Browser (PWA)"] -->|HTTPS| Nginx["nginx (futmondo-app)"]
-  Nginx -->|"/"| SPA["Angular SPA (angular-app)"]
-  Nginx -->|"/api/v1/*, /auth/*"| API["FastAPI (backend)"]
-  SPA -->|HttpClient + Bearer| API
-  API --> Auth["auth/ (JWT, token_store, session_store)"]
-  API --> DM["data_manager / data_sync_service"]
-  API --> Analytics["analytics/ + assistant/"]
-  API --> Clients["futmondo_client / sofascore_client"]
-  API --> DB[("Neon PostgreSQL")]
-  Clients -->|HTTP| Futmondo["API Futmondo"]
-  Clients -->|"curl_cffi"| Sofascore["API Sofascore"]
-  Analytics -->|google-genai / groq| LLM["Gemini + fallback Groq"]
-  Cron["cron (Fly one-shot)"] -->|scripts/sync_data.py| API
+flowchart TD
+    iphone["iPhone / Browser (PWA)"] -->|HTTPS| app["futmondo-app.fly.dev (nginx)"]
+    app -->|"/ (SPA)"| spa["Angular SPA"]
+    app -->|"/api/* y /auth/*"| api["futmondo-api.fly.dev (FastAPI)"]
+    api --> db[("Neon PostgreSQL (Frankfurt)")]
+    api -->|login + datos| fut["API Futmondo"]
+    api -->|ratings| sofa["API Sofascore"]
+    ios["Cliente nativo iOS (F1, Swift/SwiftUI)"] -.->|reutiliza backend| api
 ```
 
-Texto de respaldo (fallback): el navegador llega por HTTPS a nginx
-`futmondo-app`, que sirve la SPA Angular en `/` y hace proxy de `/api/v1/*` y
-`/auth/*` al backend FastAPI. La SPA llama al backend vía `HttpClient` con token
-Bearer. El backend se apoya en `auth/` (JWT), `data_manager`/`data_sync_service`,
-`analytics/`+`assistant/`, y los clientes `futmondo_client`/`sofascore_client`,
-persistiendo en Neon PostgreSQL. Los clientes consumen las APIs externas
-Futmondo y Sofascore (ésta vía `curl_cffi`); el asistente llama a Gemini con
-fallback a Groq. La app `cron` one-shot ejecuta la sincronización programada.
+Fallback de texto del diagrama: el iPhone o navegador habla por HTTPS con
+`futmondo-app.fly.dev` (nginx), que sirve la SPA Angular en `/` y hace de proxy
+de `/api/*` y `/auth/*` hacia `futmondo-api.fly.dev` (FastAPI). FastAPI persiste
+en Neon PostgreSQL (Frankfurt) y se integra con la API de Futmondo (login +
+datos) y la de Sofascore (ratings). El cliente nativo iOS de F1 (línea
+discontinua) reutiliza el mismo backend FastAPI.
 
-## Data Flow
+## Modelo de autenticación (clave para F1)
 
-1. **Login**: SPA → `/auth/login` → backend valida contra API Futmondo → emite
-   JWT access (1h, en memoria) + refresh (30d, cookie HttpOnly).
-2. **Lectura analítica**: SPA (Bearer) → `/api/v1/*` → servicios → consulta Neon
-   (a veces SQL-en-router) → respuesta JSON.
-3. **Sync asíncrono**: SPA → `/api/v1/sync/trigger` (devuelve `task_id`) →
-   `task_service` orquesta pasos (`data_sync_service` + clientes externos) →
-   escribe en Neon; SPA hace polling `/api/v1/sync/task/{id}`.
-4. **Asistente**: SPA → `/api/v1/assistant/*` → `assistant/` compone contexto →
-   `llm_adapter` (Gemini/Groq) → markdown de vuelta.
+- **Access token (JWT, HS256, 1h)**: emitido por `create_access_token`
+  (`jwt_utils.py`), vive **en memoria** del cliente (en el frontend Angular,
+  `AuthService.accessToken`, nunca en `localStorage`). Se envía como
+  `Authorization: Bearer <token>` en cada `/api/v1/*`.
+- **Refresh token (JWT, HS256, 30 días)**: emitido por `create_refresh_token`;
+  su hash se persiste en `refresh_tokens` para permitir revocación. Hoy se
+  entrega **solo** como cookie `HttpOnly` (`_set_refresh_cookie`, nombre
+  `futmondo_refresh_token`, `path="/auth"`, `secure` según `COOKIE_SECURE`,
+  `samesite=lax`). **No** existe hoy ningún transporte del refresh token por body
+  o header — ese es el ajuste aditivo D-01 que F1 necesita para iOS.
+- **Validación de `/api/v1/*`**: una `AuthMiddleware` (Starlette
+  `BaseHTTPMiddleware` en `main.py`) exige `Authorization: Bearer` y valida el
+  access token con `verify_token(..., expected_type="access")`; rutas en
+  `AUTH_EXCLUDED_PATHS` (`/auth/login`, `/auth/refresh`, `/auth/logout`,
+  `/health`, `/`, `/docs`, `/openapi.json`, `/redoc`) quedan exentas. Existe
+  además la dependencia `get_current_user` (`dependencies.py`) con la misma
+  lógica para endpoints que la usan explícitamente.
+- **Sesión Futmondo por usuario**: tras el login, `SessionStore`
+  (`session_store.py`) cachea en memoria un `FutmondoClient` autenticado (TTL 12h)
+  usado por los endpoints de datos. La contraseña **nunca** se retiene en memoria;
+  la rehidratación tras reinicio usa un handle de credencial cifrado
+  (`FUTMONDO_CRED_KEY`, `session_service.py`, `credential_protection.py`),
+  guardado de forma durable (`SessionRepository`).
 
-## Interaction Diagrams
+## Flujo de petición
 
-Transacción de negocio «**Sincronización de datos del campeonato**» (async con
-polling), que atraviesa SPA, API, servicio de tareas, servicios de sync,
-clientes externos y base de datos:
+1. El navegador/PWA llama a `/auth/login` → recibe `access_token` (JSON) y la
+   cookie `HttpOnly` del refresh.
+2. El `authInterceptor` del frontend añade `Authorization: Bearer` a las
+   llamadas `/api/v1/*` y `withCredentials` a las `/auth/*`.
+3. Ante un `401`, el interceptor llama a `/auth/refresh` (cookie) para obtener un
+   nuevo access token y reintenta; ante `403` fuerza logout.
+4. `AuthMiddleware` valida el Bearer antes de llegar al router del endpoint.
 
-```mermaid
-sequenceDiagram
-  participant U as SPA (sync.service)
-  participant A as FastAPI (sync endpoint)
-  participant T as task_service
-  participant S as data_sync_service
-  participant X as futmondo_client / sofascore_client
-  participant DB as Neon PostgreSQL
-  U->>A: POST /api/v1/sync/trigger (Bearer)
-  A->>T: crear tarea async
-  T-->>A: task_id
-  A-->>U: 200 { task_id }
-  T->>S: ejecutar pasos de sync
-  S->>X: fetch jugadores / transacciones / sofascore
-  X-->>S: datos externos
-  S->>DB: reemplazo transaccional por paso
-  loop polling hasta DONE/ERROR
-    U->>A: GET /api/v1/sync/task/{id}
-    A->>DB: leer estado del paso (sync_step_status)
-    A-->>U: 200 { progreso por paso }
-  end
-```
+## Despliegue y CORS
 
-Transacción «**Login + refresh de sesión**» (modelo de sesión cookie-based,
-riesgo de portabilidad nativa #1):
+- Dos apps Fly.io: `futmondo-api` (backend) y `futmondo-app` (frontend nginx).
+- `CORSMiddleware` con whitelist explícita (`https://futmondo-app.fly.dev`,
+  `http://futmondo.localhost`, `http://localhost:4200`, `http://localhost:3000`)
+  y `allow_credentials=True` (necesario para la cookie de refresh). Hay override
+  por `EXTRA_CORS_ORIGIN`. **Nota F1**: un origen nativo iOS no está en la
+  whitelist; si el cliente nativo usa cookies necesitaría ajuste CORS, pero D-01
+  (transporte del refresh fuera de cookie) evita la dependencia de CORS+cookies.
+- Arranque idempotente: `init_auth_tables`, `ensure_durable_session_schema`,
+  `ensure_durable_task_schema` + barrido de tareas interrumpidas; los fallos
+  transitorios degradan a warning y no tumban el proceso (FR3.2.2/BR1.6).
 
-```mermaid
-sequenceDiagram
-  participant U as SPA (auth.service + authInterceptor)
-  participant A as FastAPI (/auth)
-  participant F as API Futmondo
-  U->>A: POST /auth/login (email/password)
-  A->>F: validar credenciales
-  F-->>A: OK + sesión Futmondo
-  A-->>U: access JWT (body, 1h) + refresh (Set-Cookie HttpOnly, 30d)
-  Note over U,A: access vive en memoria; refresh en cookie
-  U->>A: GET /api/v1/* (Authorization: Bearer)
-  A-->>U: 401 cuando el access caduca
-  U->>A: POST /auth/refresh (cookie, withCredentials)
-  A-->>U: nuevo access JWT (reintenta la cola de peticiones)
-```
+## Sources
 
-Texto de respaldo (fallback) del flujo de sync: la SPA dispara el trigger, el
-backend crea una tarea y devuelve `task_id`; la tarea ejecuta los pasos de sync
-que llaman a los clientes externos y escriben en Neon por reemplazo
-transaccional por paso; la SPA hace polling del estado hasta DONE/ERROR. Del
-flujo de login: la SPA envía credenciales, el backend valida contra Futmondo y
-responde con access JWT en el cuerpo (memoria) y refresh en cookie HttpOnly; en
-401 la SPA llama a `/auth/refresh` con la cookie y reintenta.
+- `backend/app/main.py`
+- `backend/app/auth/routes.py`
+- `backend/app/auth/jwt_utils.py`
+- `backend/app/auth/dependencies.py`
+- `backend/app/auth/session_store.py`
+- `backend/app/services/integration_errors.py`
+- `backend/app/core/config.py`
+- `angular-app/src/app/core/services/auth.service.ts`
+- `angular-app/src/app/core/interceptors/auth.interceptor.ts`
+- `README.md`, `angular-app/nginx.prod.conf` (referenciado), `fly.toml`
 
-## Key Design Decisions
+## Assumptions & Open Questions
 
-- **Backend como capa de dominio reutilizable**: toda la lógica (premios,
-  finanzas, sync, auth, asistente) vive en FastAPI; el frontend es presentación.
-  Implicación para el intent: migrar a nativo es **reemplazo de la capa de
-  presentación**, no un rewrite del backend (consumiría el mismo contrato,
-  59 operaciones).
-- **Sesión híbrida access-en-memoria + refresh-en-cookie-HttpOnly**: segura en
-  web, pero cookie-based → riesgo de portabilidad nativa (ver riesgos en
-  `code-quality-assessment.md`).
-- **Descomposición DDD incremental**: god-files se van extrayendo a paquetes
-  `domain/application/infrastructure` manteniendo facades byte-for-byte.
-- **Despliegue acoplado por `needs:`**: `verify → deploy-backend →
-  deploy-frontend → smoke-test(/health)` en `fly-deploy.yml`.
-
-## Improvement Opportunities
-
-- Retirar el patrón **SQL-en-router** (17 ficheros) hacia la capa de servicios
-  DDD ya existente.
-- Eliminar el **dead-ish code** multi-engine (`adapt_params()` `? → %s`,
-  ramas `db_type != postgres`, `DATABASE_PATH`), herencia del soporte
-  SQLite/Turso retirado.
-- Completar la descomposición de los god-files restantes (ver tamaños medidos en
-  `code-quality-assessment.md`).
+- La región exacta (`cdg` en los `fly.toml` vs "París/Frankfurt" en prosa del
+  `README.md`) no se verificó abriendo cada `fly.toml`; se reporta como aparece
+  en `README.md`. La topología (dos apps + Neon) sí está respaldada por los
+  workflows y el `README.md`.

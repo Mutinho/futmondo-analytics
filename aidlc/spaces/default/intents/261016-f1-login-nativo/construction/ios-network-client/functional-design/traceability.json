@@ -1,0 +1,15 @@
+{
+  "stage": "functional-design",
+  "unit": "ios-network-client",
+  "upstream_ids": ["FR-7", "NFR-2", "NFR-3"],
+  "coverage": [
+    { "id": "FR-7", "status": "OK", "target": "functional-spec.md — NetworkClient.send, Bearer, errores tipados, humo a /api/v1/user/me" },
+    { "id": "NFR-2", "status": "OK", "target": "rules.md NR6 — solo SDK de Apple (URLSession/Codable), cero terceros" },
+    { "id": "NFR-3", "status": "OK", "target": "functional-spec.md — diseño unit-testable (URLSession inyectable); arnés XCTest como deuda (P-1), verificación manual en F1" }
+  ],
+  "reverse": [
+    { "id": "entities.md", "status": "OK", "target": "FR-7 (APIRequest, NetworkError, NetworkClient, UserMe)" },
+    { "id": "rules.md", "status": "OK", "target": "FR-7, NFR-2 (NR1-NR6)" },
+    { "id": "functional-spec.md", "status": "OK", "target": "FR-7, NFR-2, NFR-3" }
+  ]
+}

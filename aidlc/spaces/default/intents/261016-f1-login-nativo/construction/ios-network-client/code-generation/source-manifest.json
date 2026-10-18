@@ -1,0 +1,16 @@
+{
+  "stage": "code-generation",
+  "unit": "ios-network-client",
+  "version": 1,
+  "writes": [
+    { "path": "ios/Package.swift" },
+    { "path": "ios/xtool.yml" },
+    { "path": "ios/Sources/FutmondoKit/Networking/HTTPMethod.swift" },
+    { "path": "ios/Sources/FutmondoKit/Networking/APIRequest.swift" },
+    { "path": "ios/Sources/FutmondoKit/Networking/NetworkError.swift" },
+    { "path": "ios/Sources/FutmondoKit/Networking/NetworkClient.swift" },
+    { "path": "ios/Sources/FutmondoKit/Networking/URLSessionNetworkClient.swift" },
+    { "path": "ios/Sources/FutmondoKit/Networking/UserMe.swift" },
+    { "path": "ios/Tests/FutmondoKitTests/NetworkClientTests.swift" }
+  ]
+}

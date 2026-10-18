@@ -1,53 +1,93 @@
-# Dependencies — futmondo-analytics
+# Dependencies — Futmondo Analytics
 
-## Dependencias externas (servicios de terceros)
+## Backend (`backend/requirements.txt`, versiones exactas pineadas)
 
-- **API Futmondo** — fuente de verdad de credenciales y datos de campeonato;
-  consumida por `futmondo_client.py` (vía `requests`). Acopla la autenticación
-  del sistema a la disponibilidad de Futmondo.
-- **API Sofascore** — ratings/odds; consumida por `sofascore_client.py` vía
-  **`curl_cffi`** (impersonación de navegador para sortear bloqueos).
-- **LLM Gemini** (`google-genai`) con **fallback a Groq** (`groq`) — asistente IA
-  (`assistant/infrastructure/llm_adapter.py`).
-- **Neon PostgreSQL** — persistencia (driver `psycopg2-binary`).
-- **Fly.io** — hosting (dos apps + cron one-shot). **GitHub Actions** — CI/CD.
-  Todo dentro de tiers gratuitos (restricción coste 0 €).
+| Dependencia | Versión | Uso | Relevancia F1 |
+|---|---|---|---|
+| requests | 2.34.2 | Cliente HTTP de `FutmondoClient` (login + datos) | Backend que iOS reutiliza |
+| python-dotenv | 1.2.3 | Carga de env en `config.py` | — |
+| fastapi | 0.141.1 | Framework del backend reutilizado por F1 | Alto |
+| uvicorn[standard] | 0.54.0 | ASGI server | — |
+| pydantic | 2.13.5 | Modelos (`LoginRequest`, etc.) | Contrato de login |
+| python-multipart | 0.0.32 | Form/multipart en FastAPI | — |
+| psycopg2-binary | 2.9.13 | Driver PostgreSQL/Neon | — |
+| curl_cffi | 0.16.3 | Cliente HTTP de Sofascore | — |
+| PyJWT | 2.15.0 | Emisión/validación JWT access+refresh (HS256) | **Alto: núcleo del contrato auth que F1 reutiliza** |
+| google-genai | 1.14.0 | Asistente AI (Gemini) | — |
+| groq | 0.25.0 | Asistente AI (fallback) | — |
+| pytest | 9.1.1 | Suite de tests (gate CI) | — |
+| pytest-cov | 7.1.0 | Cobertura backend | — |
+| httpx | 0.28.1 | Requerido por `starlette.testclient.TestClient` | — |
 
-## Dependencias de librería
+Herramientas del gate pineadas en los workflows (no en `requirements.txt`):
+`ruff==0.16.9`, `pip-audit==2.10.1`.
 
-Versiones completas en `technology-stack.md`. Resumen de las de mayor impacto:
+Allowlist de pip-audit (`backend/.pip-audit-allowlist`): **vacía** — no hay
+findings sin fix registrados. Formato: `CVE_ID dep version motivo alta caducidad`;
+una entrada caducada vuelve a bloquear (`scripts/check-allowlist-expiry.sh`).
 
-- **Frontend**: ecosistema Angular 22 (`@angular/*` `^22.2.1`), `@angular/material`
-  + `@angular/cdk` (DOM), `chart.js`/`ng2-charts` (`<canvas>`), `marked`, `rxjs`.
-- **Backend**: `fastapi`/`uvicorn`/`pydantic`, `requests`, `curl_cffi`, `PyJWT`,
-  `psycopg2-binary`, `google-genai`/`groq`.
+## Frontend (`angular-app/package.json`, rangos `^`/`~` con lock)
 
-## Dependencias cruzadas internas (entre paquetes)
+### dependencies
 
-- **`angular-app` → `backend`**: acople único por contrato HTTP `/api/v1/*` +
-  `/auth/*` (12 servicios Angular ↔ 59 operaciones FastAPI). No hay código
-  compartido entre builds (no monorepo tooling).
-- **`cron` → `backend`**: comparte Dockerfile y ejecuta `backend/scripts/*`;
-  depende del código de servicios del backend.
-- **`proxy` → `angular-app` + `backend`**: enruta tráfico local (sólo
-  `docker-compose`).
+| Dependencia | Rango | Uso |
+|---|---|---|
+| @angular/{animations,cdk,common,compiler,core,forms,material,platform-browser,router,service-worker} | ^22.2.1 | Framework + UI + PWA |
+| chart.js | ^4.5.1 | Gráficos |
+| ng2-charts | ^10.0.0 | Wrapper Angular de Chart.js |
+| marked | ^18.0.11 | Render markdown (asistente) |
+| rxjs | ~7.8.0 | Reactividad |
+| tslib | ^2.3.0 | Runtime TS |
 
-## Dependencias internas dentro del backend
+### devDependencies
 
-- **`api/v1/endpoints/` → `services/` y `db_connection`**: la capa HTTP delega en
-  servicios; 17 endpoints además ejecutan SQL directo (SQL-en-router), acoplando
-  persistencia y HTTP (deuda; ver `code-quality-assessment.md`).
-- **`services/` → `db_connection` → Neon**: `data_manager`, `data_sync_service`,
-  `analytics`, `assistant`, `photo_service` persisten vía `db_connection`
-  (incluye el `adapt_params()` `? → %s` heredado).
-- **`services/` → `external-clients`**: `data_sync_service`/`task_service`
-  orquestan `futmondo_client`/`sofascore_client`; `assistant` usa `llm_adapter`.
-- **`auth/` → API Futmondo + Neon**: valida credenciales y persiste sesión/token.
+| Dependencia | Rango/versión | Uso |
+|---|---|---|
+| @angular/build | ^22.2.0 | Builder (build + unit-test) |
+| @angular/cli | ^22.2.0 | CLI |
+| @angular/compiler-cli | ^22.2.1 | AOT |
+| @vitest/coverage-v8 | 4.1.11 (exacto) | Cobertura frontend (pin exacto, gate bloqueante) |
+| vitest | 4.1.11 | Test runner |
+| jsdom | ^25.0.1 | DOM para tests |
+| prettier | ^3.8.1 | Formato |
+| typescript | ~6.0.2 | Compilador |
 
-## Relevancia para el intent (viabilidad nativa)
+> Nota: ESLint se cita como presente (flat config `eslint.config.js`) pero sus
+> devDependencies no están instaladas y el paso es advisory/diferido (deuda); no
+> aparece en `package.json`.
 
-Una app nativa (NativeScript + Angular) reutilizaría las **dependencias de
-servicio/datos** (mismo contrato HTTP al backend) pero **no** las dependencias de
-presentación DOM (`@angular/material`, `@angular/cdk`, `chart.js`/`ng2-charts`,
-service worker/PWA), que requieren equivalentes nativos. Detalle en
-`code-quality-assessment.md`.
+## Dependencias de infraestructura/servicios
+
+- **Neon PostgreSQL** (tier free) vía `DATABASE_URL`.
+- **Fly.io** (apps `futmondo-api`, `futmondo-app`; `flyctl` en CD).
+- **GitHub Actions** (tier free) + **gitleaks-action @v3**.
+- APIs externas: **Futmondo** (`BASE_URL` default `https://api.futmondo.com`) y
+  **Sofascore**.
+
+Todas sostenibles en tiers gratuitos (mandato coste 0 €). La única excepción
+acotada afirmada en `team.md` es el coste de publicación de distribución nativa
+(Apple Developer Program) para habilitar F1.
+
+## Dependencias internas (cross-módulo, auth)
+
+- `auth/routes.py` → `jwt_utils`, `token_store`, `session_store`,
+  `session_service`, `SessionRepository`, `FutmondoClient`.
+- `main.py` (AuthMiddleware) → `jwt_utils.verify_token`, `token_store.init_auth_tables`.
+- `jwt_utils` → `config.JWT_SECRET`.
+- `futmondo_client` → `integration_errors`, `config.BASE_URL`.
+- Frontend: `app.config.ts` → `authInterceptor` → `AuthService`;
+  `authGuard` → `AuthService`.
+
+## Sources
+
+- `backend/requirements.txt`, `backend/.pip-audit-allowlist`, `backend/ruff.toml`
+- `angular-app/package.json`, `angular-app/eslint.config.js`
+- `.github/workflows/ci.yml`, `.github/workflows/fly-deploy.yml`
+- `backend/app/auth/routes.py`, `backend/app/services/futmondo_client.py`
+- `backend/app/core/config.py`
+
+## Assumptions & Open Questions
+
+- No se auditó `package-lock.json` para resolver las versiones exactas instaladas
+  de cada rango `^`/`~` del frontend; se reportan los rangos declarados. El gate
+  usa `npm ci` (lock) y `npm audit --audit-level=high`.

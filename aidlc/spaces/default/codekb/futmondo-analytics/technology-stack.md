@@ -1,61 +1,84 @@
-# Technology Stack — futmondo-analytics
+# Technology Stack — Futmondo Analytics
 
-> Versiones tomadas del scan de este run. Frontend con rangos `^`/`~` de
-> `package.json`; backend con pins exactos de `requirements.txt`.
+Versiones tomadas de `backend/requirements.txt`, `angular-app/package.json`,
+`backend/ruff.toml`, `backend/pytest.ini`, `.github/workflows/*.yml` y `.nvmrc`.
 
-## Lenguajes
+## Backend
 
-- **TypeScript** `~6.0.2` (frontend) — Angular 22.
-- **Python** `3.12` (backend) — FastAPI. Node fijado en `.nvmrc` = `22.22.3`.
+| Área | Tecnología | Versión | Fuente |
+|---|---|---|---|
+| Lenguaje/runtime | Python | 3.12 | `pytest.ini`/CI `setup-python 3.12`, `ruff.toml` `target-version=py312` |
+| Framework web | FastAPI | 0.141.1 | `requirements.txt` |
+| ASGI server | uvicorn[standard] | 0.54.0 | `requirements.txt` |
+| Validación | pydantic | 2.13.5 | `requirements.txt` |
+| JWT | PyJWT | 2.15.0 | `requirements.txt` (HS256, `jwt_utils.py`) |
+| HTTP client (Futmondo) | requests | 2.34.2 | `requirements.txt`, `futmondo_client.py` |
+| HTTP client (Sofascore) | curl_cffi | 0.16.3 | `requirements.txt` |
+| Driver DB | psycopg2-binary | 2.9.13 | `requirements.txt` |
+| Multipart | python-multipart | 0.0.32 | `requirements.txt` |
+| Env | python-dotenv | 1.2.3 | `requirements.txt`, `config.py` |
+| AI (asistente) | google-genai / groq | 1.14.0 / 0.25.0 | `requirements.txt` |
+| Tests | pytest / pytest-cov / httpx | 9.1.1 / 7.1.0 / 0.28.1 | `requirements.txt`, `pytest.ini` |
+| Lint/format | ruff | 0.16.9 (pin en CI) | `ci.yml`/`fly-deploy.yml` (`pip install ruff==0.16.9`), `ruff.toml` |
+| Dep audit | pip-audit | 2.10.1 (pin en CI) | `ci.yml`/`fly-deploy.yml` |
 
-## Frontend (`angular-app`, `version: 2.2.0`)
+## Base de datos
 
-| Librería | Versión | Propósito |
-|----------|---------|-----------|
-| `@angular/{core,common,router,forms,animations,compiler,platform-browser,service-worker}` | `^22.2.1` | Framework Angular + PWA |
-| `@angular/cdk`, `@angular/material` | `^22.2.1` | UI Material (DOM-dependiente) |
-| `chart.js` | `^4.5.1` | Gráficos (`<canvas>`) |
-| `ng2-charts` | `^10.0.0` | Wrapper Angular de Chart.js (lazy/`@defer`) |
-| `marked` | `^18.0.11` | Markdown del asistente (diferido) |
-| `rxjs` | `~7.8.0` | Reactividad |
-| `tslib` | `^2.3.0` | Helpers de TS |
+| Área | Tecnología | Detalle | Fuente |
+|---|---|---|---|
+| Producción | Neon PostgreSQL (serverless) | Frankfurt, tier free; único engine soportado vía `DATABASE_URL` | `README.md`, `config.py`, `db_connection.py` |
+| Local/tests | SQLite | ruta `db.db_type` para tests/local; fixtures fake in-memory | `db_connection.py`, `conftest.py` |
 
-**devDependencies frontend**: `@angular/build` + `@angular/cli` `^22.2.0`,
-`typescript` `~6.0.2`, `vitest` **`4.1.11`** (pin exacto) + `@vitest/coverage-v8`
-**`4.1.11`**, `jsdom` `^25.0.1`, `prettier` `^3.8.1`. `packageManager:
-npm@11.12.1`. **ESLint** flat config presente (`eslint.config.js`) pero sus
-devDependencies NO instaladas (lint frontend advisory/diferido).
+## Frontend
 
-## Backend (`backend`, `version: 2.0.0`) — pins exactos
+| Área | Tecnología | Versión | Fuente |
+|---|---|---|---|
+| Framework | Angular | ^22.2.1 (core/common/forms/router/...) | `package.json` |
+| UI | Angular Material + CDK | ^22.2.1 | `package.json` |
+| Build system | @angular/build + @angular/cli | ^22.2.0 | `package.json`, `angular.json` |
+| Reactividad | RxJS | ~7.8.0 (+ Angular signals) | `package.json`, `auth.service.ts` |
+| Charts | chart.js / ng2-charts | ^4.5.1 / ^10.0.0 | `package.json` |
+| Markdown | marked | ^18.0.11 | `package.json` |
+| Test runner | Vitest (builder `@angular/build:unit-test`, `runner: vitest`) | 4.1.11 | `package.json`, `angular.json` |
+| Coverage | @vitest/coverage-v8 | 4.1.11 (pin exacto) | `package.json` |
+| DOM test | jsdom | ^25.0.1 | `package.json` |
+| Formato | prettier | ^3.8.1 | `package.json`, `.prettierrc` |
+| Lint | ESLint (flat config, advisory/diferido) | — | `eslint.config.js`, `ci.yml` (advisory) |
+| TypeScript | typescript | ~6.0.2 | `package.json` |
+| Node (local) | Node | 22.22.3 (`.nvmrc`); CI usa `node-version: '22'` | `.nvmrc`, CI |
+| Lenguaje de UI | PWA (service worker + manifest) | `@angular/service-worker` ^22.2.1 | `package.json`, `ngsw-config.json` |
 
-| Librería | Versión | Propósito |
-|----------|---------|-----------|
-| `fastapi` | `0.141.1` | Framework web |
-| `uvicorn[standard]` | `0.54.0` | ASGI server |
-| `pydantic` | `2.13.5` | Validación/modelos |
-| `requests` | `2.34.2` | HTTP cliente (Futmondo) |
-| `python-dotenv` | `1.2.3` | Config `.env` |
-| `python-multipart` | `0.0.32` | Form/multipart |
-| `psycopg2-binary` | `2.9.13` | Driver PostgreSQL (Neon) |
-| `curl_cffi` | `0.16.3` | Cliente HTTP para Sofascore |
-| `PyJWT` | `2.15.0` | JWT |
-| `google-genai` | `1.14.0` | LLM Gemini |
-| `groq` | `0.25.0` | LLM fallback |
+## Infraestructura y CI/CD
 
-**Test backend**: `pytest` `9.1.1`, `pytest-cov` `7.1.0`, `httpx` `0.28.1`.
+| Área | Tecnología | Detalle | Fuente |
+|---|---|---|---|
+| Hosting | Fly.io | Apps `futmondo-api` + `futmondo-app` (nginx) | `README.md`, `fly-deploy.yml`, `fly.toml` |
+| Reverse proxy | nginx | SPA + proxy `/api/*` y `/auth/*` | `nginx.prod.conf`, `README.md` |
+| CI | GitHub Actions | `ci.yml` (PR→main), `fly-deploy.yml` (push→main) | `.github/workflows/` |
+| Secret scan | gitleaks (action `@v3`, unificado ambos gates) | bloqueante | `ci.yml`, `fly-deploy.yml` |
+| Orquestación local | docker-compose | `docker-compose.yml` | repo root |
 
-## Base de datos y despliegue
+## Relevancia para F1 (login nativo iOS)
 
-- **BD**: Neon PostgreSQL (serverless, Frankfurt / free tier).
-- **Empaquetado**: Docker (`docker-compose.yml` local; Dockerfiles por servicio).
-- **Deploy**: Fly.io (región `cdg`), apps `futmondo-api` y `futmondo-app`;
-  `backend/fly.toml`, `angular-app/fly.toml`, `cron/fly.toml`.
-- **CI/CD**: GitHub Actions (`ci.yml`, `fly-deploy.yml`, crons). Ver detalle en
-  `code-quality-assessment.md`.
+El cliente nativo F1 es **Swift/SwiftUI** (nueva superficie, aún no en el repo) y
+reutiliza este backend. No introduce coste ni dependencias de pago salvo la
+excepción acotada de publicación de distribución nativa (Apple Developer
+Program), documentada como excepción al mandato de coste 0 € en `team.md`. El
+almacén seguro nativo previsto para el refresh token es iOS Keychain
+(`@nativescript/secure-storage` se cita en reglas para una vía NativeScript; para
+Swift nativo el equivalente es Keychain directo). PyJWT/HS256 del backend se
+reutiliza sin cambios de criptografía.
 
-## Relevancia para el intent (viabilidad nativa)
+## Sources
 
-El stack de **presentación** web (Angular Material, Chart.js/`<canvas>`,
-PWA/service worker) es DOM-dependiente y no porta a NativeScript; servicios RxJS
-y modelos sí. Ver dependencias cruzadas en `dependencies.md` y riesgos en
-`code-quality-assessment.md`.
+- `backend/requirements.txt`, `backend/pytest.ini`, `backend/ruff.toml`
+- `angular-app/package.json`, `angular-app/angular.json`
+- `.github/workflows/ci.yml`, `.github/workflows/fly-deploy.yml`
+- `.nvmrc`, `README.md`, `backend/app/core/config.py`, `backend/app/services/db_connection.py`
+
+## Assumptions & Open Questions
+
+- La versión exacta de nginx no está pineada en los ficheros leídos (viene de la
+  imagen base del `Dockerfile`, no abierto línea a línea). El runner Swift/toolchain
+  iOS de F1 no está en el repo todavía (hay un spike en `spikes/ios-xtool/`), así
+  que su versión no se afirma aquí.

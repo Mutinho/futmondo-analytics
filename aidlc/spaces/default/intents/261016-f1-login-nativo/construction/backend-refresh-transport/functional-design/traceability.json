@@ -1,0 +1,16 @@
+{
+  "stage": "functional-design",
+  "unit": "backend-refresh-transport",
+  "upstream_ids": ["FR-4", "FR-9", "NFR-1", "NFR-3"],
+  "coverage": [
+    { "id": "FR-4", "status": "OK", "target": "functional-spec.md — login en body + refresh/logout por cookie|header|body (BR1, BR2)" },
+    { "id": "FR-9", "status": "OK", "target": "functional-spec.md — canal cookie preservado; tests de no-regresión (BR4)" },
+    { "id": "NFR-1", "status": "OK", "target": "rules.md BR5 — TLS, no-logging del refresh token; cripto sin cambios" },
+    { "id": "NFR-3", "status": "OK", "target": "functional-spec.md — 7 tests pytest que aseveran el efecto en ambos canales" }
+  ],
+  "reverse": [
+    { "id": "entities.md", "status": "OK", "target": "FR-4 (LoginResponse+refresh_token; Refresh/LogoutRequest opcionales)" },
+    { "id": "rules.md", "status": "OK", "target": "FR-4, FR-9, NFR-1 (BR1-BR6)" },
+    { "id": "functional-spec.md", "status": "OK", "target": "FR-4, FR-9, NFR-1, NFR-3" }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "stage": "nfr-design",
+  "unit": "backend-refresh-transport",
+  "upstream_ids": ["NFR-1", "NFR-2", "FR-9"],
+  "coverage": [
+    { "id": "NFR-1", "status": "OK", "target": "security-design.md (resolve_refresh_token; no-logging; cripto sin cambios)" },
+    { "id": "NFR-2", "status": "OK", "target": "logical-components.md (sin clases/servicios/deps nuevos; función pura + 2 modelos)" },
+    { "id": "FR-9", "status": "OK", "target": "reliability-design.md (body opcional, sin 422); security-design.md (rama cookie primera)" }
+  ],
+  "reverse": [
+    { "id": "security-design.md", "status": "OK", "target": "NFR-1, FR-9" },
+    { "id": "reliability-design.md", "status": "OK", "target": "FR-9" },
+    { "id": "logical-components.md", "status": "OK", "target": "NFR-2" },
+    { "id": "performance-design.md", "status": "OK", "target": "NFR (latencia)" },
+    { "id": "observability-design.md", "status": "OK", "target": "NFR-1 (logs sin credenciales)" }
+  ]
+}

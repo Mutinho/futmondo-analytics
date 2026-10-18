@@ -1,0 +1,21 @@
+{
+  "stage": "nfr-requirements",
+  "unit": "ios-native-auth",
+  "upstream_ids": ["FR-2", "FR-3", "FR-5", "FR-6", "NFR-1", "NFR-2", "NFR-3"],
+  "coverage": [
+    { "id": "FR-2", "status": "OK", "target": "security-requirements.md SEC-A2 (access en memoria)" },
+    { "id": "FR-3", "status": "OK", "target": "security-requirements.md SEC-A1 (refresh en Keychain, accessible-this-device-only)" },
+    { "id": "FR-5", "status": "OK", "target": "performance-requirements.md PERF-A1/A2, reliability REL-A1/A2 (bootstrap/refresh)" },
+    { "id": "FR-6", "status": "OK", "target": "security-requirements.md SEC-A4, reliability REL-A3 (logout)" },
+    { "id": "NFR-1", "status": "OK", "target": "security-requirements.md SEC-A1..A4 (nada en claro)" },
+    { "id": "NFR-2", "status": "OK", "target": "tech-stack-decisions.md TSD-A1 (solo SDK de Apple + FutmondoKit)" },
+    { "id": "NFR-3", "status": "OK", "target": "tech-stack-decisions.md TSD-A3 (swift test con dobles + validación manual iPhone)" }
+  ],
+  "reverse": [
+    { "id": "security-requirements.md", "status": "OK", "target": "FR-2, FR-3, FR-6, NFR-1, NFR-2" },
+    { "id": "reliability-requirements.md", "status": "OK", "target": "FR-5, FR-6" },
+    { "id": "performance-requirements.md", "status": "OK", "target": "FR-5" },
+    { "id": "tech-stack-decisions.md", "status": "OK", "target": "NFR-2, NFR-3" },
+    { "id": "observability-requirements.md", "status": "OK", "target": "NFR-1" }
+  ]
+}
