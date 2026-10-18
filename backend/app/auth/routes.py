@@ -7,7 +7,7 @@ import os
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Cookie, HTTPException, Request, Response, status
+from fastapi import APIRouter, Cookie, Header, HTTPException, Request, Response, status
 
 from app.auth.jwt_utils import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
@@ -16,7 +16,7 @@ from app.auth.jwt_utils import (
     hash_token,
     verify_token,
 )
-from app.auth.models import LoginRequest
+from app.auth.models import LoginRequest, LogoutBodyOptional, RefreshBodyOptional
 from app.auth.session_store import get_session_store
 from app.auth.token_store import (
     get_user_by_email,
@@ -63,6 +63,18 @@ def _clear_refresh_cookie(response: Response):
         samesite="lax",
         path="/auth",
     )
+
+
+def resolve_refresh_token(cookie, header, body_token):
+    """Resolve the refresh token across the three transport channels.
+
+    Precedence is by non-empty presence (BR1): cookie, then header, then body.
+    A native client sends no cookie, so it falls through to header/body; the PWA
+    sends only the cookie. Presence, not validity, decides the channel: a
+    present-but-revoked cookie still wins over a valid body token, which the
+    downstream validation then rejects.
+    """
+    return cookie or header or body_token
 
 
 @router.post("/login")
@@ -141,6 +153,7 @@ async def login(body: LoginRequest, response: Response):
     
     return {
         "access_token": access_token,
+        "refresh_token": refresh_token,
         "token_type": "bearer",
         "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         "user_id": user_id,
@@ -150,25 +163,38 @@ async def login(body: LoginRequest, response: Response):
 
 
 @router.post("/refresh")
-async def refresh(request: Request, futmondo_refresh_token: Optional[str] = Cookie(default=None)):
-    """Get a new access token using the refresh token cookie."""
-    
-    if not futmondo_refresh_token:
+async def refresh(
+    request: Request,
+    futmondo_refresh_token: Optional[str] = Cookie(default=None),
+    x_refresh_token: Optional[str] = Header(default=None, alias="X-Refresh-Token"),
+    body: Optional[RefreshBodyOptional] = None,
+):
+    """Get a new access token using the refresh token (cookie, header, or body)."""
+
+    # Resolve the refresh token across the three transport channels (BR1). The
+    # body is optional, so a cookie-only PWA request without a body never 422s.
+    token = resolve_refresh_token(
+        futmondo_refresh_token,
+        x_refresh_token,
+        body.refresh_token if body else None,
+    )
+
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="No refresh token",
         )
-    
+
     # Verify the refresh token signature
-    payload = verify_token(futmondo_refresh_token, expected_type="refresh")
+    payload = verify_token(token, expected_type="refresh")
     if not payload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Refresh token inválido o expirado",
         )
-    
+
     # Check if token is revoked
-    token_hash = hash_token(futmondo_refresh_token)
+    token_hash = hash_token(token)
     if not is_refresh_token_valid(token_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -223,16 +249,29 @@ async def refresh(request: Request, futmondo_refresh_token: Optional[str] = Cook
 
 
 @router.post("/logout")
-async def logout(response: Response, futmondo_refresh_token: Optional[str] = Cookie(default=None)):
-    """Revoke the refresh token and clear cookie."""
-    
-    if futmondo_refresh_token:
-        # Revoke refresh token
-        token_hash = hash_token(futmondo_refresh_token)
+async def logout(
+    response: Response,
+    futmondo_refresh_token: Optional[str] = Cookie(default=None),
+    x_refresh_token: Optional[str] = Header(default=None, alias="X-Refresh-Token"),
+    body: Optional[LogoutBodyOptional] = None,
+):
+    """Revoke the refresh token (cookie, header, or body) and clear cookie."""
+
+    # Resolve the refresh token across the three transport channels (BR1). The
+    # body is optional, so a cookie-only PWA logout without a body never 422s.
+    token = resolve_refresh_token(
+        futmondo_refresh_token,
+        x_refresh_token,
+        body.refresh_token if body else None,
+    )
+
+    if token:
+        # Revoke refresh token (by hash, BR3/BR6)
+        token_hash = hash_token(token)
         revoke_refresh_token(token_hash)
-        
+
         # Remove Futmondo session
-        payload = verify_token(futmondo_refresh_token, expected_type="refresh")
+        payload = verify_token(token, expected_type="refresh")
         if payload:
             user_id = payload["sub"]
             store = get_session_store()
