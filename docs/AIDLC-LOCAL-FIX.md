@@ -1,6 +1,35 @@
-# AI-DLC — Parche local en 2.9.0 (fix propio de summary-authorization)
+# AI-DLC — Parche local de summary-authorization (histórico 2.9.0)
 
-> **Estado**: parche local activo sobre AI-DLC **2.9.0**.
+> **Estado (2026-10-16)**: parche **RETIRADO**. El proyecto se actualizó a AI-DLC
+> **2.11.0** (`aidlc update` + `aidlc config --pin 2.11.0` + `aidlc config
+> --yes --force`), que redesplegó los `.kiro/tools/` oficiales y **sobrescribió
+> el parche**. Los 5 ficheros antes divergentes (`aidlc-lib.ts`,
+> `aidlc-state.ts` y 3 hooks) coinciden ahora, byte a byte, con el runtime
+> oficial 2.11.0, y `aidlc doctor` reporta 0 problemas. El árbol `.kiro/` ya **no
+> contiene ninguna divergencia local**.
+>
+> **¿Por qué no se reaplicó?** 2.11.0 sigue sin incluir el fix oficial de
+> `readSummaryAuthorization` (mantiene `engineReadDirFor` por directorio raíz),
+> pero el bug sólo mordía en records con **mezcla de árbol nuevo
+> (`<record>/.aidlc-engine/summary-authorization/`) y legacy
+> (`<record>/.aidlc-summary-authorization/`)**. Los intents creados bajo 2.11.0
+> escriben todo en el árbol nuevo desde el inicio, así que el escenario no se
+> dispara. Reaplicar el parche de 2.9.0 recrearía la divergencia de
+> mantenimiento (volvería a chocar en la próxima actualización) y además no
+> encaja: 2.11.0 reescribió la función (`registry`/`readDir` en vez de
+> `enginePath`/`legacyPath`). **Si el error `SUMMARY_ARTIFACT_UNAUTHORIZED`
+> reaparece en un intent real, parchear entonces sobre el código 2.11.0 con
+> conocimiento de causa, no preventivamente.**
+>
+> El snapshot previo a la actualización (incluido el `.kiro/` parcheado 2.9.0)
+> quedó en el commit de seguridad `4c0041e8`; se puede recuperar con git.
+>
+> ---
+>
+> _Lo que sigue es el registro histórico del parche sobre 2.9.0, conservado por
+> trazabilidad._
+
+> **Estado histórico**: parche local activo sobre AI-DLC **2.9.0**.
 > **Fecha**: 2026-09-18.
 > **Alcance**: este proyecto (`futmondo-analytics`). No modifica el binario ni la
 > instalación global; solo el árbol de herramientas versionado en `.kiro/`.

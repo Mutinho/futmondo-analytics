@@ -1,74 +1,63 @@
 # API Documentation — futmondo-analytics
 
-## External / Internal API Surfaces
+## Superficie REST interna (FastAPI)
 
-Las APIs HTTP se montan en `backend/app/main.py` bajo los prefijos `/api/v1/*` y
-`/auth/*`. Todas las `/api/v1/*` exigen **Bearer JWT** vía `AuthMiddleware`.
-Excluidas de auth: `/auth/login|refresh|logout`, `/health`, `/`, `/docs`,
-`/openapi.json`, `/redoc` y el mount público `/static/photos/*`.
+- **Total**: **59 operaciones** de ruta en `backend/app/api/v1/endpoints/`
+  (22 ficheros) + `backend/app/auth/routes.py`.
+  - 38 `@router.get`, 18 `@router.post`, 2 `@router.delete`, 1 `@router.put`.
+- **Prefijos montados en `main.py`** bajo `/api/v1`:
+  `matchdays`, `initialize`, `database`, `statistics`, `player-finances`,
+  `user-stats`, `clausulable-players`, `sync`, `analytics`, `market`, `roster`,
+  `favorites`, `transactions`, `sofascore`, `user`, `assistant`, más
+  `championships` y `phantoms` directamente bajo `/api/v1`, y
+  `/api/v1/photos/{player_id}`.
 
-### Auth endpoints (`/auth/*`)
-
-| Endpoint | Método | Descripción |
-|----------|--------|-------------|
-| `/auth/login` | POST | Login con credenciales Futmondo; valida contra API Futmondo y emite JWT. |
-| `/auth/refresh` | POST | Renueva access token desde refresh cookie HttpOnly. |
-| `/auth/logout` | POST | Revoca la sesión. |
-
-- **Access token** (1h): en memoria del navegador. **Refresh token** (30 días):
-  cookie HttpOnly.
-
-### API v1 endpoints (`/api/v1/*`, Bearer JWT)
-
-Relevantes al intent (Calculadora / finanzas):
+### Endpoints principales (muestreo representativo)
 
 | Endpoint | Método | Descripción |
 |----------|--------|-------------|
-| `/api/v1/player-finances/` | GET | **Cálculo de finanzas por usuario**: agrega `initial_budget + transaction_profit + ranking + mvp + dream_team + points + net_adjustment`; lee el dinero de premio desde `team_prizes` (única fuente de verdad). Consumido por la pantalla `finances`, **no** por la Calculadora. |
-| `/api/v1/roster/sell` | POST | Alta/baja al mercado; **consumido por la Calculadora** (`sellPlayers()`). |
-| `/api/v1/roster/*` | GET/POST | Plantilla y acciones de roster (`getMyRoster`, `getOnSale`). |
-| `/api/v1/market/today` | GET | Balance + pujas activas (`active_bids_total`, `active_bids_count`); **consumido por la Calculadora**. |
+| `/auth/login` | POST | Login con credenciales Futmondo |
+| `/auth/refresh` | POST | Renovar access token (cookie HttpOnly) |
+| `/auth/logout` | POST | Revocar sesión |
+| `/api/v1/user/me` | GET | Info del usuario logado |
+| `/api/v1/user/championships` | GET/POST/DELETE | CRUD campeonatos del usuario |
+| `/api/v1/championships` | GET | Lista campeonatos del usuario |
+| `/api/v1/analytics/balances` | GET | Presupuestos por equipo |
+| `/api/v1/market/today` | GET | Mercado + puja sugerida + Sofascore |
+| `/api/v1/market/bid` | POST | Pujar por jugador |
+| `/api/v1/sync/trigger` | POST | Lanzar sync async (devuelve `task_id`) |
+| `/api/v1/sync/task/{id}` | GET | Polling de progreso del sync |
+| `/api/v1/player-finances/` | GET | Finanzas por usuario |
+| `/api/v1/photos/{player_id}` | GET | Servir foto de jugador |
 
-Resto de routers (inventariados por nombre/tamaño): `matchdays`, `initialize`,
-`database` (reset), `statistics`, `user-stats`, `clausulable-players`, `sync`,
-`analytics`, `balances`, `championships`, `phantoms`, `market`, `favorites`,
-`transactions`, `sofascore` (sync + detail), `user`, `assistant`.
+## Autenticación y contrato de seguridad
 
-| Endpoint | Método | Descripción |
-|----------|--------|-------------|
-| `/api/v1/sync/trigger` | POST | Lanza sync async; devuelve `task_id`. |
-| `/api/v1/sync/task/{id}` | GET | Polling de progreso del sync (11 pasos). |
-| `/api/v1/photos/{player_id}` | GET | Autenticado; redirige 302 al mount público `/static/photos/*`. |
+- **Auth sin prefijo `/api/v1`**: `/auth/login`, `/auth/refresh`, `/auth/logout`.
+- **Modelo de token**: JWT **access** (1h, en memoria del navegador) + **refresh**
+  (30d, cookie **HttpOnly**).
+- **`AuthMiddleware`** (Starlette `BaseHTTPMiddleware`) exige `Bearer` en todo
+  `/api/v1/*` salvo `AUTH_EXCLUDED_PATHS`: `/health`, `/`, `/docs`,
+  `/openapi.json`, `/redoc` y las rutas `/auth/*`.
+- **Health público**: `/health` (HTTP 200), consumido por el smoke test del
+  deploy.
 
-### Internal contracts (dominio)
+## APIs externas consumidas
 
-- `prizes/calculator.py:calculate_round_prizes()` — **función pura, sin I/O**;
-  reglas BR1.1-BR3.2 (points siempre; ranking/MVP/dream-team sólo si la ronda está
-  cerrada; split proporcional flop/top; empates compartidos).
-- `prizes/team_prizes_writer.py:replace_team_prizes()` — **reemplazo transaccional
-  atómico** de `team_prizes`.
-- Puertos DDD con inversión de dependencias: `analytics/domain/ports.py`,
-  `assistant/domain/ports.py`.
+- **API Futmondo** — `backend/app/services/futmondo_client.py` — validación de
+  credenciales y datos de campeonato.
+- **API Sofascore** — `backend/app/services/sofascore_client.py` vía
+  **`curl_cffi`** — ratings/odds.
+- **LLM** — Gemini (`google-genai`) con fallback a **Groq**, en
+  `backend/app/services/assistant/infrastructure/llm_adapter.py`.
 
-### Outbound integrations
+## Cliente Angular → API
 
-| Integración | Cliente | Mecanismo |
-|-------------|---------|-----------|
-| API Futmondo | `futmondo_client.py` | HTTP, auth por usuario; credenciales cifradas. |
-| API Sofascore | `sofascore_client.py` | HTTP vía `curl_cffi`. |
-| Gemini / Groq | asistente IA | SDK `google-genai` / `groq`. |
-
-## Contracts & Failure Behaviour
-
-- Auth: `/api/v1/*` responde 401 sin Bearer válido (excluidos arriba). Las fotos
-  autenticadas redirigen 302 al mount público.
-- Sync: estado por paso `StepStatus` (OK / DEGRADED); un paso recuperable degrada y
-  continúa, uno fatal aborta sin dejar datos a medias (regla afirmada).
-- Dinero de premio: contrato de consistencia — `team_prizes` es única fuente de
-  verdad y se repuebla por reemplazo atómico; ver `architecture.md` (Interaction
-  Diagrams).
-
-## Sources
-
-- `developer-scan.md`: APIs Discovered, Handoff Summary.
-- `README.md`: tabla de endpoints principales, modelo de auth.
+- **12 servicios** en `core/services/*.service.ts` (`auth`, `analytics`,
+  `budget`, `stats`, `evolution`, `roster`, `favorites`, `sync`, `assistant`,
+  `championship`, …) sobre `HttpClient`.
+- **`authInterceptor`**: inyecta `Bearer`, maneja refresh en 401 (cola con
+  `BehaviorSubject`) y fuerza logout en 403.
+- La migración a app nativa consumiría **este mismo contrato** `/api/v1/*` +
+  `/auth/*` sin cambios de backend (ver `architecture.md`). Nota: el refresh
+  cookie-based + `withCredentials` es el riesgo de portabilidad nativa #1 (ver
+  `code-quality-assessment.md`).

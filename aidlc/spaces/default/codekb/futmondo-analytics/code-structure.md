@@ -1,78 +1,73 @@
 # Code Structure — futmondo-analytics
 
-## Package / Module Organization
+## Organización de alto nivel
 
 ```
 futmondo-analytics/
-├── angular-app/          # Frontend Angular 22 + Material (PWA)
+├── angular-app/          # Frontend Angular 22 + Material 22 (PWA)
 ├── backend/              # Backend FastAPI (Python 3.12)
-├── proxy/                # Nginx reverse proxy (local)
-├── cron/                 # Fly one-shot machines (daily-sync, sofascore-sync)
-├── docs/                 # Documentación (DEPLOY, ROLLBACK, PR-GATE, ...)
-├── docker-compose.yml    # Orquestación local
-└── .github/workflows/    # ci.yml, fly-deploy.yml, daily-sync.yml, sofascore-sync.yml
+├── proxy/                # nginx reverse proxy (sólo local)
+├── cron/                 # app Fly.io one-shot (futmondo-cron)
+├── docs/                 # documentación (DEPLOY, ROLLBACK, PR-GATE, planes…)
+├── .github/workflows/    # CI/CD (ci.yml, fly-deploy.yml, crons)
+├── docker-compose.yml
+└── .nvmrc                # Node 22.22.3
 ```
 
-### angular-app/
-- `src/app/app.routes.ts` — rutas lazy con `authGuard`.
-- `src/app/features/calculator/` — pantalla `/calculator` (`calculator.component.ts`
-  + `.html`): planificador de ventas/proyección de balance (foco del intent).
-- `src/app/features/**` — resto de pantallas: `budget`, `market`, `stats`,
-  `evolution`, `analytics` (sub-tabs), `finances`, etc.
-- `src/app/core/services/**` — servicios HTTP (incl. `rosterService`).
-- `src/app/core/interceptors/**`, `core/guards/**` — interceptor de auth, `authGuard`.
-- `src/app/shared/**` — componentes/utilidades compartidas.
-- Config: `package.json`, `angular.json`, `tsconfig*.json`, `eslint.config.js`,
-  `.prettierrc`, `ngsw-config.json`.
+## Paquete `angular-app` (frontend)
 
-### backend/
-- `app/main.py` — app FastAPI, montaje de routers `/api/v1/*` y `/auth/*`,
-  `AuthMiddleware`, mount público `/static/photos/*`.
-- `app/core/config.py` — configuración; fail-fast si falta/por defecto `JWT_SECRET`.
-- `app/api/v1/endpoints/` — routers por recurso (`player_finances.py`, `roster.py`,
-  `market`, `analytics`, `balances`, `sync`, `transactions`, `user`, `assistant`, ...).
-- `app/services/prizes/` — `calculator.py` (función pura), `team_prizes_writer.py`
-  (reemplazo transaccional atómico).
-- `app/services/data_manager/**` — 12 submódulos DDD extraídos del god-file,
-  estructura uniforme `{application,infrastructure,domain}`.
-- `app/services/sync/**` — 11 orquestadores de sync con la misma forma DDD.
-- `app/services/analytics/**`, `app/services/assistant/**` — fachadas + puertos +
-  adaptadores.
-- `app/services/data_sync_service.py`, `app/services/data_manager_v2.py` —
-  god-files en descomposición (ver `code-quality-assessment.md`).
-- `app/auth/**`, `app/stores/**`, `app/security/**` — auth, almacenes, cifrado.
-- `tests/` — ~55 archivos, mayoría `*_characterization.py`.
-- Config: `requirements.txt`, `pytest.ini`, `ruff.toml`, `conftest.py`, `Dockerfile`,
-  `run.py`.
+- **Builder**: Angular CLI `@angular/build:application`; config en
+  `angular.json`, `tsconfig*.json`; PWA en `ngsw-config.json` +
+  `public/site.webmanifest`. `version: 2.2.0`.
+- **Estructura `src/app/`**:
+  - **shell**: `app.ts` / `app.html` / `app.routes.ts` / `app.config.ts` —
+    layout con `<mat-sidenav>` + `<mat-nav-list>` (12 items), dark mode vía
+    manipulación de `document.body`/`documentElement`, `provideServiceWorker`.
+  - **`core/`**: `services/` (12 servicios `*.service.ts` sobre `HttpClient`),
+    `interceptors/` (`authInterceptor`: inyecta Bearer, refresh en 401, logout
+    en 403), `guards/` (`authGuard`), `preloading/`, `models/`.
+  - **`features/`**: login, splash, evolution (Chart.js), market, calculator,
+    analytics — vistas con plantillas `.html` + Material.
+  - **`shared/components/`**: componentes reutilizables incl.
+    `assistant-fab.component.ts`.
+- **Clasificación**: fuente portable a nativo casi 1:1 → `core/services/*` y
+  `core/models/*`; fuente NO portable → `features/*` y `shared/*` (DOM +
+  Material + plantillas HTML). Ver riesgos en `code-quality-assessment.md`.
 
-### proxy/ y cron/
-- `proxy/` + `angular-app/nginx*.conf` — reverse proxy local y prod.
-- `cron/` — máquinas Fly one-shot para sync programado.
+## Paquete `backend` (FastAPI)
 
-## File Classification
+- **Entrada**: `app/main.py` monta routers y el `AuthMiddleware`; `run.py`
+  arranca uvicorn. `version: 2.0.0`.
+- **`app/api/v1/endpoints/`**: 22 ficheros de endpoints (market, sync, analytics,
+  user, photos, etc.). **17** ejecutan SQL directo (patrón SQL-en-router).
+- **`app/services/`**: mezcla de god-files heredados y descomposiciones DDD:
+  - God-files: `data_manager_v2.py`, `data_sync_service.py`, `photo_service.py`,
+    `futmondo_client.py`, `sofascore_client.py` (ver tamaños medidos en
+    `code-quality-assessment.md`).
+  - DDD extraído: `data_manager/<resp>/{domain,application,infrastructure}`,
+    `sync/*`, `analytics/`, `assistant/` (con
+    `assistant/infrastructure/llm_adapter.py`). `assistant_service.py` es hoy un
+    shim de 60 líneas que delega al paquete `assistant/`.
+  - Infra: `db_connection.py` (incl. `adapt_params()` `? → %s`), `task_service.py`,
+    `session_service.py`.
+- **`app/auth/`**: `routes.py`, `token_store.py`, `session_store.py`,
+  `jwt_utils.py`, `dependencies.py`.
+- **`app/core/config.py`**: configuración (exige `JWT_SECRET` no-default).
+- **`scripts/`**: scripts one-shot (`sync_data.py`,
+  `fetch_user_finances_data.py`, …), usados por la app `cron`.
+- **Tests**: `backend/tests/` (62 ficheros `test_*.py`, muchos de
+  characterization). Ejecutados DESDE `backend/` (`pythonpath = .`), con fixtures
+  fake in-memory en `conftest.py`.
 
-- **Entrypoints**: `backend/app/main.py` (+ `run.py`), `angular-app/src/main.ts`.
-- **Routers / API surface**: `backend/app/api/v1/endpoints/**`, `app/auth/**`.
-- **Dominio puro / sin I/O**: `prizes/calculator.py` (reglas BR1.1-BR3.2).
-- **Persistencia / adaptadores**: `prizes/team_prizes_writer.py`,
-  `data_manager/**/infrastructure`, `stores/**`.
-- **Deuda registrada**: `data_manager_v2.py`, `data_sync_service.py`,
-  `assistant_service.py`, SQL inline en `player_finances.py` y `main.py`.
-- **Tests**: `backend/tests/**` (fakes in-memory), `angular-app/**/*.spec.ts`.
+## Patrones de código observados
 
-## Code Patterns
-
-- **DDD por responsabilidad** en backend: `application` (casos de uso) / `domain`
-  (puertos, reglas) / `infrastructure` (adaptadores). Inversión de dependencias vía
-  puertos (`analytics/domain/ports.py`, `assistant/domain/ports.py`).
-- **Función pura + escritor transaccional** para el dinero de premio (patrón de
-  referencia para lógica nueva testeable).
-- **Angular signals + `computed()` + `OnPush`**, componentes standalone, rutas lazy.
-- **Idioma**: identificadores/docstrings/comentarios en inglés; texto de usuario y
-  mensajes de commit en castellano (regla afirmada).
-
-## Sources
-
-- `developer-scan.md`: Scan Coverage, Packages Found, Technical Debt Signals.
-- `README.md`: árbol de carpetas y stack.
-- Inventario de componentes y responsabilidades en `component-inventory.md`.
+- **Facade byte-for-byte**: al descomponer un god-file se mantiene su nombre y
+  firmas, delegando al paquete DDD (migración sin romper llamadores).
+- **SQL-en-router** (heredado, prohibido ampliar por reglas afirmadas).
+- **Reescritura de placeholders** `? → %s` en runtime (`adapt_params()`),
+  herencia del soporte multi-engine SQLite/Turso retirado — dead-ish code
+  tolerado.
+- **Clasificación de errores RECOVERABLE/FATAL** documentada en `main.py`,
+  `db_connection.py`, `token_store.py`.
+- **Convenciones de nombres**: snake_case Python, camelCase TS. Comentarios
+  mezclados castellano + inglés.

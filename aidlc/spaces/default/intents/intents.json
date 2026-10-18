@@ -138,5 +138,12 @@
     "dirName": "261005-calculadora-mejora",
     "scope": "refactor",
     "status": "complete"
+  },
+  {
+    "uuid": "01a11026-e805-7065-bceb-667598fa5518",
+    "slug": "angular-native-feasibili",
+    "dirName": "261006-angular-native-feasibili",
+    "scope": "classic",
+    "status": "archived"
   }
 ]
