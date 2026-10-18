@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "stage_slug": "deployment-execution",
+  "phase": "operation",
+  "space": "default",
+  "intent": "261016-f1-login-nativo",
+  "selections": []
+}

@@ -19,4 +19,4 @@ Antes de cerrar build-and-test (y la fase de construcción de F1), confirma:
 
 ¿Está todo correcto?
 
-[Answer]: 
+[Answer]: Looks correct
