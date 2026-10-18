@@ -1,0 +1,17 @@
+{
+  "stage": "nfr-requirements",
+  "unit": "backend-refresh-transport",
+  "upstream_ids": ["NFR-1", "NFR-2", "FR-9"],
+  "coverage": [
+    { "id": "NFR-1", "status": "OK", "target": "security-requirements.md (SEC-1..SEC-5): TLS, no-logging, cripto sin cambios" },
+    { "id": "NFR-2", "status": "OK", "target": "tech-stack-decisions.md (TSD-1): cero dependencias nuevas, coste 0" },
+    { "id": "FR-9", "status": "OK", "target": "reliability-requirements.md (REL-1), security-requirements.md (SEC-5): no-regresión PWA" }
+  ],
+  "reverse": [
+    { "id": "security-requirements.md", "status": "OK", "target": "NFR-1, FR-9" },
+    { "id": "performance-requirements.md", "status": "OK", "target": "NFR (sin impacto de latencia)" },
+    { "id": "reliability-requirements.md", "status": "OK", "target": "FR-9" },
+    { "id": "tech-stack-decisions.md", "status": "OK", "target": "NFR-2" },
+    { "id": "observability-requirements.md", "status": "OK", "target": "NFR-1 (logs sin credenciales)" }
+  ]
+}

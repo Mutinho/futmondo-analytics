@@ -1,0 +1,21 @@
+{
+  "stage": "nfr-design",
+  "unit": "ios-native-auth",
+  "upstream_ids": ["FR-2", "FR-3", "FR-5", "FR-6", "NFR-1", "NFR-2", "NFR-3"],
+  "coverage": [
+    { "id": "FR-2", "status": "OK", "target": "security-design.md (access en memoria actor + TokenHolder)" },
+    { "id": "FR-3", "status": "OK", "target": "security-design.md (KeychainTokenStore, AfterFirstUnlockThisDeviceOnly)" },
+    { "id": "FR-5", "status": "OK", "target": "reliability-design.md REL-A1/A2 (bootstrap, refresh coalescido)" },
+    { "id": "FR-6", "status": "OK", "target": "security-design.md (borrado doble), reliability REL-A3 (logout)" },
+    { "id": "NFR-1", "status": "OK", "target": "security-design.md (Keychain, borrado doble, password del form)" },
+    { "id": "NFR-2", "status": "OK", "target": "logical-components.md (solo SDK de Apple + FutmondoKit)" },
+    { "id": "NFR-3", "status": "OK", "target": "logical-components.md (AuthService testeable con dobles en swift test; UI/Keychain real manual)" }
+  ],
+  "reverse": [
+    { "id": "security-design.md", "status": "OK", "target": "FR-2, FR-3, FR-6, NFR-1" },
+    { "id": "reliability-design.md", "status": "OK", "target": "FR-5, FR-6" },
+    { "id": "logical-components.md", "status": "OK", "target": "NFR-2, NFR-3" },
+    { "id": "performance-design.md", "status": "OK", "target": "FR-5" },
+    { "id": "observability-design.md", "status": "OK", "target": "NFR-1" }
+  ]
+}

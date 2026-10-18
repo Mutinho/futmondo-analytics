@@ -1,0 +1,17 @@
+{
+  "stage": "nfr-design",
+  "unit": "ios-network-client",
+  "upstream_ids": ["FR-7", "NFR-1", "NFR-2"],
+  "coverage": [
+    { "id": "FR-7", "status": "OK", "target": "reliability-design.md (mapeo exhaustivo), performance-design.md (async), logical-components.md (NetworkClient)" },
+    { "id": "NFR-1", "status": "OK", "target": "security-design.md (inyección sin retención, TLS/ATS, no logging, errores sin material sensible)" },
+    { "id": "NFR-2", "status": "OK", "target": "logical-components.md (solo targets SwiftPM del SDK; sin terceros)" }
+  ],
+  "reverse": [
+    { "id": "security-design.md", "status": "OK", "target": "NFR-1" },
+    { "id": "reliability-design.md", "status": "OK", "target": "FR-7" },
+    { "id": "logical-components.md", "status": "OK", "target": "FR-7, NFR-2" },
+    { "id": "performance-design.md", "status": "OK", "target": "FR-7" },
+    { "id": "observability-design.md", "status": "OK", "target": "NFR-1" }
+  ]
+}

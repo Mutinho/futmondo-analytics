@@ -1,0 +1,37 @@
+{
+  "stage": "units-generation",
+  "unit": null,
+  "upstream_ids": [
+    "FR-1", "FR-2", "FR-3", "FR-4", "FR-5", "FR-6", "FR-7", "FR-8", "FR-9",
+    "NFR-1", "NFR-2", "NFR-3", "NFR-4",
+    "US-1", "US-2", "US-3", "US-4", "US-5", "US-6", "US-7", "US-8"
+  ],
+  "coverage": [
+    { "id": "FR-1", "status": "OK", "target": "ios-native-auth" },
+    { "id": "FR-2", "status": "OK", "target": "ios-native-auth" },
+    { "id": "FR-3", "status": "OK", "target": "ios-native-auth" },
+    { "id": "FR-4", "status": "OK", "target": "backend-refresh-transport" },
+    { "id": "FR-5", "status": "OK", "target": "ios-native-auth (+ ios-network-client para el mecanismo)" },
+    { "id": "FR-6", "status": "OK", "target": "ios-native-auth" },
+    { "id": "FR-7", "status": "OK", "target": "ios-network-client" },
+    { "id": "FR-8", "status": "OK", "target": "ios-native-auth" },
+    { "id": "FR-9", "status": "OK", "target": "backend-refresh-transport" },
+    { "id": "NFR-1", "status": "OK", "target": "backend-refresh-transport + ios-native-auth" },
+    { "id": "NFR-2", "status": "OK", "target": "ios-network-client + ios-native-auth" },
+    { "id": "NFR-3", "status": "OK", "target": "backend-refresh-transport (pytest) + verificación manual integrada" },
+    { "id": "NFR-4", "status": "N/A", "target": "transversal a las tres unidades" },
+    { "id": "US-1", "status": "OK", "target": "ios-native-auth" },
+    { "id": "US-2", "status": "OK", "target": "ios-native-auth" },
+    { "id": "US-3", "status": "OK", "target": "ios-native-auth" },
+    { "id": "US-4", "status": "OK", "target": "ios-native-auth + ios-network-client" },
+    { "id": "US-5", "status": "OK", "target": "ios-native-auth" },
+    { "id": "US-6", "status": "OK", "target": "ios-native-auth" },
+    { "id": "US-7", "status": "OK", "target": "backend-refresh-transport" },
+    { "id": "US-8", "status": "OK", "target": "ios-network-client" }
+  ],
+  "reverse": [
+    { "id": "backend-refresh-transport", "status": "OK", "target": "FR-4, FR-9, NFR-1, NFR-3, US-7" },
+    { "id": "ios-network-client", "status": "OK", "target": "FR-7, NFR-2, US-8, US-4" },
+    { "id": "ios-native-auth", "status": "OK", "target": "FR-1, FR-2, FR-3, FR-5, FR-6, FR-8, NFR-1, NFR-2, US-1, US-2, US-3, US-4, US-5, US-6" }
+  ]
+}

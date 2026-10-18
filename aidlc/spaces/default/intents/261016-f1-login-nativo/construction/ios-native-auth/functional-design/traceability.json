@@ -1,0 +1,22 @@
+{
+  "stage": "functional-design",
+  "unit": "ios-native-auth",
+  "upstream_ids": ["FR-1", "FR-2", "FR-3", "FR-5", "FR-6", "FR-8", "NFR-1", "NFR-2", "NFR-3"],
+  "coverage": [
+    { "id": "FR-1", "status": "OK", "target": "functional-spec.md AuthService.login + LoginView (AR1)" },
+    { "id": "FR-2", "status": "OK", "target": "rules.md AR2 — access token en memoria" },
+    { "id": "FR-3", "status": "OK", "target": "entities/functional-spec KeychainStore (AR2)" },
+    { "id": "FR-5", "status": "OK", "target": "AuthService.bootstrap + refresh/reintento único (AR3, AR4)" },
+    { "id": "FR-6", "status": "OK", "target": "AuthService.logout + pendingLogoutRevocation (AR5)" },
+    { "id": "FR-8", "status": "OK", "target": "frontend-components.md LoginView/SplashView (AR6)" },
+    { "id": "NFR-1", "status": "OK", "target": "rules.md AR2 — nada en claro; refresh en Keychain" },
+    { "id": "NFR-2", "status": "OK", "target": "rules.md AR7 — solo SDK de Apple + FutmondoKit" },
+    { "id": "NFR-3", "status": "OK", "target": "functional-spec.md — swift test (AuthService con dobles) + validación manual en iPhone (Keychain real/UI)" }
+  ],
+  "reverse": [
+    { "id": "entities.md", "status": "OK", "target": "FR-1,2,3,5,6" },
+    { "id": "rules.md", "status": "OK", "target": "FR-1,2,3,5,6,8; NFR-1,2" },
+    { "id": "functional-spec.md", "status": "OK", "target": "FR-1,2,3,5,6,8; NFR-1,2,3" },
+    { "id": "frontend-components.md", "status": "OK", "target": "FR-8" }
+  ]
+}

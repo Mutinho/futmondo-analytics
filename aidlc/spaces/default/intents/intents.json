@@ -145,5 +145,29 @@
     "dirName": "261006-angular-native-feasibili",
     "scope": "classic",
     "status": "archived"
+  },
+  {
+    "uuid": "01a14462-1be6-744c-bf63-72e96e9b8aa5",
+    "slug": "ios-native-feasibility",
+    "dirName": "261016-ios-native-feasibility",
+    "scope": "bugfix",
+    "status": "complete",
+    "request": "a921577b"
+  },
+  {
+    "uuid": "01a14548-bf4e-75cc-9007-958ee92f92f5",
+    "slug": "xtool-spike",
+    "dirName": "261016-xtool-spike",
+    "scope": "bugfix",
+    "status": "complete",
+    "request": "7b32629f"
+  },
+  {
+    "uuid": "01a1468e-4435-7e9a-b93a-bfee4f43317a",
+    "slug": "f1-login-nativo",
+    "dirName": "261016-f1-login-nativo",
+    "scope": "feature",
+    "status": "in-flight",
+    "request": "c2d42059"
   }
 ]

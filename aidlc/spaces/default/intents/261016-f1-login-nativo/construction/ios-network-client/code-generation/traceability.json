@@ -1,0 +1,22 @@
+{
+  "stage": "code-generation",
+  "unit": "ios-network-client",
+  "upstream_ids": ["FR-7", "NFR-1", "NFR-2", "NFR-3"],
+  "coverage": [
+    { "id": "FR-7", "status": "OK", "target": "URLSessionNetworkClient.swift (send, mapeo NR3), NetworkClient.swift, APIRequest.swift, UserMe.swift (humo /api/v1/user/me); tests testSuccess2xxDecodesBody, testStatus401MapsToUnauthorized" },
+    { "id": "NFR-1", "status": "OK", "target": "URLSessionNetworkClient.swift (init lanzable https SEC-N1, Bearer sin retención SEC-N2, sin logging SEC-N3, errores solo status/localizedDescription SEC-N4); tests testThrowingInitRejectsInsecureBaseURL, testBearerHeaderPresentWhenTokenProvided, testBearerHeaderAbsentWhenNoToken" },
+    { "id": "NFR-2", "status": "OK", "target": "Package.swift (dependencies: []), import URLSession/Codable solamente — cero terceros (NR6)" },
+    { "id": "NFR-3", "status": "OK", "target": "NetworkClientTests.swift (14 XCTest con URLProtocol stub, unit-testable); verificación por el propietario con `swift test` en WSL (no ejecutada aquí: sin toolchain Swift)" }
+  ],
+  "reverse": [
+    { "id": "ios/Package.swift", "status": "OK", "target": "NFR-2" },
+    { "id": "ios/xtool.yml", "status": "N/A", "target": "config de build xtool para WSL; no traza a un requisito funcional" },
+    { "id": "ios/Sources/FutmondoKit/Networking/HTTPMethod.swift", "status": "OK", "target": "FR-7" },
+    { "id": "ios/Sources/FutmondoKit/Networking/APIRequest.swift", "status": "OK", "target": "FR-7" },
+    { "id": "ios/Sources/FutmondoKit/Networking/NetworkError.swift", "status": "OK", "target": "FR-7, NFR-1 (SEC-N4)" },
+    { "id": "ios/Sources/FutmondoKit/Networking/NetworkClient.swift", "status": "OK", "target": "FR-7" },
+    { "id": "ios/Sources/FutmondoKit/Networking/URLSessionNetworkClient.swift", "status": "OK", "target": "FR-7, NFR-1" },
+    { "id": "ios/Sources/FutmondoKit/Networking/UserMe.swift", "status": "OK", "target": "FR-7" },
+    { "id": "ios/Tests/FutmondoKitTests/NetworkClientTests.swift", "status": "OK", "target": "FR-7, NFR-1, NFR-3" }
+  ]
+}

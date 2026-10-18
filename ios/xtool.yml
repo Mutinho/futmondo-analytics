@@ -1,0 +1,8 @@
+# xtool configuration for the Futmondo Analytics native iOS build (F1).
+# The device product is the SwiftUI app shell `FutmondoApp`, which depends on
+# the `FutmondoKit` library (networking + auth logic). `swift test` on WSL/Linux
+# verifies `FutmondoKit`; the app, SwiftUI views and real Keychain are validated
+# on the iPhone 13 Pro via `xtool dev build`.
+version: 1
+bundleID: com.futmondo.app
+product: FutmondoApp

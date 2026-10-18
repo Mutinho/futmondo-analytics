@@ -1,0 +1,35 @@
+{
+  "stage": "code-generation",
+  "unit": "ios-native-auth",
+  "upstream_ids": ["FR-1", "FR-2", "FR-3", "FR-5", "FR-6", "FR-8", "NFR-1", "NFR-2", "NFR-3"],
+  "coverage": [
+    { "id": "FR-1", "status": "OK", "target": "Auth/AuthService.swift (login, AR1), Auth/AuthDTOs.swift (LoginRequestDTO/LoginResponseDTO), FutmondoApp/LoginView.swift + AuthViewModel.swift (submitLogin); tests testLoginSuccessStoresAccessInMemoryHolderAndRefreshInKeychain, testLoginUnauthorizedMapsToInvalidCredentialsAndStoresNothing" },
+    { "id": "FR-2", "status": "OK", "target": "Auth/AuthService.swift (accessToken solo en memoria) + Auth/TokenHolder.swift (snapshot síncrono, AR2/SEC-A2); test testLoginSuccessStoresAccessInMemoryHolderAndRefreshInKeychain (holder + currentAccessToken)" },
+    { "id": "FR-3", "status": "OK", "target": "Auth/KeychainStore.swift + Auth/KeychainTokenStore.swift (SecItem, AfterFirstUnlockThisDeviceOnly, AR2/SEC-A1/REL-A4); test testLoginSuccessStoresAccessInMemoryHolderAndRefreshInKeychain (refresh en Keychain)" },
+    { "id": "FR-5", "status": "OK", "target": "Auth/AuthService.swift (bootstrap AR3 + refresh/reintento único coalescido AR4, refreshInFlight); tests testBootstrapNoTokenReturnsUnauthenticated, testBootstrapWithValidTokenReturnsAuthenticated, testBootstrapRevokedTokenClearsKeychainAndReturnsUnauthenticated, testBootstrapTransportErrorPreservesKeychainAndReturnsOffline, testBootstrapServerErrorReturnsOfflinePreserved, testRefreshSuccessMintsNewAccessToken, testRefreshUnauthorizedMapsToRefreshFailed, testConcurrentRefreshesCoalesceIntoSingleNetworkCall" },
+    { "id": "FR-6", "status": "OK", "target": "Auth/AuthService.swift (logout AR5, borrado doble holder→accessToken→Keychain) + Auth/LogoutFlagStore.swift (pendingLogoutRevocation, solo booleano); tests testLogoutSuccessClearsEverythingAndNoPendingRevocation, testLogoutNetworkFailureClearsLocalStateAndSetsPendingRevocation" },
+    { "id": "FR-8", "status": "OK", "target": "FutmondoApp/LoginView.swift, SplashView.swift, AuthViewModel.swift (AR6: estados, Reduce Motion, autofill, haptics, FocusState, matchedGeometryEffect); validación manual en el iPhone (deuda de arnés de dispositivo P-1), no cubierta por swift test" },
+    { "id": "NFR-1", "status": "OK", "target": "Auth/AuthService.swift + Auth/KeychainTokenStore.swift + Auth/TokenHolder.swift (access token nunca persistido, refresh solo en Keychain, password no retenido, SEC-A1/A2/A3); tests de login/logout aseveran el efecto" },
+    { "id": "NFR-2", "status": "OK", "target": "ios/Package.swift (dependencies: []) — solo SDK de Apple (Security/SwiftUI/Foundation) + FutmondoKit (AR7); KeychainTokenStore bajo #if canImport(Security), vistas bajo #if canImport(SwiftUI)" },
+    { "id": "NFR-3", "status": "OK", "target": "Tests/FutmondoKitTests/AuthServiceTests.swift (14 XCTest con dobles, aseveran el efecto); verificación oficial por el propietario con `cd ios && swift test` en WSL y `xtool dev build` en el iPhone 13 Pro" }
+  ],
+  "reverse": [
+    { "id": "ios/Sources/FutmondoKit/Auth/KeychainStore.swift", "status": "OK", "target": "FR-3, NFR-1" },
+    { "id": "ios/Sources/FutmondoKit/Auth/KeychainTokenStore.swift", "status": "OK", "target": "FR-3, NFR-1, NFR-2" },
+    { "id": "ios/Sources/FutmondoKit/Auth/InMemoryKeychainStore.swift", "status": "OK", "target": "NFR-3 (doble de test)" },
+    { "id": "ios/Sources/FutmondoKit/Auth/TokenHolder.swift", "status": "OK", "target": "FR-2, NFR-1 (SEC-A2/AR8)" },
+    { "id": "ios/Sources/FutmondoKit/Auth/AuthDTOs.swift", "status": "OK", "target": "FR-1, FR-5" },
+    { "id": "ios/Sources/FutmondoKit/Auth/AuthError.swift", "status": "OK", "target": "FR-1, FR-5, FR-6" },
+    { "id": "ios/Sources/FutmondoKit/Auth/Session.swift", "status": "OK", "target": "FR-1, FR-5" },
+    { "id": "ios/Sources/FutmondoKit/Auth/AuthService.swift", "status": "OK", "target": "FR-1, FR-2, FR-5, FR-6, NFR-1" },
+    { "id": "ios/Sources/FutmondoKit/Auth/LogoutFlagStore.swift", "status": "OK", "target": "FR-6, NFR-1" },
+    { "id": "ios/Sources/FutmondoApp/AuthViewModel.swift", "status": "OK", "target": "FR-1, FR-6, FR-8" },
+    { "id": "ios/Sources/FutmondoApp/LoginView.swift", "status": "OK", "target": "FR-8" },
+    { "id": "ios/Sources/FutmondoApp/SplashView.swift", "status": "OK", "target": "FR-8, FR-5" },
+    { "id": "ios/Sources/FutmondoApp/FutmondoApp.swift", "status": "OK", "target": "FR-8" },
+    { "id": "ios/Sources/FutmondoApp/main.swift", "status": "N/A", "target": "entry point no-op solo en Linux para que `swift test` enlace el ejecutable; no traza a un requisito funcional" },
+    { "id": "ios/Tests/FutmondoKitTests/AuthServiceTests.swift", "status": "OK", "target": "FR-1, FR-5, FR-6, NFR-1, NFR-3" },
+    { "id": "ios/Package.swift", "status": "OK", "target": "NFR-2 (dependencies: []); target FutmondoApp aislado del test target" },
+    { "id": "ios/xtool.yml", "status": "N/A", "target": "config de build xtool (product: FutmondoApp); no traza a un requisito funcional" }
+  ]
+}

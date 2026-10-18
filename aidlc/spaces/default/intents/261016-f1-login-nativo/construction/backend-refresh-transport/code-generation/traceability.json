@@ -1,0 +1,64 @@
+{
+  "stage": "code-generation",
+  "unit": "backend-refresh-transport",
+  "upstream_ids": ["FR-4", "FR-9", "NFR-1", "NFR-3"],
+  "coverage": [
+    {
+      "id": "FR-4",
+      "status": "OK",
+      "target": "backend/app/auth/routes.py:resolve_refresh_token + refresh()/logout() header+body channels; tests test_refresh_by_header_returns_200, test_refresh_by_body_returns_200, test_logout_by_header_and_body_revokes_then_refresh_401"
+    },
+    {
+      "id": "FR-9",
+      "status": "OK",
+      "target": "backend/app/auth/routes.py:login() returns refresh_token in body while still setting HttpOnly cookie; RefreshBodyOptional/LogoutBodyOptional keep body optional (no 422); tests test_login_returns_refresh_token_in_body_and_sets_cookie, test_refresh_by_cookie_without_body_returns_200_not_422"
+    },
+    {
+      "id": "NFR-1",
+      "status": "OK",
+      "target": "Precedence cookie>header>body (resolve_refresh_token); revocation by hash preserved; crypto unchanged; no token/body logging; tests test_precedence_cookie_wins_over_body_observable_in_access_token, test_revoked_cookie_with_valid_body_returns_401, test_refresh_without_token_returns_401"
+    },
+    {
+      "id": "NFR-3",
+      "status": "OK",
+      "target": "backend/tests/test_auth_refresh_transport.py: 8 in-memory tests (TestClient, no network/no real DB, real crypto + ephemeral JWT_SECRET); full suite green (422 passed, 3 xfailed); coverage floor 27% held (58.30% total)"
+    }
+  ],
+  "reverse": [
+    {
+      "id": "backend/app/auth/models.py:RefreshBodyOptional",
+      "status": "OK",
+      "target": "FR-9 (optional refresh body for /auth/refresh)"
+    },
+    {
+      "id": "backend/app/auth/models.py:LogoutBodyOptional",
+      "status": "OK",
+      "target": "FR-4 (optional refresh body for /auth/logout)"
+    },
+    {
+      "id": "backend/app/auth/routes.py:resolve_refresh_token",
+      "status": "OK",
+      "target": "NFR-1 (channel precedence cookie>header>body, by presence)"
+    },
+    {
+      "id": "backend/app/auth/routes.py:login",
+      "status": "OK",
+      "target": "FR-9 (refresh_token added to body; cookie still set)"
+    },
+    {
+      "id": "backend/app/auth/routes.py:refresh",
+      "status": "OK",
+      "target": "FR-4 / FR-9 (header + optional body, no 422)"
+    },
+    {
+      "id": "backend/app/auth/routes.py:logout",
+      "status": "OK",
+      "target": "FR-4 (header + optional body revocation by hash)"
+    },
+    {
+      "id": "backend/app/auth/jwt_utils.py",
+      "status": "N/A",
+      "target": "crypto unchanged by this unit (verification/signing untouched)"
+    }
+  ]
+}
