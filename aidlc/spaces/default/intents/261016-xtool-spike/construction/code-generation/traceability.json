@@ -1,0 +1,11 @@
+{
+  "stage": "code-generation",
+  "upstream_ids": ["B-01-app", "B-01-xtool-config", "B-01-setup", "B-01-smoke", "B-01-runbook"],
+  "coverage": [
+    { "id": "B-01-app", "status": "OK", "target": "spikes/ios-xtool/Sources/XToolSpike/ContentView.swift" },
+    { "id": "B-01-xtool-config", "status": "OK", "target": "spikes/ios-xtool/xtool.yml" },
+    { "id": "B-01-setup", "status": "OK", "target": "spikes/ios-xtool/scripts/setup-wsl.sh" },
+    { "id": "B-01-smoke", "status": "OK", "target": "spikes/ios-xtool/scripts/smoke.sh" },
+    { "id": "B-01-runbook", "status": "OK", "target": "docs/spikes/ios-xtool.md" }
+  ]
+}
