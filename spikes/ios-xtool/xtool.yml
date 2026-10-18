@@ -1,0 +1,13 @@
+# xtool configuration for the B-01 toolchain spike.
+#
+# `version` is the xtool.yml SCHEMA version (an integer), NOT the app's version.
+# Minimal declaration: schema version + bundle identifier. xtool infers the
+# product from Package.swift. No extensions (widgets are out of scope).
+#
+# NOTE on free Apple accounts: a free (non-paid) Apple ID can only sign apps
+# whose bundle identifier xtool prefixes per-account. xtool rewrites/prefixes
+# the effective bundleID at signing time, so the value below is only a stable
+# placeholder base; do not expect it verbatim on the installed app under a free
+# account. A ~7-day signing validity also applies (re-run smoke.sh to refresh).
+version: 1
+bundleID: com.example.xtoolspike

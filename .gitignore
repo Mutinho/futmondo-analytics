@@ -13,6 +13,7 @@ env/
 venv/
 ENV/
 .venv
+.venv-*/
 *.egg-info/
 dist/
 build/
@@ -35,6 +36,19 @@ yarn-error.log
 # Angular
 angular-app/dist/
 angular-app/.angular/
+
+# Swift / xtool (iOS nativo)
+ios/.build/
+.swiftpm/
+# Swift Package Manager build dirs, en cualquier ubicación (ios/, spikes/…)
+**/.build/
+**/.build.old*/
+*.xcodeproj/xcuserdata/
+# Salida de xtool (build/sign/package): no es fuente
+ios/xtool/
+**/.xtool-tmp/
+**/*.app/
+.bsp/
 
 # IDE
 .vscode/
