@@ -209,5 +209,13 @@
     "scope": "refactor",
     "status": "complete",
     "request": "f8579cbb"
+  },
+  {
+    "uuid": "01a167a8-1289-7940-a3d7-80d1b721f60e",
+    "slug": "latencia-market-favorito",
+    "dirName": "261023-latencia-market-favorito",
+    "scope": "refactor",
+    "status": "complete",
+    "request": "ba6e9957"
   }
 ]

@@ -1,5 +1,6 @@
 """Favorites endpoint — shows user's favorited free-agent players with stats."""
 
+import logging
 from typing import Dict
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -7,6 +8,8 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from app.api.v1.endpoints._helpers import get_user_futmondo_client
 from app.core.config import CHAMPIONSHIP_ID
 from app.services.db_connection import get_db
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -17,16 +20,48 @@ async def get_my_favorites(
     championship_id: str = Query(default=CHAMPIONSHIP_ID),
 ) -> Dict:
     """Get the user's favorited players (free agents only) with Sofascore enrichment.
-    
-    Returns players from the player_favorites table, enriched with current
-    value/stats from the championship players data and Sofascore cache.
+
+    Served from the already-synced Neon tables via the ``sync_read`` layer
+    (no live catalog download). On a sync-miss (0 synced free-agent favorite
+    rows) it falls back to the live route — correct though slower — and logs it
+    (BR3.1). The response contract is byte-identical either way (BR6.1).
     """
     try:
         client = get_user_futmondo_client(request)
         user_id = client.user_id
-        
+
         db = get_db()
-        
+
+        # Fast path: read from synced data.
+        from app.services.sync_read.favorites_read import read_favorites
+        players, has_synced = read_favorites(db, championship_id, user_id)
+
+        if has_synced:
+            return {"success": True, "players": players, "total": len(players)}
+
+        # Sync-miss: the championship has no synced free-agent favorites yet.
+        # Fall back to the live route (BR3.1). Log without any credential.
+        logger.info(
+            "favorites/my sync-miss fallback to live route (championship_id=%s)",
+            championship_id,
+        )
+        return _get_favorites_live(request, db, client, championship_id, user_id)
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+def _get_favorites_live(request, db, client, championship_id, user_id) -> Dict:
+    """Live-route fallback: build favorites from ``get_championship_players``.
+
+    This is the pre-refactor behavior, preserved verbatim as the sync-miss
+    fallback (BR3.1). It downloads the full catalog and filters favorites that
+    are free agents, enriching with Sofascore. The response shape is identical
+    to the sync path (BR6.1).
+    """
+    try:
         # Get favorite player IDs from DB
         with db.get_connection() as conn:
             cursor = db.get_cursor(conn)
@@ -34,15 +69,15 @@ async def get_my_favorites(
             sql = db.adapt_params(sql)
             cursor.execute(sql, (championship_id, user_id))
             fav_ids = {row[0] for row in cursor.fetchall()}
-        
+
         if not fav_ids:
             return {"success": True, "players": [], "total": 0}
-        
+
         # Get current player data from Futmondo API
         players_data = client.get_championship_players(championship_id)
         if not players_data or not players_data.get("players"):
             return {"success": True, "players": [], "total": 0}
-        
+
         all_players = players_data["players"]
         
         # Filter: only favorites that are free agents (no userteamId)
