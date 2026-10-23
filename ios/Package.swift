@@ -18,11 +18,18 @@ import PackageDescription
 
 let package = Package(
     name: "FutmondoKit",
-    // Reasonable minimums so `swift test` compiles on Linux/WSL against Foundation,
-    // while keeping the device targets (iPhone 13 Pro) in range. The SwiftUI
-    // views require iOS 17 / macOS 14 and are guarded at the source level.
+    // iOS 26 is the device deployment target (F2/D2): the native `TabView` +
+    // `Tab` API then renders with the iOS 26 floating "Liquid Glass" tab bar
+    // automatically, with no custom effect (Apple SDK only, cost 0 €).
+    //
+    // This platform list only bounds APPLE builds. On Linux/WSL the host triple
+    // is `x86_64-unknown-linux-gnu`, so SwiftPM does not apply the iOS minimum
+    // there: `swift build`/`swift test` keep compiling `FutmondoKit` +
+    // `FutmondoKitTests` against Foundation, and the SwiftUI app target stays
+    // guarded at the source level (`#if canImport(SwiftUI)`), so WSL is
+    // unaffected by this bump. The macOS floor stays at 12 for the dev builds.
     platforms: [
-        .iOS(.v15),
+        .iOS("26.0"),
         .macOS(.v12)
     ],
     products: [
@@ -50,7 +57,15 @@ let package = Package(
         .target(
             name: "FutmondoApp",
             dependencies: ["FutmondoKit"],
-            path: "Sources/FutmondoApp"
+            path: "Sources/FutmondoApp",
+            // F2/iteración 2b: fondo deportivo de la superficie autenticada.
+            // `background.jpg` se empaqueta como recurso del target y se carga
+            // vía `Bundle.module`. `.process` deja que el toolchain lo optimice
+            // donde puede; en WSL el target de app está guardado por
+            // `#if canImport(SwiftUI)` y los tests sólo tocan FutmondoKit.
+            resources: [
+                .process("Resources/background.jpg")
+            ]
         ),
         .testTarget(
             name: "FutmondoKitTests",

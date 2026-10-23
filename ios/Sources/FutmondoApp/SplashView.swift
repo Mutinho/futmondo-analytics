@@ -20,14 +20,81 @@ public struct SplashView: View {
     }
 
     private let authService: AuthService
+    private let networkClient: NetworkClient
     @State private var viewModel: AuthViewModel
+    @State private var budgetViewModel: BudgetViewModel
+    @State private var marketViewModel: MarketViewModel
+    @State private var calculatorViewModel: CalculatorViewModel
+    @State private var favoritesViewModel: FavoritesViewModel
+    /// Shared F2 budget collaborators, built once over the SAME HTTPS client as
+    /// auth (AR8 / SEC-N1) and reused to compose the pushed team-detail view
+    /// model (FR6) so the detail hits the same transport + active championship.
+    private let budgetService: any BudgetService
+    private let activeStore: any ActiveChampionshipStore
+    /// Shared F3 market collaborator for the Sofascore detail (FR8), over the
+    /// SAME HTTPS client + active store, so a fresh isolated detail VM can be
+    /// built per opened sheet.
+    private let sofascoreService: any SofascoreService
     @State private var phase: Phase = .checking
     @Namespace private var logoNamespace
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    public init(authService: AuthService) {
+    public init(authService: AuthService, networkClient: NetworkClient) {
         self.authService = authService
+        self.networkClient = networkClient
         _viewModel = State(initialValue: AuthViewModel(authService: authService))
+        // Compose the F2 budget view model over the SAME HTTPS NetworkClient as
+        // auth (AR8 / SEC-N1): no second, insecure client is ever created. The
+        // budget service + active store are retained so the team-detail view
+        // model (FR6) reuses them.
+        let sharedBudgetService = HTTPBudgetService(network: networkClient)
+        let sharedActiveStore = UserDefaultsActiveChampionshipStore()
+        self.budgetService = sharedBudgetService
+        self.activeStore = sharedActiveStore
+        let budget = BudgetViewModel(
+            budgetService: sharedBudgetService,
+            championshipService: HTTPChampionshipService(network: networkClient),
+            activeStore: sharedActiveStore
+        )
+        _budgetViewModel = State(initialValue: budget)
+        // Compose the F3 market view model + Sofascore service over the SAME
+        // HTTPS NetworkClient + active store (AR8 / SEC-N1 / FR8.2).
+        let sharedSofascoreService = HTTPSofascoreService(network: networkClient)
+        self.sofascoreService = sharedSofascoreService
+        let market = MarketViewModel(
+            marketService: HTTPMarketService(network: networkClient),
+            activeStore: sharedActiveStore,
+            // After an accepted bid/cancel the economy figures change, so the
+            // budget screen's cached data is now stale: invalidate it (both VMs
+            // share the active-championship store) so it refetches when shown.
+            onWriteAccepted: { [weak budget] in budget?.invalidate() }
+        )
+        _marketViewModel = State(initialValue: market)
+        // Compose the F4 calculadora view model over the SAME HTTPS transport +
+        // active store, plus a `RosterService` for roster/on-sale/sell/cancel
+        // and the persisted `CalculatorPreferences`. After an accepted
+        // sell/cancel the shared economy changes, so it invalidates BOTH the
+        // budget and the market caches (BR10.1 / FR10.1).
+        _calculatorViewModel = State(initialValue: CalculatorViewModel(
+            rosterService: HTTPRosterService(network: networkClient),
+            marketService: HTTPMarketService(network: networkClient),
+            activeStore: sharedActiveStore,
+            preferences: CalculatorPreferences(store: UserDefaultsKeyValueStore()),
+            onWriteAccepted: { [weak budget, weak market] in
+                budget?.invalidate()
+                market?.invalidate()
+            }
+        ))
+        // Compose the F5 favoritos view model over the SAME HTTPS transport +
+        // active store, plus a `FavoritesService` and the persisted
+        // `FavoritesPreferences`. Unfollowing a favourite does not change the
+        // shared economy figures, so it needs NO cross-screen invalidation
+        // (FR7.1) — it owns no `onWriteAccepted` callback.
+        _favoritesViewModel = State(initialValue: FavoritesViewModel(
+            favoritesService: HTTPFavoritesService(network: networkClient),
+            activeStore: sharedActiveStore,
+            preferences: FavoritesPreferences(store: UserDefaultsKeyValueStore())
+        ))
     }
 
     public var body: some View {
@@ -50,9 +117,30 @@ public struct SplashView: View {
         case .checking:
             checkingView
         case .resumed:
-            // F1 closes here without data screens (F2). A provisional entry
-            // point to logout lives alongside the authenticated placeholder.
-            authenticatedPlaceholder
+            // F2 authenticated surface: the budget screen inside a tabbed root.
+            // The logout closure runs the SAME F1 seam as the old placeholder
+            // (AuthViewModel.logout() + phase = .noSession); session logic is
+            // untouched.
+            RootTabView(viewModel: budgetViewModel, marketViewModel: marketViewModel, calculatorViewModel: calculatorViewModel, favoritesViewModel: favoritesViewModel) {
+                Task {
+                    await viewModel.logout()
+                    phase = .noSession
+                }
+            } makeTeamDetailViewModel: {
+                // A fresh VM per pushed detail, over the shared budget service +
+                // active store (same HTTPS transport as the list, AR8/SEC-N1).
+                TeamDetailViewModel(
+                    budgetService: budgetService,
+                    activeStore: activeStore
+                )
+            } makeSofascoreViewModel: {
+                // A fresh, isolated VM per opened Sofascore sheet (FR8.2), over
+                // the shared Sofascore service + active store.
+                SofascoreDetailViewModel(
+                    service: sofascoreService,
+                    activeStore: activeStore
+                )
+            }
         case .offline:
             VStack(spacing: 16) {
                 logo
@@ -76,23 +164,6 @@ public struct SplashView: View {
                 .foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .combine)
-    }
-
-    private var authenticatedPlaceholder: some View {
-        VStack(spacing: 16) {
-            logo
-            Text("Sesión iniciada")
-                .font(.headline)
-            Button("Cerrar sesión") {
-                Task {
-                    await viewModel.logout()
-                    phase = .noSession
-                }
-            }
-            .buttonStyle(.bordered)
-            .frame(minHeight: 44)
-            .accessibilityLabel("Cerrar sesión")
-        }
     }
 
     private var offlineBanner: some View {
