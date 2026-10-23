@@ -1,0 +1,12 @@
+{
+  "stage": "nfr-design",
+  "unit": "u2-login-theming",
+  "upstream_ids": ["NFR2.4", "NFR2.5", "NFR2.6", "NFR4.1", "NFR4.2"],
+  "coverage": [
+    { "id": "NFR2.4", "status": "OK", "target": "security-design (SecureField + toggle local)" },
+    { "id": "NFR2.5", "status": "OK", "target": "security-design + logical-components (U2 no toca AuthService/Keychain de F1)" },
+    { "id": "NFR2.6", "status": "OK", "target": "security-design (ErrorState usa message(for:) de F1)" },
+    { "id": "NFR4.1", "status": "OK", "target": "performance-design (vistas ligeras, 60 fps objetivo)" },
+    { "id": "NFR4.2", "status": "OK", "target": "performance-design (loading derivado del estado, feedback inmediato)" }
+  ]
+}

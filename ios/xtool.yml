@@ -6,3 +6,10 @@
 version: 1
 bundleID: com.futmondo.app
 product: FutmondoApp
+
+# Extra Info.plist keys merged into the generated plist.
+# CADisableMinimumFrameDurationOnPhone = YES opts the app into ProMotion:
+# without it iOS caps SwiftUI animations/scrolling at 60 Hz even on a 120 Hz
+# (ProMotion) panel. Enabling it lets scrolling and animations run up to 120 Hz.
+infoPlist:
+  CADisableMinimumFrameDurationOnPhone: true

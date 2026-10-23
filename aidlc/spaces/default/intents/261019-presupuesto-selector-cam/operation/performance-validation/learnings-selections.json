@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "stage_slug": "performance-validation",
+  "phase": "operation",
+  "space": "default",
+  "intent": "261019-presupuesto-selector-cam",
+  "selections": []
+}

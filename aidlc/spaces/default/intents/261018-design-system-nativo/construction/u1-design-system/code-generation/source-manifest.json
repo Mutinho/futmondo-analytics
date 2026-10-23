@@ -1,0 +1,19 @@
+{
+  "stage": "code-generation",
+  "unit": "u1-design-system",
+  "version": 1,
+  "writes": [
+    { "path": "ios/Sources/FutmondoKit/DesignSystem/DSColorValue.swift" },
+    { "path": "ios/Sources/FutmondoKit/DesignSystem/DSSpacing.swift" },
+    { "path": "ios/Sources/FutmondoKit/DesignSystem/DSTypographyScale.swift" },
+    { "path": "ios/Sources/FutmondoKit/DesignSystem/ContrastRatio.swift" },
+    { "path": "ios/Sources/FutmondoApp/DesignSystem/DSColor.swift" },
+    { "path": "ios/Sources/FutmondoApp/DesignSystem/DSFont.swift" },
+    { "path": "ios/Sources/FutmondoApp/DesignSystem/DSSpacing+SwiftUI.swift" },
+    { "path": "ios/Sources/FutmondoApp/DesignSystem/Components/PrimaryButton.swift" },
+    { "path": "ios/Sources/FutmondoApp/DesignSystem/Components/TextInputField.swift" },
+    { "path": "ios/Sources/FutmondoApp/DesignSystem/Components/Containers.swift" },
+    { "path": "ios/Sources/FutmondoApp/DesignSystem/Catalog/CatalogView.swift" },
+    { "path": "ios/Tests/FutmondoKitTests/DesignSystemTests.swift" }
+  ]
+}

@@ -176,6 +176,42 @@ Android Keystore vía `@nativescript/secure-storage`), **NUNCA** a (affirmed 202
 
 central al riesgo de portabilidad del modelo de sesión). (affirmed 2026-10-06)
 
+- NEVER almacenar la contraseña Futmondo en claro (ni en memoria ni en base de (affirmed 2026-10-18)
+
+datos); cualquier modelo de sesión del cliente nativo debe preservar esta (affirmed 2026-10-18)
+
+garantía (el refresh token va a **almacenamiento seguro nativo** — iOS Keychain (affirmed 2026-10-18)
+
+—, NUNCA a `localStorage` ni almacenamiento en claro). (affirmed 2026-10-18)
+
+- NEVER usar un `JWT_SECRET` por defecto en producción; el arranque del servicio (affirmed 2026-10-18)
+
+web exige un secreto no-default (NFR1.1). (affirmed 2026-10-18)
+
+- NEVER bajar/relajar un umbral o piso de cobertura para pasar el gate; el (affirmed 2026-10-18)
+
+ratcheting sólo sube, y el flapping se arregla en el test no-determinista. (affirmed 2026-10-18)
+
+- NEVER correr `ruff format` masivo ni `--fix` de repo entero (ni Prettier (affirmed 2026-10-18)
+
+masivo) sobre ficheros brownfield ya modificados (infla diffs, expone avisos (affirmed 2026-10-18)
+
+preexistentes e invalida el pase de revisión en vuelo); formatear sólo los (affirmed 2026-10-18)
+
+ficheros nuevos o de forma quirúrgica. (affirmed 2026-10-18)
+
+- NEVER ampliar los god-files existentes (`data_sync_service.py`, (affirmed 2026-10-18)
+
+`data_manager_v2.py`, `assistant_service.py`, `photo_service.py`) ni el patrón (affirmed 2026-10-18)
+
+SQL-en-router; este intent de diseño no es excusa para refactor de oportunidad. (affirmed 2026-10-18)
+
+- NEVER introducir dependencias de pago ni tooling de diseño de pago; cualquier (affirmed 2026-10-18)
+
+librería nueva sería OSS y fijada a versión exacta (no se prevé ninguna para la (affirmed 2026-10-18)
+
+capa de diseño, que se cubre con el SDK de Apple). (affirmed 2026-10-18)
+
 ## Mandated
 
 <!-- Populated by practices-discovery affirmation gate. -->
@@ -336,6 +372,50 @@ con scope); en los documentos de análisis, prosa en castellano y tokens (affirm
 
 técnicos (frameworks, rutas, claves YAML) verbatim en inglés. (affirmed 2026-10-06)
 
+- ALWAYS mantener el proyecto a **coste 0 €**: sólo soluciones sostenibles en (affirmed 2026-10-18)
+
+tiers gratuitos (Neon free, Fly.io free allowance, GitHub Actions free); (affirmed 2026-10-18)
+
+descartar toda mejora o dependencia con gasto recurrente. El sistema de diseño (affirmed 2026-10-18)
+
+nativo iOS se sostiene con el **SDK de Apple** (coste 0 €), sin tooling de (affirmed 2026-10-18)
+
+diseño de pago. **Excepción aceptada y acotada**: el coste de publicación de (affirmed 2026-10-18)
+
+distribución nativa (Apple Developer Program ~99 €/año) es la única excepción (affirmed 2026-10-18)
+
+conocida y bounded, sólo para habilitar la distribución de la app nativa. (affirmed 2026-10-18)
+
+- ALWAYS pasar el **gate de CI bloqueante** (gitleaks + `ruff check` + `pytest` + (affirmed 2026-10-18)
+
+`pip-audit` + `ng test` + `npm audit`) antes de fusionar a `main`, también para (affirmed 2026-10-18)
+
+cambios de diseño/documentales; un rojo nunca llega a producción. (affirmed 2026-10-18)
+
+- ALWAYS reproducir en **SwiftUI** (sólo SDK de Apple, coste 0 €) el tema del (affirmed 2026-10-18)
+
+frontend Angular existente como **fuente de verdad** del diseño nativo iOS (affirmed 2026-10-18)
+
+(`angular-app/src/styles.scss`: Material 3 paleta primaria verde, terciaria (affirmed 2026-10-18)
+
+violeta, tipografía `Roboto`, modo claro/oscuro vía Material + `body.dark-theme`, (affirmed 2026-10-18)
+
+tokens semánticos `money-positive`/`money-negative`, escala `h1`/`h2`/`h3`, (affirmed 2026-10-18)
+
+gradiente de splash verde). **Google Stitch queda descartado** como referencia (affirmed 2026-10-18)
+
+(decisión del propietario, 2026-10-18). Donde Material 3 no tenga equivalente (affirmed 2026-10-18)
+
+1:1 en SwiftUI, cubrir con **Apple HIG** sin introducir dependencias de pago. (affirmed 2026-10-18)
+
+- ALWAYS usar **identificadores, docstrings y comentarios en INGLÉS** y **texto (affirmed 2026-10-18)
+
+de cara al usuario / mensajes de commit en CASTELLANO** (Conventional Commits (affirmed 2026-10-18)
+
+con scope); en la prosa de los artefactos de diseño, castellano con tokens (affirmed 2026-10-18)
+
+técnicos verbatim en inglés. (affirmed 2026-10-18)
+
 ## Corrections
 
 <!-- Project-specific corrections from human feedback. -->
@@ -345,3 +425,8 @@ técnicos (frameworks, rutas, claves YAML) verbatim en inglés. (affirmed 2026-1
 - ALWAYS verificar el build/tests del frontend en un contenedor `node:<versión de .nvmrc>` (con volumen anónimo para `node_modules`) cuando el Node local no alcance el mínimo que exige el Angular CLI; coste 0€ (learned 2026-09-14) <!-- cid:260914-ci-tooling-mejoras:deployment-execution:4a9616552729869fa85366642edb5f7079643479f82a6cf5c5d3baeb8674792c -->
 - Para reproducir la suite de pytest en local a coste 0 cuando el Python del sistema es más nuevo que el de CI, crear un venv efímero excluyendo `libsql-experimental` (no compila fuera de 3.12 y no lo ejercitan los tests, que usan el fake SQLite) y fijar un `JWT_SECRET` de arranque efímero. (learned 2026-09-16) <!-- cid:260914-durabilidad-estado-y-cre:build-and-test:f52ef2ddf207ebcfd3e714b2c51187edc37270edcd4e578e7a7026806759a479 -->
 - En etapas de Operation cuyo conocimiento asume AWS/CloudWatch, adaptar al stack real (Fly.io + Neon) y al mandato de coste 0 €: generar artefactos con las herramientas gratuitas disponibles (`fly logs`, healthcheck, logging estructurado) y marcar explícitamente como NO-APLICA/diferido lo que exige servicios de pago (SLO formales con burn-rate, tracing distribuido, anomaly detection ML), documentando la alternativa gratuita en vez de inventar infraestructura inexistente. (learned 2026-09-16) <!-- cid:260914-durabilidad-estado-y-cre:observability-setup:f9a04574d004210fe9d1df0e23a826a072857aa96e41777667e6c0e7237d8e61 -->
+- ALWAYS reproducir en SwiftUI (con solo SDK de Apple, coste 0 €) el tema del frontend Angular existente como fuente de verdad del diseno de la app nativa iOS: `angular-app/src/styles.scss` (Material 3 paleta primaria verde `mat.$green-palette` / terciaria violeta, tipografia Roboto, modo claro/oscuro via `body.dark-theme`, y tokens semanticos propios `money-positive`/`money-negative`, escala `h1`/`h2`/`h3`, gradiente de splash verde). Google Stitch queda descartado como referencia (decision del propietario, 2026-10-18). Donde Material 3 no tenga equivalente 1:1 en SwiftUI, cubrir con Apple HIG sin introducir dependencias de pago. (learned 2026-10-18) <!-- cid:261018-design-system-nativo:feasibility:a5f2ab6a02bfdec630b8eb2f08dad9c2002a381b6639b58b7cbef59348726e9f -->
+- Al construir la app nativa iOS desde Linux/WSL con el toolchain de Swift, `actool` (asset catalog compiler) NO está disponible, así que los Color Sets del sistema de diseño se definen EN CÓDIGO (hex claro/oscuro con fuente única en un token Swift, p. ej. `DSColorToken`), no en `Assets.xcassets`; la migración a asset catalog se difiere a cuando se construya en dispositivo con `xtool`. Mantener `Package.swift` sin `resources` del asset catalog en ese caso. (learned 2026-10-19) <!-- cid:261018-design-system-nativo:code-generation:34bf8e5b58745fabbba280244fef2f6385fb7f10c430f597f103e702cef8e596 -->
+- La cobertura de línea vía llvm-cov NO es medible de forma fiable con el toolchain de Swift en Linux/WSL; para código iOS, el piso de cobertura no se verifica numéricamente en WSL. La lógica pura testeable se coloca en el target library (`FutmondoKit`) y se cubre con XCTest ejecutable (`swift test`); las vistas SwiftUI van en el target de app guardadas con `#if canImport(SwiftUI)` y se validan en dispositivo (arnés de UI nativo diferido), quedando fuera del cómputo de cobertura. (learned 2026-10-19) <!-- cid:261018-design-system-nativo:code-generation:6748388652678b62542b349c903ab36e5bae4948e5dc8ee56ad35cafd52eef3d -->
+- En SwiftUI, el crossfade skeleton→contenido NO se consigue con `.transition(.opacity)` en las ramas de un `switch` (SwiftUI reemplaza el subárbol y el contenido aparece de golpe); usar un `ZStack` con AMBAS capas montadas y opacidad cruzada por un flag `isLoading` (componente reutilizable `CrossfadeLoader`), animado con `.animation(value: isLoading)` y gated por Reduce Motion. (learned 2026-10-23) <!-- cid:261022-favoritos-nativa:build-and-test:23d3065b018b6601ae7457f8d3ff166e3f39f11cd7fb276b04bb02e5dc3ff038 -->
+- Skeleton de carga nativo iOS a coste 0 y con efecto moderno: relleno con gradiente de marca en movimiento (`AuroraFill`, verde→violeta del design system, drift en bucle) + entrada escalonada + crossfade al contenido, como componentes reutilizables (`SkeletonCard`/`SkeletonRow`/`SkeletonHeader`/`SkeletonScreen`/`SkeletonListScreen` en `FutmondoApp/Shared/`), respetando Reduce Motion. Preferir esto al spinner + 'Cargando…'. Las pantallas con lista de FILAS (p. ej. Presupuesto) necesitan su propio `SkeletonRow` fiel a la fila real, no el grid de tiles. (learned 2026-10-23) <!-- cid:261022-favoritos-nativa:build-and-test:12549635ef118737b5ab4532525bbde5289d1642a7d255ffee3bc970a643743a -->

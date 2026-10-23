@@ -54,17 +54,43 @@ Futmondo player transactions and team evolution"*.
   (presupuesto, premios, cláusulas, equipo propio `futmondo_team_id`) vive en
   `user_championships`.
 
-## Relevancia para F1 (login nativo iOS)
+## Relevancia para F1 (login nativo iOS) — YA IMPLEMENTADO en `ios/`
 
-El objetivo de F1 es un cliente nativo iOS (Swift/SwiftUI) que **reutiliza el
-backend FastAPI**. El contrato de auth existente es la pieza central: hoy el
-refresh token viaja **solo** por cookie `HttpOnly` (pensado para navegador),
-mientras que un cliente nativo sin almacén de cookies de navegador necesita un
-**transporte alternativo del refresh token** (decisión D-01, ajuste **aditivo**
-del backend) y guardarlo en **iOS Keychain**, nunca en claro. El flujo de
+El objetivo de F1 era un cliente nativo iOS (Swift/SwiftUI) que **reutiliza el
+backend FastAPI**; esa capa **ya existe** en el repo bajo `ios/` (paquete
+SwiftPM `FutmondoKit` + app `FutmondoApp`). El contrato de auth es la pieza
+central: el refresh token viaja por cookie `HttpOnly` para el navegador, mientras
+que el cliente nativo lo recibe en el body de `/auth/login` y lo reenvía en el
+header `X-Refresh-Token` (ajuste **aditivo** D-01 del backend, ya consumido por
+`AuthService`), guardándolo en **iOS Keychain**, nunca en claro. El flujo de
 negocio (login → access en memoria + refresh de larga duración → refresh →
-logout) se mantiene; F1 solo cambia el canal de transporte del refresh token
-para el cliente nativo.
+logout) se mantiene idéntico; F1 solo cambió el canal de transporte del refresh
+token para el cliente nativo.
+
+## Relevancia para F2 (Presupuesto nativo + selector de campeonato)
+
+F2 construye la pantalla nativa de **Presupuesto** y el **selector de
+campeonato** sobre la capa iOS de F1, reproduciendo la feature web `budget/` y
+el `ChampionshipService` de Angular. No cambia el backend: consume los endpoints
+ya existentes `/api/v1/analytics/balances` (saldos por equipo: balance, gastado,
+ingresado, valor de plantilla, rendimiento, premios) y la lista de campeonatos
+del usuario (`/api/v1/user/championships`, con fallback a `/api/v1/championships`).
+El selector reproduce el patrón del `ChampionshipService` (campeonato activo
+persistido localmente) con un almacén nativo en vez de `localStorage`.
+
+## Relevancia para el sistema de diseño nativo iOS (intent 261018-design-system-nativo)
+
+Este intent diseña el **sistema de diseño / theming de la app nativa iOS**
+reproduciendo, como **fuente de verdad**, el tema visual del frontend Angular
+existente. El objetivo de negocio es que la app nativa iOS se sienta como el
+mismo producto que la PWA actual: misma identidad de marca (**verde** como color
+primario, acentos **violeta**, tipografía **Roboto**), misma semántica de color
+(dinero positivo verde / negativo rojo), mismo contraste y modo claro/oscuro, y
+las mismas pantallas de referencia (login y shell de navegación). No introduce
+cambios de backend ni de datos: es un intent de **diseño visual** cuyo insumo
+primario es la capa de estilos del `angular-app`. Google Stitch quedó descartado
+como referencia de diseño (decisión del propietario, 2026-10-18); la única
+fuente de verdad es el tema de Angular.
 
 ## Sources
 
@@ -75,9 +101,15 @@ para el cliente nativo.
 - `backend/app/core/config.py`
 - `backend/app/api/v1/endpoints/user.py`
 - Listado de `backend/app/api/v1/endpoints/` y `angular-app/src/app/features/`
+- `ios/Package.swift`, `ios/Sources/FutmondoKit/Auth/AuthService.swift` (capa nativa F1)
+- `backend/app/api/v1/endpoints/{balances,user,championships}.py` (endpoints que consume F2)
+- `angular-app/src/styles.scss` (tema de diseño — fuente de verdad del sistema de diseño nativo)
 
 ## Assumptions & Open Questions
 
 - El detalle exacto del transporte alternativo del refresh token para iOS (D-01)
   y el formato del almacén en Keychain son decisiones de diseño de F1; aquí solo
   se documenta el contrato brownfield actual (refresh solo por cookie `HttpOnly`).
+- La correspondencia exacta Material 3 → SwiftUI (tokens `--mat-sys-*`, densidad)
+  es decisión del intent de diseño; aquí solo se documenta el tema Angular de
+  origen. Donde Material 3 no tenga equivalente 1:1, se cubrirá con Apple HIG.

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "intent": "261019-presupuesto-selector-cam",
+  "stage": "units-generation",
+  "units": [
+    {
+      "name": "u1-budget-data",
+      "kind": "library",
+      "depends_on": [],
+      "stories": ["US1", "US2", "US3"],
+      "requirements": ["FR1.1", "FR1.2", "FR1.3", "FR2.1", "FR3.1", "FR3.2", "FR3.3", "FR4.2", "NFR1.1", "NFR2.1", "NFR6.1"]
+    },
+    {
+      "name": "u2-budget-ui",
+      "kind": "ui",
+      "depends_on": ["u1-budget-data"],
+      "stories": ["US1", "US2", "US3", "US4"],
+      "requirements": ["FR1.1", "FR1.2", "FR1.3", "FR4.1", "FR5.1", "NFR3.1", "NFR4.1", "NFR5.1"]
+    }
+  ]
+}

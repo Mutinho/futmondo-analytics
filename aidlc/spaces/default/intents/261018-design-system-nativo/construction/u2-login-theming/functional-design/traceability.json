@@ -1,0 +1,10 @@
+{
+  "stage": "functional-design",
+  "unit": "u2-login-theming",
+  "upstream_ids": ["FR6.1", "FR6.2"],
+  "coverage": [
+    { "id": "FR6.1", "status": "N/A", "target": "Aplicar tokens/componentes de U1 al login: workflow W1 + tabla de equivalencia del functional-spec; unit UI-only sin reglas de negocio propias." },
+    { "id": "FR6.2", "status": "N/A", "target": "No-regresión (login/auto-login/refresh/logout preservados por AuthViewModel de F1): verificable manualmente en iPhone 13 Pro; sin BR propia de U2." }
+  ],
+  "reverse": []
+}

@@ -1,0 +1,79 @@
+{
+  "stage": "code-generation",
+  "unit": "u1-budget-data",
+  "upstream_ids": ["FR1.1", "FR1.2", "FR1.3", "FR2.1", "FR3.1", "FR3.2", "FR3.3", "FR4.2", "US1", "US2", "US3", "NFR2.1", "NFR6.1"],
+  "coverage": [
+    {
+      "id": "FR1.2",
+      "status": "OK",
+      "target": "ios/Sources/FutmondoKit/Budget/TeamBudget.swift (12 props + derived ops) ← US1; tests ios/Tests/FutmondoKitTests/BudgetDTOTests.swift"
+    },
+    {
+      "id": "FR1.1",
+      "status": "OK",
+      "target": "ios/Sources/FutmondoKit/Budget/BalancesResponse.swift + BudgetService.swift/HTTPBudgetService (GET analytics/balances?championship_id=) ← US1; tests ios/Tests/FutmondoKitTests/BudgetDTOTests.swift, BudgetServiceTests.swift"
+    },
+    {
+      "id": "FR1.3",
+      "status": "OK",
+      "target": "ios/Sources/FutmondoKit/Budget/MoneyFormatter.swift (M/K determinista, half-away-from-zero, locale-independent) ← US1; tests ios/Tests/FutmondoKitTests/MoneyFormatterTests.swift"
+    },
+    {
+      "id": "FR2.1",
+      "status": "OK",
+      "target": "ios/Sources/FutmondoKit/Budget/SortKey.swift + TeamBudgetSort.swift (descending, stable, non-mutating) ← US3; tests ios/Tests/FutmondoKitTests/TeamBudgetSortTests.swift"
+    },
+    {
+      "id": "FR3.1",
+      "status": "OK",
+      "target": "ios/Sources/FutmondoKit/Budget/ChampionshipsResponse.swift + Championship.swift + ChampionshipService.swift/HTTPChampionshipService (user/championships con fallback championships) ← US2; tests ios/Tests/FutmondoKitTests/BudgetDTOTests.swift, ChampionshipServiceTests.swift"
+    },
+    {
+      "id": "FR3.2",
+      "status": "OK",
+      "target": "ios/Sources/FutmondoKit/Budget/ActiveChampionshipStore.swift/UserDefaultsActiveChampionshipStore (persist id) + ActiveChampionshipResolver.swift (activeId match) ← US2; tests ios/Tests/FutmondoKitTests/ActiveChampionshipStoreTests.swift"
+    },
+    {
+      "id": "FR3.3",
+      "status": "OK",
+      "target": "ios/Sources/FutmondoKit/Budget/ActiveChampionshipResolver.swift (nil/unknown activeId → first; empty → nil) ← US2; tests ios/Tests/FutmondoKitTests/ActiveChampionshipStoreTests.swift (ActiveChampionshipResolverTests)"
+    },
+    {
+      "id": "FR4.2",
+      "status": "OK",
+      "target": "ios/Sources/FutmondoKit/Budget/BudgetService.swift + ChampionshipService.swift (propagate typed NetworkError; both-fail propagates fallback error) ← US1,US2; tests ios/Tests/FutmondoKitTests/BudgetServiceTests.swift, ChampionshipServiceTests.swift"
+    },
+    {
+      "id": "NFR2.1",
+      "status": "OK",
+      "target": "SR1 no-leak: ios/Sources/FutmondoKit/Budget/BudgetService.swift + ChampionshipService.swift propagate F1 NetworkError without embedding id/token; tests ios/Tests/FutmondoKitTests/BudgetServiceTests.swift (no-leak NetworkError + DecodingError), ChampionshipServiceTests.swift"
+    },
+    {
+      "id": "NFR6.1",
+      "status": "OK",
+      "target": "All U1 pure logic in library target FutmondoKit covered by swift test (XCTest), no SwiftUI; 39 new tests across ios/Tests/FutmondoKitTests/Budget*/Money*/ActiveChampionship* files"
+    }
+  ],
+  "reverse": [
+    {
+      "id": "FR1.1-view",
+      "status": "N/A",
+      "target": "La pantalla/NavigationStack y el render de filas (vista) es responsabilidad de U2 (FutmondoApp, SwiftUI); U1 entrega sólo la capa de datos/lógica"
+    },
+    {
+      "id": "FR4.1",
+      "status": "N/A",
+      "target": "Estados loading/empty/error del BudgetViewModel: owner U2 (FR4 estado UI), no U1"
+    },
+    {
+      "id": "FR5.1",
+      "status": "N/A",
+      "target": "TabView + NavigationStack (shell nativo): owner U2, fuera del alcance de la library U1"
+    },
+    {
+      "id": "NFR4.1",
+      "status": "N/A",
+      "target": "Fluidez de scroll/feedback <100ms: owner U2 (render SwiftUI), no la lógica pura de U1"
+    }
+  ]
+}

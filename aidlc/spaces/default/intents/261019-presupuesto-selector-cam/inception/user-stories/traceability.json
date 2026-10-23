@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "intent": "261019-presupuesto-selector-cam",
+  "stage": "user-stories",
+  "links": [
+    { "story": "US1", "acceptance_criteria": ["AC1.1", "AC1.2", "AC1.3"], "requirements": ["FR1.1", "FR1.2", "FR1.3", "FR4.1", "FR4.2"] },
+    { "story": "US2", "acceptance_criteria": ["AC2.1", "AC2.2", "AC2.3", "AC2.4"], "requirements": ["FR3.1", "FR3.2", "FR3.3"] },
+    { "story": "US3", "acceptance_criteria": ["AC3.1"], "requirements": ["FR2.1"] },
+    { "story": "US4", "acceptance_criteria": ["AC4.1"], "requirements": ["FR5.1"] }
+  ],
+  "nfr_crosscutting": ["NFR1.1", "NFR2.1", "NFR3.1", "NFR4.1", "NFR5.1", "NFR6.1"]
+}

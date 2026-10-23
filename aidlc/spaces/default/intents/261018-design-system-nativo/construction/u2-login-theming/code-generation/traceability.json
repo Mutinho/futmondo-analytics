@@ -1,0 +1,17 @@
+{
+  "stage": "code-generation",
+  "unit": "u2-login-theming",
+  "upstream_ids": ["FR6.1", "FR6.2", "NFR2.4", "NFR2.5", "NFR2.6", "NFR4.1", "NFR4.2"],
+  "coverage": [
+    { "id": "FR6.1", "status": "OK", "target": "LoginView.swift re-skinned: Card + ErrorState + TextInputField (email) + PrimaryButton + DSColor/DSFont/DSSpacing tokens" },
+    { "id": "FR6.2", "status": "N/A", "target": "No-regresion: AuthViewModel/AuthService/Keychain de F1 intactos; login/auto-login/logout verificados en dispositivo (iPhone 13 Pro)" },
+    { "id": "NFR2.4", "status": "OK", "target": "LoginView.swift passwordField: SecureField por defecto + toggle local isPasswordVisible (sin copiar/persistir el valor)" },
+    { "id": "NFR2.5", "status": "OK", "target": "LoginView.swift no importa ni modifica AuthService/KeychainTokenStore/TokenHolder; solo bindea a AuthViewModel" },
+    { "id": "NFR2.6", "status": "OK", "target": "LoginView.swift ErrorState muestra AuthViewModel.message(for:) (sin material de credencial)" },
+    { "id": "NFR4.1", "status": "N/A", "target": "Render 60 fps con vistas ligeras de U1; verificado en dispositivo" },
+    { "id": "NFR4.2", "status": "OK", "target": "LoginView.swift PrimaryButton isLoading = (viewModel.state == .loading), feedback inmediato en el mismo ciclo de render" }
+  ],
+  "reverse": [
+    { "id": "LoginView.swift", "status": "N/A", "target": "FR6.1/FR6.2 — SwiftUI view re-skinned, validated on device (llvm-cov not reliable on WSL)" }
+  ]
+}

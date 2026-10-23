@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "stage_slug": "feasibility",
+  "phase": "ideation",
+  "space": "default",
+  "intent": "261018-design-system-nativo",
+  "selections": [
+    {
+      "candidate_id": "c3",
+      "source_heading": "Tradeoffs",
+      "scope": "project",
+      "heading": "Corrections",
+      "text": "ALWAYS reproducir en SwiftUI (con solo SDK de Apple, coste 0 €) el tema del frontend Angular existente como fuente de verdad del diseno de la app nativa iOS: `angular-app/src/styles.scss` (Material 3 paleta primaria verde `mat.$green-palette` / terciaria violeta, tipografia Roboto, modo claro/oscuro via `body.dark-theme`, y tokens semanticos propios `money-positive`/`money-negative`, escala `h1`/`h2`/`h3`, gradiente de splash verde). Google Stitch queda descartado como referencia (decision del propietario, 2026-10-18). Donde Material 3 no tenga equivalente 1:1 en SwiftUI, cubrir con Apple HIG sin introducir dependencias de pago."
+    }
+  ]
+}

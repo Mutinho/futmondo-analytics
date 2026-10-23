@@ -1,5 +1,10 @@
 # Dependencies — Futmondo Analytics
 
+> Nota de cobertura (run 261018-design-system-nativo): este intent es de theming
+> nativo y no reanalizó manifiestos de dependencias; la prosa se **preserva** del
+> escaneo previo (store UNVERIFIED) y queda como cobertura shallow. No hay nuevas
+> dependencias por el diseño nativo (SwiftUI usa SDK de Apple, coste 0 €).
+
 ## Backend (`backend/requirements.txt`, versiones exactas pineadas)
 
 | Dependencia | Versión | Uso | Relevancia F1 |
@@ -32,7 +37,7 @@ una entrada caducada vuelve a bloquear (`scripts/check-allowlist-expiry.sh`).
 
 | Dependencia | Rango | Uso |
 |---|---|---|
-| @angular/{animations,cdk,common,compiler,core,forms,material,platform-browser,router,service-worker} | ^22.2.1 | Framework + UI + PWA |
+| @angular/{animations,cdk,common,compiler,core,forms,material,platform-browser,router,service-worker} | ^22.2.1 | Framework + UI + PWA. **Material + CDK** son la base del tema (Material 3) |
 | chart.js | ^4.5.1 | Gráficos |
 | ng2-charts | ^10.0.0 | Wrapper Angular de Chart.js |
 | marked | ^18.0.11 | Render markdown (asistente) |
@@ -43,7 +48,7 @@ una entrada caducada vuelve a bloquear (`scripts/check-allowlist-expiry.sh`).
 
 | Dependencia | Rango/versión | Uso |
 |---|---|---|
-| @angular/build | ^22.2.0 | Builder (build + unit-test) |
+| @angular/build | ^22.2.0 | Builder (build + unit-test); compila `styles.scss` |
 | @angular/cli | ^22.2.0 | CLI |
 | @angular/compiler-cli | ^22.2.1 | AOT |
 | @vitest/coverage-v8 | 4.1.11 (exacto) | Cobertura frontend (pin exacto, gate bloqueante) |
@@ -66,7 +71,29 @@ una entrada caducada vuelve a bloquear (`scripts/check-allowlist-expiry.sh`).
 
 Todas sostenibles en tiers gratuitos (mandato coste 0 €). La única excepción
 acotada afirmada en `team.md` es el coste de publicación de distribución nativa
-(Apple Developer Program) para habilitar F1.
+(Apple Developer Program) para habilitar la distribución de la app nativa.
+
+## Dependencias del cliente nativo iOS (`ios/`, SwiftPM — añadido por F1)
+
+- **SwiftPM**: `ios/Package.swift` declara `dependencies: []` — **cero
+  dependencias externas**; solo frameworks del **SDK de Apple** (Foundation,
+  `URLSession`/`FoundationNetworking`, SwiftUI, Observation, Security/Keychain,
+  XCTest). Coste 0 € de librerías.
+- **Empaquetado**: `xtool` (`ios/xtool.yml`) para construir el `.app` iOS; OSS.
+- **Guardas de plataforma**: `#if canImport(SwiftUI)` / `#if canImport(Security)`
+  permiten que `swift test` compile `FutmondoKit` en Linux/WSL sin SwiftUI ni
+  Keychain reales.
+- Única excepción de coste acotada (afirmada en `team.md`): el coste de
+  publicación de distribución nativa (Apple Developer Program), no una
+  dependencia de software.
+
+## Dependencias de diseño nativo iOS (intent 261018)
+
+- **SwiftUI + SDK de Apple**: sin dependencias de pago; es la base del sistema de
+  diseño nativo que reproduce el tema Material 3 de Angular.
+- Donde Material 3 no tenga equivalente 1:1, **Apple HIG** (guía, no dependencia).
+- Google Stitch **descartado** como herramienta/referencia de diseño (decisión
+  del propietario, 2026-10-18).
 
 ## Dependencias internas (cross-módulo, auth)
 
@@ -77,17 +104,28 @@ acotada afirmada en `team.md` es el coste de publicación de distribución nativ
 - `futmondo_client` → `integration_errors`, `config.BASE_URL`.
 - Frontend: `app.config.ts` → `authInterceptor` → `AuthService`;
   `authGuard` → `AuthService`.
+- Frontend (estilos): `angular.json` → `src/styles.scss`;
+  `shared/styles/_index.scss` → `@forward` de los partials compartidos.
+- iOS (`ios/`): `FutmondoApp` → `FutmondoKit` (único enlace entre targets);
+  `AuthService` → `NetworkClient` + `KeychainStore` + `TokenHolder` + `LogoutFlagStore`;
+  `URLSessionNetworkClient` → `APIRequest`/`NetworkError`; los accesores SwiftUI
+  del DesignSystem (`DSColor`/`DSFont`) → tokens puros de `FutmondoKit`
+  (`DSColorToken`/`DSTypographyScale`/`DSSpacing`). El testTarget
+  `FutmondoKitTests` → solo `FutmondoKit`.
 
 ## Sources
 
-- `backend/requirements.txt`, `backend/.pip-audit-allowlist`, `backend/ruff.toml`
-- `angular-app/package.json`, `angular-app/eslint.config.js`
-- `.github/workflows/ci.yml`, `.github/workflows/fly-deploy.yml`
-- `backend/app/auth/routes.py`, `backend/app/services/futmondo_client.py`
-- `backend/app/core/config.py`
+- `ios/Package.swift`, `ios/xtool.yml` (SwiftPM, cero deps externas)
+- `ios/Sources/FutmondoKit/Auth/AuthService.swift`, `.../Networking/URLSessionNetworkClient.swift`
+- `backend/requirements.txt`, `backend/.pip-audit-allowlist`, `backend/ruff.toml` (store previo)
+- `angular-app/package.json`, `angular-app/eslint.config.js`, `angular-app/angular.json`
+- `.github/workflows/ci.yml`, `.github/workflows/fly-deploy.yml` (store previo)
+- `backend/app/auth/routes.py`, `backend/app/services/futmondo_client.py` (store previo)
+- `backend/app/core/config.py` (store previo)
 
 ## Assumptions & Open Questions
 
 - No se auditó `package-lock.json` para resolver las versiones exactas instaladas
   de cada rango `^`/`~` del frontend; se reportan los rangos declarados. El gate
-  usa `npm ci` (lock) y `npm audit --audit-level=high`.
+  usa `npm ci` (lock) y `npm audit --audit-level=high`. Los manifiestos no se
+  reverificaron en este run enfocado de theming (prosa preservada / shallow).

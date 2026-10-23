@@ -1,0 +1,24 @@
+{
+  "stage": "code-generation",
+  "unit": "u1-budget-data",
+  "version": 1,
+  "writes": [
+    { "path": "ios/Sources/FutmondoKit/Budget/TeamBudget.swift" },
+    { "path": "ios/Sources/FutmondoKit/Budget/BalancesResponse.swift" },
+    { "path": "ios/Sources/FutmondoKit/Budget/Championship.swift" },
+    { "path": "ios/Sources/FutmondoKit/Budget/ChampionshipsResponse.swift" },
+    { "path": "ios/Sources/FutmondoKit/Budget/SortKey.swift" },
+    { "path": "ios/Sources/FutmondoKit/Budget/MoneyFormatter.swift" },
+    { "path": "ios/Sources/FutmondoKit/Budget/TeamBudgetSort.swift" },
+    { "path": "ios/Sources/FutmondoKit/Budget/BudgetService.swift" },
+    { "path": "ios/Sources/FutmondoKit/Budget/ChampionshipService.swift" },
+    { "path": "ios/Sources/FutmondoKit/Budget/ActiveChampionshipStore.swift" },
+    { "path": "ios/Sources/FutmondoKit/Budget/ActiveChampionshipResolver.swift" },
+    { "path": "ios/Tests/FutmondoKitTests/MoneyFormatterTests.swift" },
+    { "path": "ios/Tests/FutmondoKitTests/TeamBudgetSortTests.swift" },
+    { "path": "ios/Tests/FutmondoKitTests/BudgetDTOTests.swift" },
+    { "path": "ios/Tests/FutmondoKitTests/BudgetServiceTests.swift" },
+    { "path": "ios/Tests/FutmondoKitTests/ChampionshipServiceTests.swift" },
+    { "path": "ios/Tests/FutmondoKitTests/ActiveChampionshipStoreTests.swift" }
+  ]
+}

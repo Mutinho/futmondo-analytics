@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "intent": "261019-presupuesto-selector-cam",
+  "stage": "functional-design",
+  "unit": "u2-budget-ui",
+  "elements": [
+    { "element": "RootTabView", "requirements": ["FR5.1"], "stories": ["US4"] },
+    { "element": "BudgetView", "requirements": ["FR1.1", "FR4.1", "FR4.2"], "stories": ["US1"] },
+    { "element": "BudgetViewModel", "requirements": ["FR1.1", "FR2.1", "FR3.2", "FR3.3", "FR4.1", "FR4.2"], "stories": ["US1", "US2", "US3"] },
+    { "element": "BudgetRow", "requirements": ["FR1.2", "FR1.3"], "stories": ["US1"], "nfr": ["NFR3.1", "NFR5.1"], "note": "La fila muestra 4 metricas (team_name, balance, performance, max_bid, prizes); las otras 5 del DTO (team_value, total_spent, total_income, ops) quedan al detalle diferido (fuera de alcance). FR1.2 se cumple por disponibilidad en el DTO, no por presencia en la fila." },
+    { "element": "ChampionshipMenu", "requirements": ["FR3.1"], "stories": ["US2"] },
+    { "element": "SortMenu", "requirements": ["FR2.1"], "stories": ["US3"] }
+  ],
+  "nfr": ["NFR3.1", "NFR4.1", "NFR5.1"]
+}

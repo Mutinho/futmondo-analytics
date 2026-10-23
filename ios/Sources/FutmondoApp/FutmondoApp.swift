@@ -11,6 +11,9 @@ import SwiftUI
 @main
 public struct FutmondoApp: App {
     private let authService: AuthService
+    /// The single HTTPS transport (SEC-N1). Shared with the F2 budget services
+    /// via `SplashView` so there is never a second, insecure client (AR8).
+    private let networkClient: NetworkClient
 
     public init() {
         // Build the auth stack. The base URL is the production API over HTTPS;
@@ -18,17 +21,25 @@ public struct FutmondoApp: App {
         let baseURL = URL(string: "https://futmondo-api.fly.dev")!
         let keychain = KeychainTokenStore()
         let tokenHolder = TokenHolder()
+        let client = FutmondoApp.makeNetworkClient(baseURL: baseURL, tokenHolder: tokenHolder)
         let service = AuthService(
-            network: FutmondoApp.makeNetworkClient(baseURL: baseURL, tokenHolder: tokenHolder),
+            network: client,
             keychain: keychain,
             tokenHolder: tokenHolder
         )
         self.authService = service
+        self.networkClient = client
     }
 
     public var body: some Scene {
         WindowGroup {
-            SplashView(authService: authService)
+            SplashView(authService: authService, networkClient: networkClient)
+                // Force DARK globally (iteración 2c): the whole app — including
+                // F1 login/splash presentation — renders dark, matching the
+                // almost-black stadium theme. This touches ONLY the colour
+                // scheme; no F1 auth logic (AuthViewModel/AuthService/LoginView/
+                // SplashView behaviour) changes.
+                .preferredColorScheme(.dark)
         }
     }
 

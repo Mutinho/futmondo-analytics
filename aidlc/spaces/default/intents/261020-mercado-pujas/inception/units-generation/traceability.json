@@ -1,0 +1,16 @@
+{
+  "stage": "units-generation",
+  "intent": "261020-mercado-pujas",
+  "generated": "2026-10-20",
+  "upstream_artifact": "aidlc/spaces/default/intents/261020-mercado-pujas/inception/user-stories/stories.md",
+  "upstream_ids": ["US1", "US2", "US3", "US4", "US5", "US6", "US7"],
+  "coverage": [
+    { "id": "US1", "status": "OK", "target": "u1-market" },
+    { "id": "US2", "status": "OK", "target": "u1-market" },
+    { "id": "US3", "status": "OK", "target": "u1-market" },
+    { "id": "US4", "status": "OK", "target": "u1-market" },
+    { "id": "US5", "status": "OK", "target": "u1-market" },
+    { "id": "US6", "status": "OK", "target": "u1-market" },
+    { "id": "US7", "status": "OK", "target": "u1-market" }
+  ]
+}

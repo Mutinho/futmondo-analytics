@@ -1,0 +1,29 @@
+{
+  "stage": "code-generation",
+  "unit": "u1-market",
+  "version": 1,
+  "writes": [
+    { "path": "ios/Sources/FutmondoKit/Market/MarketPlayer.swift" },
+    { "path": "ios/Sources/FutmondoKit/Market/MarketTodayResponse.swift" },
+    { "path": "ios/Sources/FutmondoKit/Market/MarketWriteOutcome.swift" },
+    { "path": "ios/Sources/FutmondoKit/Market/SofascoreDetail.swift" },
+    { "path": "ios/Sources/FutmondoKit/Market/MarketSortField.swift" },
+    { "path": "ios/Sources/FutmondoKit/Market/MarketSorter.swift" },
+    { "path": "ios/Sources/FutmondoKit/Market/BidAmountValidator.swift" },
+    { "path": "ios/Sources/FutmondoKit/Market/MarketService.swift" },
+    { "path": "ios/Sources/FutmondoKit/Market/SofascoreService.swift" },
+    { "path": "ios/Sources/FutmondoApp/Market/MarketViewModel.swift" },
+    { "path": "ios/Sources/FutmondoApp/Market/MarketView.swift" },
+    { "path": "ios/Sources/FutmondoApp/Market/MarketBanner.swift" },
+    { "path": "ios/Sources/FutmondoApp/Market/MarketPlayerCard.swift" },
+    { "path": "ios/Sources/FutmondoApp/Market/BidSheet.swift" },
+    { "path": "ios/Sources/FutmondoApp/Market/SofascoreDetailSheet.swift" },
+    { "path": "ios/Sources/FutmondoApp/Budget/RootTabView.swift" },
+    { "path": "ios/Sources/FutmondoApp/SplashView.swift" },
+    { "path": "ios/Tests/FutmondoKitTests/MarketDTOTests.swift" },
+    { "path": "ios/Tests/FutmondoKitTests/MarketSorterTests.swift" },
+    { "path": "ios/Tests/FutmondoKitTests/BidAmountValidatorTests.swift" },
+    { "path": "ios/Tests/FutmondoKitTests/MarketWriteOutcomeTests.swift" },
+    { "path": "ios/Tests/FutmondoKitTests/MarketServiceTests.swift" }
+  ]
+}

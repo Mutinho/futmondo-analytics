@@ -1,0 +1,39 @@
+{
+  "stage": "code-generation",
+  "unit": "u2-budget-ui",
+  "upstream_ids": ["US1", "US2", "US3", "US4", "FR1", "FR1.2", "FR1.3", "FR2.1", "FR3.1", "FR3.2", "FR3.3", "FR4.2", "FR5.1", "NFR3", "NFR4", "NFR5", "SR1"],
+  "coverage": [
+    { "id": "FR1", "status": "OK", "target": "ios/Sources/FutmondoApp/Budget/BudgetViewModel.swift (load/loadBalances) + BudgetView.swift" },
+    { "id": "FR1.2", "status": "OK", "target": "ios/Sources/FutmondoApp/Budget/BudgetRow.swift (ElevatedCard: team_name header + SALDO/RENDIMIENTO/PUJA MÁXIMA/PREMIOS uppercase labels, iteration 2 / D1)" },
+    { "id": "FR1.3", "status": "OK", "target": "ios/Sources/FutmondoApp/Budget/BudgetRow.swift (MoneyFormatter + DSColor money tokens; performance as DSMoneyBadge tinted badge, D1)" },
+    { "id": "FR2.1", "status": "OK", "target": "ios/Sources/FutmondoApp/Budget/SortMenu.swift (DSChip 'Ordenar por: X' below title, D4) + BudgetViewModel.setSort (TeamBudgetSort descending)" },
+    { "id": "FR3.1", "status": "OK", "target": "ios/Sources/FutmondoApp/Budget/ChampionshipMenu.swift (DSChip trophy + name + chevron, disabled/muted when empty, D3) + BudgetViewModel.selectChampionship" },
+    { "id": "FR3.2", "status": "OK", "target": "ios/Sources/FutmondoApp/Budget/BudgetViewModel.swift (ActiveChampionshipResolver.resolve)" },
+    { "id": "FR3.3", "status": "OK", "target": "ios/Sources/FutmondoKit/Budget/ActiveChampionshipPersistence.swift (shouldPersist)" },
+    { "id": "FR4.2", "status": "OK", "target": "ios/Sources/FutmondoApp/Budget/BudgetViewModel.swift (fetch throw -> .error without persisting active)" },
+    { "id": "FR5.1", "status": "OK", "target": "ios/Sources/FutmondoApp/Budget/RootTabView.swift (native TabView + Tab API, iOS 26 floating glass, D2) + SplashView .resumed seam" },
+    { "id": "US1", "status": "OK", "target": "ios/Sources/FutmondoApp/Budget/BudgetView.swift (ScrollView + LazyVStack of elevated cards, D1)" },
+    { "id": "US2", "status": "OK", "target": "ios/Sources/FutmondoApp/Budget/ChampionshipMenu.swift" },
+    { "id": "US3", "status": "OK", "target": "ios/Sources/FutmondoApp/Budget/SortMenu.swift" },
+    { "id": "US4", "status": "OK", "target": "ios/Sources/FutmondoApp/Budget/BudgetView.swift (settings/overflow ellipsis menu with logout item, D5) + RootTabView closure + SplashView seam" },
+    { "id": "NFR3", "status": "OK", "target": "Visual fidelity rework (iteration 2): DSElevation.swift (soft shadow token) + ElevatedCard + Chips.swift (DSChip/DSMoneyBadge/DSStatLabel) reproduce the Angular .team-card cards view + Material 3 green theme; device-validated on iPhone 13 Pro" },
+    { "id": "NFR4", "status": "OK", "target": "BudgetViewModel sets state=.loading synchronously before each await (device-validated <100ms)" },
+    { "id": "NFR5", "status": "OK", "target": "BudgetRow composite VoiceOver label + sign carrier (badge colour additive only); BudgetView retry focus; DSFont Dynamic Type; DSStatLabel accessibilityHidden folded into composite label (device-validated)" },
+    { "id": "SR1", "status": "OK", "target": "BudgetViewModel error(String) uses NetworkError.localizedDescription verbatim, no id/token interpolation (unchanged in iteration 2)" }
+  ],
+  "reverse": [
+    { "id": "ios/Sources/FutmondoApp/Budget/BudgetViewModel.swift", "status": "OK", "target": "FR1/FR2.1/FR3.2/FR3.3/FR4.2/SR1 -> device-validated (unchanged in iteration 2)" },
+    { "id": "ios/Sources/FutmondoApp/Budget/RootTabView.swift", "status": "OK", "target": "FR5.1/US4/D2 -> native TabView + Tab API (iOS 26 floating glass); device-validated" },
+    { "id": "ios/Sources/FutmondoApp/Budget/BudgetView.swift", "status": "OK", "target": "US1/FR1/FR4/NFR4/NFR5/D1/D4/D5 -> device-validated" },
+    { "id": "ios/Sources/FutmondoApp/Budget/BudgetRow.swift", "status": "OK", "target": "FR1.2/FR1.3/NFR3/NFR5/D1 -> elevated card; device-validated" },
+    { "id": "ios/Sources/FutmondoApp/Budget/ChampionshipMenu.swift", "status": "OK", "target": "FR3.1/US2/D3 -> chip; device-validated" },
+    { "id": "ios/Sources/FutmondoApp/Budget/SortMenu.swift", "status": "OK", "target": "FR2.1/US3/D4 -> chip below title; device-validated" },
+    { "id": "ios/Sources/FutmondoApp/DesignSystem/DSElevation.swift", "status": "OK", "target": "NFR3/FR4 -> elevation/shadow token + ElevatedCard; device-validated" },
+    { "id": "ios/Sources/FutmondoApp/DesignSystem/Components/Chips.swift", "status": "OK", "target": "NFR3/FR1.2/FR1.3/FR2.1/FR3.1 -> DSChip/DSMoneyBadge/DSStatLabel; device-validated" },
+    { "id": "ios/Sources/FutmondoApp/DesignSystem/Catalog/CatalogView.swift", "status": "OK", "target": "FR5 -> catalog extended with ElevatedCard/DSChip/DSMoneyBadge (existing catalog preserved)" },
+    { "id": "ios/Sources/FutmondoKit/Budget/ActiveChampionshipPersistence.swift", "status": "OK", "target": "FR3.3 -> ios/Tests/FutmondoKitTests/ActiveChampionshipPersistenceTests.swift (5 XCTest) (unchanged in iteration 2)" },
+    { "id": "ios/Sources/FutmondoApp/SplashView.swift", "status": "OK", "target": "FR5.1 seam (.resumed -> RootTabView; networkClient threaded) -> device-validated; F1 session logic unchanged (unchanged in iteration 2)" },
+    { "id": "ios/Sources/FutmondoApp/FutmondoApp.swift", "status": "OK", "target": "AR8/SEC-N1 shared HTTPS NetworkClient -> device-validated (unchanged in iteration 2)" },
+    { "id": "ios/Package.swift", "status": "OK", "target": "D2 -> iOS deployment target raised to 26.0 for the floating Liquid Glass tab bar; Linux/WSL build unaffected" }
+  ]
+}

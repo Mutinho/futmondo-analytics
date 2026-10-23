@@ -1,0 +1,10 @@
+{
+  "stage": "nfr-design",
+  "unit": "u1-design-system",
+  "upstream_ids": ["NFR2.1", "NFR2.2", "NFR2.3"],
+  "coverage": [
+    { "id": "NFR2.1", "status": "OK", "target": "security-design (cero dependencias) + logical-components (Package.swift sin deps)" },
+    { "id": "NFR2.2", "status": "OK", "target": "security-design (sin red/persistencia/credenciales)" },
+    { "id": "NFR2.3", "status": "OK", "target": "security-design (SecureField + toggle local) / logical-components (TextInputField)" }
+  ]
+}
