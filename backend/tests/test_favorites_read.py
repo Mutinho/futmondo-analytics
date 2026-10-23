@@ -37,11 +37,14 @@ def _schema(cur):
     )
     cur.execute(
         "CREATE TABLE players (player_id TEXT, name TEXT, role TEXT, role2 TEXT,"
-        " slug TEXT, real_team_name TEXT)"
+        " slug TEXT, real_team_name TEXT, value INTEGER)"
     )
     cur.execute(
         "CREATE TABLE player_championship_stats (championship_id TEXT, player_id TEXT,"
-        " owner_team_id TEXT)"
+        " owner_team_id TEXT, average_overall REAL)"
+    )
+    cur.execute(
+        "CREATE TABLE player_performance (championship_id TEXT, player_id TEXT, points INTEGER)"
     )
     cur.execute(
         "CREATE TABLE market_today (championship_id TEXT, market_date TEXT, player_id TEXT,"
@@ -63,16 +66,23 @@ def _fav(cur, pid):
     cur.execute("INSERT INTO player_favorites VALUES (?, ?, ?)", (CHAMP, USER, pid))
 
 
-def _player(cur, pid, name, role, role2="", slug="", real_team=""):
+def _player(cur, pid, name, role, role2="", slug="", real_team="", value=0):
     cur.execute(
-        "INSERT INTO players VALUES (?, ?, ?, ?, ?, ?)",
-        (pid, name, role, role2, slug, real_team),
+        "INSERT INTO players VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (pid, name, role, role2, slug, real_team, value),
     )
 
 
-def _stats(cur, pid, owner=None):
+def _stats(cur, pid, owner=None, average_overall=None):
     cur.execute(
-        "INSERT INTO player_championship_stats VALUES (?, ?, ?)", (CHAMP, pid, owner)
+        "INSERT INTO player_championship_stats VALUES (?, ?, ?, ?)",
+        (CHAMP, pid, owner, average_overall),
+    )
+
+
+def _perf(cur, pid, points):
+    cur.execute(
+        "INSERT INTO player_performance VALUES (?, ?, ?)", (CHAMP, pid, points)
     )
 
 
@@ -160,26 +170,34 @@ def test_zero_synced_rows_signals_fallback(fake_db):
     assert has_synced is False
 
 
-def test_defaults_when_favorite_absent_from_market_today(fake_db):
+def test_synced_fields_served_when_favorite_absent_from_market_today(fake_db):
+    """REGRESSION: a favorite NOT in today's market_today still shows value,
+    average and points from the always-synced tables (players,
+    player_championship_stats, player_performance) — not zeros."""
     with fake_db.get_connection() as conn:
         cur = fake_db.get_cursor(conn)
         _schema(cur)
         _fav(cur, "p1")
-        _player(cur, "p1", "Keeper", "portero", role2="", slug="keeper", real_team="Team B")
-        _stats(cur, "p1", owner=None)
-        # No market_today row for p1 → live-route defaults.
+        _player(cur, "p1", "Keeper", "portero", role2="", slug="keeper",
+                real_team="Team B", value=3200000)
+        _stats(cur, "p1", owner=None, average_overall=6.3)
+        _perf(cur, "p1", 12)
+        _perf(cur, "p1", 8)  # aggregates to 20
+        # No market_today row for p1.
 
     players, has_synced = favorites_read.read_favorites(fake_db, CHAMP, USER)
     assert has_synced is True
     p = players[0]
-    assert p["value"] == 0
+    # value / average / points come from the synced tables (the fix).
+    assert p["value"] == 3200000
+    assert p["average"] == 6.3
+    assert p["points"] == 20
+    # change / home / away / matches only live in market_today → defaults.
     assert p["change"] == 0
-    assert p["points"] == 0
-    assert p["average"] == 0
     assert p["home_average"] is None
     assert p["away_average"] is None
     assert p["matches"] == 0
-    # Falls back to players.real_team_name / players.slug.
+    # team / slug fall back to players.*
     assert p["team"] == "Team B"
     assert p["slug"] == "keeper"
 
