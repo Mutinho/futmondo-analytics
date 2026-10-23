@@ -1,0 +1,19 @@
+## Review
+
+**Verdict:** READY
+**Reviewer:** aidlc-product-lead-agent
+**Date:** 2026-10-23T07:48:09Z
+**Iteration:** 1
+
+### Findings
+
+| ID | Severity | Location | Finding | Required action | Status |
+|---|---|---|---|---|---|
+| R-01 | Major | aidlc/spaces/default/intents/261023-latencia-market-favorito/inception/requirements-analysis/requirements.md > NFR1 | El umbral <0,5 s es numérico, pero el criterio de aprobación ("en la mayoría de requests (objetivo p95)") no fija un pase/fallo verificable: "la mayoría" es más laxo que la respuesta del usuario en el Q&A (A = "percentil alto, p. ej. p95"), y el texto difiere el método y la magnitud exacta a NFR Requirements. Sin un percentil y un N de muestra fijados, dos evaluadores podrían discrepar sobre si NFR1 se cumple. | Fijar el criterio verificable (p. ej. "p95 < 0,5 s sobre N≥X requests autenticadas en el entorno de caracterización"), o declarar explícitamente que el pase/fallo exacto lo cierra NFR Requirements y que este NFR es solo el objetivo. | New |
+| R-02 | Major | aidlc/spaces/default/intents/261023-latencia-market-favorito/inception/requirements-analysis/requirements.md > FR2.2 | La coherencia del estado de pujas cacheado se exige "tras una operación", pero no se trata el rincón de **cambio concurrente/version skew**: dos pujas simultáneas, o una lectura de `market/today` entrelazada con un `bid`/`cancelbid`, podrían servir `active_bids_total`/`available_for_bids` obsoletos pese a la invalidación. El corner-checklist (concurrencia) queda silente. | Añadir un requisito o criterio de aceptación para el caso concurrente (p. ej. la invalidación es atómica respecto a la lectura, o la lectura tras una mutación observa siempre el estado post-mutación), o declararlo asunción/fuera-de-alcance con su razón. | New |
+| R-03 | Minor | aidlc/spaces/default/intents/261023-latencia-market-favorito/inception/requirements-analysis/requirements.md > FR4.1 | El disparador del fallback —"no tiene datos sincronizados **suficientes**"— es vago: "suficientes" no define qué ausencia concreta (catálogo vacío, stats faltantes, standings sin sincronizar) activa la ruta en vivo, por lo que QA no puede escribir un test de frontera determinista. | Precisar la condición de sync-miss que dispara el fallback (qué tabla/dato ausente), o acotar que el umbral exacto lo define Functional Design y dejar FR4.1 como "fallback cuando la lectura desde sync no puede componer la respuesta". | New |
+| R-04 | Minor | aidlc/spaces/default/intents/261023-latencia-market-favorito/inception/requirements-analysis/requirements.md > FR1.1 vs A1 | FR1.1 nombra tablas concretas (`players`, `player_championship_stats`, `standings`, `sofascore_cache`) como fuente, mientras A1 asume que el mapeo campo→tabla aún lo confirma Functional Design; la respuesta de `favorites/my` incluye campos (`rating`, `status`, `position_order`, `starter_pct`) cuyo origen sincronizado no está verificado en el codeKB. Es una asunción razonable y documentada, pero el acoplamiento FR1.1↔A1 podría leerse como compromiso firme sobre tablas no confirmadas. | Alinear el texto: dejar FR1.1 a nivel de "leer desde las tablas que `DataSyncService` ya rellena" y que A1 sea la única sede del mapeo pendiente, para no comprometer tablas concretas antes de la verificación de Functional Design. | New |
+
+### Summary
+
+El artefacto es implementable y está bien trazado al reverse-engineering (causa raíz = llamadas vivas por request), al Q&A (A–F = A) y al contrato de api-documentation.md; FR3 (contrato intacto) y el alcance/fuera-de-alcance son claros y verificables, y C1 usa tamaños de god-file correctos para los ficheros actuales. Lo que el humano debería sopesar en el gate: el criterio de pase/fallo de NFR1 queda más laxo que el p95 que el usuario eligió, y el rincón de concurrencia de la invalidación de pujas (FR2.2) no está cubierto; ambos son refinables en NFR/Functional Design y no impiden arrancar.

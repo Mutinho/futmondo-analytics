@@ -1,0 +1,14 @@
+{
+  "stage": "nfr-requirements",
+  "unit": "latencia-market-favorito",
+  "upstream_ids": ["NFR1", "NFR2", "NFR3", "NFR4", "NFR5", "NFR6"],
+  "coverage": [
+    { "id": "NFR1", "status": "OK", "target": "NFR1.1, NFR1.2, NFR1.3, NFR1.4" },
+    { "id": "NFR2", "status": "OK", "target": "NFR2.1, NFR2.2, NFR2.3, NFR1.5" },
+    { "id": "NFR3", "status": "OK", "target": "NFR3.1, NFR3.2, NFR3.3" },
+    { "id": "NFR4", "status": "OK", "target": "tech-stack-decisions (pytest + fakes, characterization-first)" },
+    { "id": "NFR5", "status": "OK", "target": "NFR5.1, NFR5.2, NFR5.3, NFR5.4, NFR5.5, NFR5.6" },
+    { "id": "NFR6", "status": "OK", "target": "NFR2.4" }
+  ],
+  "notes": "NFR4 (testabilidad/characterization-first) se materializa en tech-stack-decisions.md y se verifica en Code Generation/Build and Test, no como NFRx.y de rendimiento. NFR_OBS.1-5 (observabilidad) derivan de BR3.1/BR3.2 y NFR5."
+}

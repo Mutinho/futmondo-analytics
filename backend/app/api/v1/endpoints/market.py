@@ -255,7 +255,6 @@ async def get_market_today(
     Reads from market_today table (cached). Falls back to live API if no data today.
     """
     try:
-        import json as json_mod
         from datetime import date
 
         from app.api.v1.endpoints._helpers import get_user_futmondo_client
@@ -290,17 +289,17 @@ async def get_market_today(
                     except Exception:
                         pass
 
-            # Try reading from DB cache first
-            all_players = []
-            try:
-                cursor.execute(db.adapt_params(
-                    "SELECT raw_json FROM market_today WHERE championship_id = ? AND market_date = ?"
-                ), (championship_id, today))
-                rows = cursor.fetchall()
-                if rows:
-                    all_players = [json_mod.loads(r[0]) for r in rows if r[0]]
-            except Exception:
-                pass  # Table might not exist or have the column
+            # Try reading the catalog from the synced cache via the sync_read
+            # layer (BR4.1). On a sync-miss (None) the builder falls back to the
+            # live route and logs it (BR3.1).
+            from app.services.sync_read.market_read import read_market_catalog
+            all_players = read_market_catalog(db, championship_id) or []
+            if not all_players:
+                logger.info(
+                    "market/today catalog sync-miss, falling back to live route "
+                    "(championship_id=%s)",
+                    championship_id,
+                )
 
             return _build_market_response(
                 request, db, conn, cursor, client, championship_id, today,
@@ -377,8 +376,24 @@ def _build_market_response(request, db, conn, cursor, client, championship_id,
                             live_user_players = bans
                         elif isinstance(bans, dict):
                             live_user_players = bans.get('players', bans.get('market', []))
-                except Exception as e:
-                    logger.debug(f"Failed to fetch live user bids: {e}")
+                    else:
+                        # Live bids call failed with a catalog available: degrade
+                        # bids to zero and serve the catalog (BR3.2). Never fail
+                        # the whole response, never omit the bid fields.
+                        logger.warning(
+                            "market/today live user-bids call returned status %s; "
+                            "degrading bid fields to zero (championship_id=%s)",
+                            bid_resp.status_code, championship_id,
+                        )
+                except Exception:
+                    # Same degraded path on timeout/transport failure (BR3.2).
+                    # Log the failure MODE only — never the token/credentials.
+                    logger.warning(
+                        "market/today live user-bids call failed; degrading bid "
+                        "fields to zero (championship_id=%s)",
+                        championship_id,
+                        exc_info=False,
+                    )
 
         # Build {player_id: bid} from the CURRENT user's live data (never from cache).
         user_bids_map = {}
@@ -561,6 +576,8 @@ def _build_market_response(request, db, conn, cursor, client, championship_id,
         user_balance = initial_budget - user_spent + user_income + user_prizes
         user_max_bid = user_balance + int(user_team_value * 0.5)
 
+        from app.services.sync_read.market_read import available_for_bids
+
         return {
             "success": True,
             "championship_id": championship_id,
@@ -573,7 +590,7 @@ def _build_market_response(request, db, conn, cursor, client, championship_id,
                 "max_bid": user_max_bid,
                 "active_bids_total": active_bids_total,
                 "active_bids_count": active_bids_count,
-                "available_for_bids": user_max_bid - active_bids_total,
+                "available_for_bids": available_for_bids(user_max_bid, active_bids_total),
             },
         }
     except Exception as exc:
