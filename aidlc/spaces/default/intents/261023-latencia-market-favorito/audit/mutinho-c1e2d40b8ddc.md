@@ -3816,24 +3816,3 @@
 **Session**: 8b7dc143-e59a-4acd-ac55-5bc90946860d
 
 ---
-
-## Human Turn
-**Timestamp**: 2026-10-23T15:34:52Z
-**Event**: HUMAN_TURN
-**Session**: 8b7dc143-e59a-4acd-ac55-5bc90946860d
-
----
-
-## Human Turn
-**Timestamp**: 2026-10-23T21:15:18Z
-**Event**: HUMAN_TURN
-**Session**: 8b7dc143-e59a-4acd-ac55-5bc90946860d
-
----
-
-## Human Turn
-**Timestamp**: 2026-10-23T21:17:03Z
-**Event**: HUMAN_TURN
-**Session**: 8b7dc143-e59a-4acd-ac55-5bc90946860d
-
----
