@@ -85,9 +85,14 @@ def read_favorites(
         # 2) Synced free-agent favorites: players JOIN stats where owner is NULL.
         #    This is the authoritative "synced + free-agent" set that decides
         #    has_synced (BR2.1). owner_team_id IS NULL == free agent.
+        #    value / average come from the ALWAYS-synced tables (players,
+        #    player_championship_stats), which cover every player — not just the
+        #    ~30 in today's market_today. market_today only supplements
+        #    change/home/away/matches/points below.
         sql_players = db.adapt_params(
             f"""
-            SELECT p.player_id, p.name, p.role, p.role2, p.slug, p.real_team_name
+            SELECT p.player_id, p.name, p.role, p.role2, p.slug, p.real_team_name,
+                   p.value, pcs.average_overall
             FROM player_championship_stats pcs
             JOIN players p ON p.player_id = pcs.player_id
             WHERE pcs.championship_id = ?
@@ -132,30 +137,59 @@ def read_favorites(
                 "points": mr[13],
             }
 
+    # 3b) Points per player from player_performance (always-synced, aggregated),
+    #     covering players not present in today's market_today.
+    points_by_id: Dict[str, int] = {}
+    with db.get_connection() as conn:
+        cursor = db.get_cursor(conn)
+        sql_points = db.adapt_params(
+            f"""
+            SELECT player_id, COALESCE(SUM(points), 0)
+            FROM player_performance
+            WHERE championship_id = ? AND player_id IN ({placeholders})
+            GROUP BY player_id
+            """
+        )
+        try:
+            cursor.execute(sql_points, (championship_id, *fav_ids))
+            for pr in cursor.fetchall():
+                points_by_id[pr[0]] = pr[1] or 0
+        except Exception:
+            # player_performance missing/empty is non-fatal: points default to 0
+            # (same as the live route when performance data is absent).
+            points_by_id = {}
+
     # 4) Sofascore enrichment via the existing helper (reads sofascore_cache).
     sofascore_map = build_sofascore_map(db, championship_id)
 
     players: List[Dict] = []
     for prow in player_rows:
-        player_id, name, role, role2, slug, real_team_name = prow
+        player_id, name, role, role2, slug, real_team_name, pval, avg_overall = prow
         role = role or ""
         mt = market_by_id.get(player_id, {})
 
-        # Prefer market_today team; fall back to players.real_team_name.
+        # Team: prefer market_today; fall back to players.real_team_name (synced
+        # for every player). team_logo only exists in market_today.
         team = mt.get("team") or real_team_name or ""
         team_logo = mt.get("team_logo") or ""
         sf = lookup_sofascore(sofascore_map, name, team)
 
-        # Numeric fields from market_today with the live route's defaults when
-        # the favorite is absent from today's market (BR6.1).
-        value = mt.get("value", 0) or 0
+        # value/average/points from the ALWAYS-synced tables (cover every player);
+        # change/home/away/matches only exist in market_today, so they supplement
+        # when the favorite is in today's market, else default (as the live route
+        # does when absent). BR6.1.
+        value = (mt.get("value") if mt.get("value") not in (None, 0) else pval) or 0
+        average = clean_float(mt.get("average") if mt else None, None)
+        if average is None:
+            average = clean_float(avg_overall, 0)
+        points = points_by_id.get(player_id)
+        if points is None:
+            points = mt.get("points", 0) if mt else 0
+        if points is None:
+            points = 0
         change = mt.get("change", 0) if mt else 0
         if change is None:
             change = 0
-        points = mt.get("points", 0) if mt else 0
-        if points is None:
-            points = 0
-        average = clean_float(mt.get("average"), 0) if mt else 0
         home_average = clean_float(mt.get("home_average"), None) if mt else None
         away_average = clean_float(mt.get("away_average"), None) if mt else None
         matches = mt.get("matches", 0) if mt else 0
