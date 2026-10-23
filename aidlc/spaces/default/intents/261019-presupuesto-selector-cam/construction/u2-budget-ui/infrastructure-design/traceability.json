@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "intent": "261019-presupuesto-selector-cam",
+  "stage": "infrastructure-design",
+  "unit": "u2-budget-ui",
+  "elements": [
+    { "element": "cicd-pipeline (NO-APLICA, sin cambios)", "requirements": ["NFR1.1", "NFR6.1"] },
+    { "element": "infrastructure-specification (NO-APLICA)", "requirements": ["NFR1.1"] },
+    { "element": "monitoring-design (NO-APLICA)", "requirements": ["NFR1.1"] }
+  ]
+}

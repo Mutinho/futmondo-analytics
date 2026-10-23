@@ -1,0 +1,37 @@
+{
+  "stage": "code-generation",
+  "unit": "u1-design-system",
+  "upstream_ids": ["FR1", "FR1.3", "FR2", "FR3", "FR4", "FR4.1", "FR4.2", "FR5", "BR1.1", "BR1.2", "BR1.3", "BR1.4", "BR2.1", "BR2.2", "NFR1"],
+  "coverage": [
+    { "id": "FR1", "status": "OK", "target": "DSColorToken + DSColor (9 color roles, light/dark)" },
+    { "id": "FR1.3", "status": "OK", "target": "DSSplashGradient (DSColorValue.swift) + DSColor.splashGradient" },
+    { "id": "FR2", "status": "OK", "target": "DSTypographyScale + DSFont (h1/h2/h3/body, Dynamic Type)" },
+    { "id": "FR3", "status": "OK", "target": "DSSpacing + DSSpacingSwiftUI (xs/sm/md/lg/xl = 4/8/16/24/32)" },
+    { "id": "FR4", "status": "OK", "target": "PrimaryButton, TextInputField, Card, LoadingState, ErrorState" },
+    { "id": "FR4.1", "status": "OK", "target": "PrimaryButton (normal/disabled/loading)" },
+    { "id": "FR4.2", "status": "OK", "target": "TextInputField (label, icon, error, SecureField + toggle)" },
+    { "id": "FR5", "status": "OK", "target": "CatalogView + ThemeToggle + TextSizeControl" },
+    { "id": "BR1.1", "status": "OK", "target": "DSColorValue.hex(for:) + DSColor dynamic UIColor provider" },
+    { "id": "BR1.2", "status": "OK", "target": "DSFont.font(_:relativeTo:) relative styles" },
+    { "id": "BR1.3", "status": "OK", "target": "DSFont.isRobotoAvailable fallback to .system" },
+    { "id": "BR1.4", "status": "OK", "target": "ContrastRatio.meets/ratio validated in DesignSystemContrastTests" },
+    { "id": "BR2.1", "status": "OK", "target": "PrimaryButton.isInteractionBlocked (loading precedence)" },
+    { "id": "BR2.2", "status": "OK", "target": "TextInputField.borderColor (error > focus > neutral) + secure toggle" },
+    { "id": "NFR1", "status": "OK", "target": "ContrastRatio thresholds 4.5/3.0 (A1/A2) + Dynamic Type (A3) + accessibility labels/roles (A4/A5) + ErrorState icon+text not color-only (A7)" }
+  ],
+  "reverse": [
+    { "id": "DSColorValue", "status": "OK", "target": "FR1/BR1.1" },
+    { "id": "DSSpacing", "status": "OK", "target": "FR3" },
+    { "id": "DSTypographyScale", "status": "OK", "target": "FR2" },
+    { "id": "ContrastRatio", "status": "OK", "target": "BR1.4/NFR1" },
+    { "id": "DSColor", "status": "N/A", "target": "SwiftUI accessor validated on device" },
+    { "id": "DSFont", "status": "N/A", "target": "SwiftUI accessor validated on device" },
+    { "id": "DSSpacingSwiftUI", "status": "N/A", "target": "SwiftUI accessor validated on device" },
+    { "id": "PrimaryButton", "status": "N/A", "target": "SwiftUI view validated on device" },
+    { "id": "TextInputField", "status": "N/A", "target": "SwiftUI view validated on device" },
+    { "id": "Card", "status": "N/A", "target": "SwiftUI view validated on device" },
+    { "id": "LoadingState", "status": "N/A", "target": "SwiftUI view validated on device" },
+    { "id": "ErrorState", "status": "N/A", "target": "SwiftUI view validated on device" },
+    { "id": "CatalogView", "status": "N/A", "target": "FR5 catalog validated on device" }
+  ]
+}

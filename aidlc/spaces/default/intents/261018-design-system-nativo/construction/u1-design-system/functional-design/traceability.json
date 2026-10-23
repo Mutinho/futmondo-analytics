@@ -1,0 +1,23 @@
+{
+  "stage": "functional-design",
+  "unit": "u1-design-system",
+  "upstream_ids": ["AC1.1.1", "AC1.1.2", "AC1.2.1", "AC1.2.2", "AC1.2.3", "AC1.3.1", "AC2.1.1", "AC2.1.2", "AC2.1.3", "AC2.1.4", "AC2.1.5", "AC2.1.6", "AC2.1.7", "AC3.1.1", "AC3.1.2"],
+  "coverage": [
+    { "id": "AC1.1.1", "status": "N/A", "target": "Existencia de los tokens de color por rol: definidos en entities.md (ColorToken), no es una regla de negocio." },
+    { "id": "AC1.1.2", "status": "OK", "target": "BR1.1" },
+    { "id": "AC1.2.1", "status": "N/A", "target": "Existencia de la escala tipográfica h1/h2/h3+body: definida en entities.md (TypographyToken), no es una regla." },
+    { "id": "AC1.2.2", "status": "OK", "target": "BR1.2" },
+    { "id": "AC1.2.3", "status": "OK", "target": "BR1.3" },
+    { "id": "AC1.3.1", "status": "N/A", "target": "Escala de espaciado: constante de diseño sin regla de negocio; definida en entities.md (SpacingToken)." },
+    { "id": "AC2.1.1", "status": "OK", "target": "BR2.1" },
+    { "id": "AC2.1.2", "status": "OK", "target": "BR2.2" },
+    { "id": "AC2.1.3", "status": "N/A", "target": "Card: superficie sin lógica; presentación pura." },
+    { "id": "AC2.1.4", "status": "OK", "target": "BR2.1" },
+    { "id": "AC2.1.5", "status": "OK", "target": "BR1.1" },
+    { "id": "AC2.1.6", "status": "OK", "target": "BR1.4" },
+    { "id": "AC2.1.7", "status": "OK", "target": "BR1.2" },
+    { "id": "AC3.1.1", "status": "N/A", "target": "Catálogo muestra tokens/componentes: workflow W1 del functional-spec, no una regla." },
+    { "id": "AC3.1.2", "status": "OK", "target": "BR1.1" }
+  ],
+  "reverse": []
+}

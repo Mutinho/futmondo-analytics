@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "intent": "261019-presupuesto-selector-cam",
+  "stage": "functional-design",
+  "unit": "u1-budget-data",
+  "elements": [
+    { "element": "TeamBudget", "requirements": ["FR1.2"], "stories": ["US1"] },
+    { "element": "BalancesResponse", "requirements": ["FR1.1"], "stories": ["US1"] },
+    { "element": "Championship", "requirements": ["FR3.1"], "stories": ["US2"] },
+    { "element": "ChampionshipsResponse", "requirements": ["FR3.1"], "stories": ["US2"] },
+    { "element": "MoneyFormatter", "requirements": ["FR1.3"], "stories": ["US1"] },
+    { "element": "SortKey", "requirements": ["FR2.1"], "stories": ["US3"] },
+    { "element": "TeamBudgetSort", "requirements": ["FR2.1"], "stories": ["US3"] },
+    { "element": "BudgetService", "requirements": ["FR1.1", "FR4.2"], "stories": ["US1"] },
+    { "element": "ChampionshipService", "requirements": ["FR3.1", "FR4.2"], "stories": ["US2"] },
+    { "element": "ActiveChampionshipStore", "requirements": ["FR3.2"], "stories": ["US2"] },
+    { "element": "ActiveChampionshipResolver", "requirements": ["FR3.2", "FR3.3"], "stories": ["US2"] }
+  ],
+  "nfr": ["NFR1.1", "NFR2.1", "NFR6.1"]
+}

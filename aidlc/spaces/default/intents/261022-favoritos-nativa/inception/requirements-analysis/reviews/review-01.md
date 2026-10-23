@@ -1,0 +1,20 @@
+## Review
+
+**Verdict:** READY
+**Reviewer:** aidlc-product-lead-agent
+**Date:** 2026-10-22T08:22:51Z
+**Iteration:** 1
+
+### Findings
+
+| ID | Severity | Location | Finding | Required action | Status |
+|---|---|---|---|---|---|
+| R-01 | Major | aidlc/spaces/default/intents/261022-favoritos-nativa/inception/requirements-analysis/requirements.md > FR4.2 | La web NO persiste el criterio de orden: `favorites.component.ts` sólo persiste el modo de vista en `localStorage` (`futmondo_view_favorites`) y `sortField` arranca siempre en `'value'` sin guardarse. FR4.2 ("persistir el criterio de orden en `UserDefaults`") es, por tanto, comportamiento **nuevo**, no portado de la fuente de verdad. No es un error, pero su origen es una decisión propia, no la vista Angular. | Anotar FR4.2 como decisión de producto propia de la pantalla nativa (coherencia con el patrón de Mercado/Calculadora), no como port 1:1 de la web, para que la trazabilidad no afirme una fuente que no existe. | New |
+| R-02 | Minor | aidlc/spaces/default/intents/261022-favoritos-nativa/inception/requirements-analysis/requirements.md > A1 y FR3.2 | El `FavoritePlayer` de Angular tiene DOS campos de rating: `rating: number` **y** `sofascore_rating: number \| null`. A1 y FR3.2 sólo citan `sofascore_rating` (el que pinta el badge). Queda sin aclarar si `rating` es un campo distinto que la card deba mostrar o es redundante/no usado. | Confirmar en A1 cuál de los dos campos consume la card y declarar el otro como no usado, para que el decode del DTO en Functional Design no deje un campo ambiguo. | New |
+| R-03 | Minor | aidlc/spaces/default/intents/261022-favoritos-nativa/inception/requirements-analysis/requirements.md > FR6.1 | En la web `openSofascoreDetail` abre la hoja de detalle para **cualquier** jugador (no condiciona a que tenga datos); FR6.1 añade "cuando el jugador tenga datos". Es un endurecimiento razonable (evita hojas vacías), pero diverge de la fuente de verdad sin dejar explícito el criterio de "tener datos" (¿`sofascore_rating` no nulo? ¿`sofascore_url`?). | Precisar qué campo decide la disponibilidad de "Ver estadísticas", o marcar que iguala el comportamiento web (siempre disponible), para que QA tenga un pass/fail inequívoco. | New |
+| R-04 | Minor | aidlc/spaces/default/intents/261022-favoritos-nativa/inception/requirements-analysis/requirements.md > FR7.1 | FR7.1 es condicional e hipotética ("si se detectara que alguna pantalla muestra el flag de favorito…"). Tal como está no es verificable con un pass/fail: por defecto no hay cross-invalidación, que es lo correcto, pero el "si procede" queda abierto. | Dejar FR7.1 como afirmación cerrada (por defecto, SIN cross-invalidación en esta pantalla) y mover la condición a una Open Question o a Out of scope, para no arrastrar un requisito no testable. | New |
+| R-05 | Minor | aidlc/spaces/default/intents/261022-favoritos-nativa/inception/requirements-analysis/requirements.md > FR1/FR3 (dimensión de escenarios de usuario) | Rincones de carga sin requisito explícito: fallo parcial del `unfollow` con error de red tras confirmar (FR5.2 cubre "aviso de error" pero no si la lista se deja intacta y la guardia se libera), y campos nulos esperados (`starter_pct`, `sofascore_rating`, `change == 0`) cuyo render "-" la web sí resuelve. La trampa de "falsy / 0 = ausente" está documentada en el patrón nativo pero no se refleja como criterio aquí. | Añadir criterios de pass/fail para: tras `unfollow` fallido la lista permanece y la acción se re-habilita; y el render de valores nulos/cero (`-`) replicando la lógica condicional de la web (evitar el bug de "0 = sin valor"). | New |
+
+### Summary
+
+Artefacto sólido y listo para avanzar: FRs con IDs estables y trazables a la vista Angular y a las respuestas del Q&A (todas "A"), out-of-scope explícito (NO se crean favoritos, sólo listar/quitar) y assumptions con rationale. Lo que el gate debería sopesar: FR4.2 (persistir el orden) es decisión propia y no port de la web, y conviene cerrar un par de rincones de datos nulos/fallo de escritura y el doble campo de rating antes de Functional Design; nada de esto bloquea la aprobación.

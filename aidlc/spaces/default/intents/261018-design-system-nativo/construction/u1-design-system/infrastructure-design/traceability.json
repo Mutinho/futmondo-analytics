@@ -1,0 +1,12 @@
+{
+  "stage": "infrastructure-design",
+  "unit": "u1-design-system",
+  "upstream_ids": ["NFR2.1"],
+  "coverage": [
+    { "id": "NFR2.1", "status": "OK", "target": "cicd-pipeline (verificación swift build/test a coste 0 €; sin infraestructura de pago)" }
+  ],
+  "reverse": [
+    { "id": "infrastructure-specification", "status": "N/A", "target": "kind library: sin recursos de infraestructura/cloud" },
+    { "id": "monitoring-design", "status": "N/A", "target": "kind library: sin servicio desplegado que monitorizar" }
+  ]
+}

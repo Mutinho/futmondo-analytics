@@ -1,0 +1,28 @@
+{
+  "stage": "code-generation",
+  "upstream_ids": [
+    "BR1.1", "BR1.2", "BR2.1", "BR2.2", "BR3.1", "BR3.2",
+    "BR4.1", "BR4.2", "BR5.1", "BR5.2", "BR6.1", "BR6.2",
+    "BR7.1", "BR8.1", "BR8.2", "BR9.1", "BR10.1", "BR11.1"
+  ],
+  "coverage": [
+    { "id": "BR1.1", "status": "OK", "target": "ios/Sources/FutmondoKit/Calculator/CalculatorMath.swift" },
+    { "id": "BR1.2", "status": "OK", "target": "ios/Sources/FutmondoApp/Calculator/CalculatorViewModel.swift" },
+    { "id": "BR2.1", "status": "OK", "target": "ios/Sources/FutmondoKit/Calculator/CalculatorMath.swift" },
+    { "id": "BR2.2", "status": "OK", "target": "ios/Sources/FutmondoKit/Calculator/CalculatorMath.swift" },
+    { "id": "BR3.1", "status": "OK", "target": "ios/Sources/FutmondoKit/Calculator/CalculatorMath.swift" },
+    { "id": "BR3.2", "status": "OK", "target": "ios/Tests/FutmondoKitTests/CalculatorMathTests.swift" },
+    { "id": "BR4.1", "status": "OK", "target": "ios/Sources/FutmondoApp/Calculator/CalculatorViewModel.swift" },
+    { "id": "BR4.2", "status": "OK", "target": "ios/Sources/FutmondoApp/Calculator/CalculatorViewModel.swift" },
+    { "id": "BR5.1", "status": "OK", "target": "ios/Sources/FutmondoKit/Calculator/CalculatorPreferences.swift" },
+    { "id": "BR5.2", "status": "OK", "target": "ios/Sources/FutmondoApp/Calculator/CalculatorViewModel.swift" },
+    { "id": "BR6.1", "status": "OK", "target": "ios/Sources/FutmondoApp/Calculator/CalculatorHeader.swift" },
+    { "id": "BR6.2", "status": "OK", "target": "ios/Sources/FutmondoApp/Calculator/CalculatorHeader.swift" },
+    { "id": "BR7.1", "status": "OK", "target": "ios/Sources/FutmondoApp/Calculator/CalculatorPlayerCard.swift" },
+    { "id": "BR8.1", "status": "OK", "target": "ios/Sources/FutmondoApp/Calculator/CalculatorView.swift" },
+    { "id": "BR8.2", "status": "OK", "target": "ios/Sources/FutmondoApp/Calculator/CalculatorViewModel.swift" },
+    { "id": "BR9.1", "status": "OK", "target": "ios/Sources/FutmondoApp/Calculator/OnSaleSection.swift" },
+    { "id": "BR10.1", "status": "OK", "target": "ios/Sources/FutmondoApp/SplashView.swift" },
+    { "id": "BR11.1", "status": "OK", "target": "ios/Sources/FutmondoApp/Calculator/CalculatorViewModel.swift" }
+  ]
+}

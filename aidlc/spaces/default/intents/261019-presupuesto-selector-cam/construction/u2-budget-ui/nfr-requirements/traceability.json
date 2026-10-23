@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "intent": "261019-presupuesto-selector-cam",
+  "stage": "nfr-requirements",
+  "unit": "u2-budget-ui",
+  "elements": [
+    { "element": "PR1", "requirements": ["NFR4.1"] },
+    { "element": "PR2", "requirements": ["NFR4.1"] },
+    { "element": "SR1", "requirements": ["NFR2.1"] },
+    { "element": "SR2", "requirements": ["NFR2.1"] },
+    { "element": "SR3", "requirements": ["NFR2.1"] },
+    { "element": "TS1", "requirements": ["NFR1.1"] },
+    { "element": "TS2", "requirements": ["NFR6.1"] },
+    { "element": "TS3", "requirements": ["NFR1.1", "FR5.1"] }
+  ]
+}

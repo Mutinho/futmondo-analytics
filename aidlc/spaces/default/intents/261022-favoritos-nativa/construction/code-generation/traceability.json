@@ -1,0 +1,24 @@
+{
+  "stage": "code-generation",
+  "upstream_ids": [
+    "BR1.1", "BR1.2", "BR2.1", "BR3.1", "BR3.2", "BR3.3", "BR3.4",
+    "BR4.1", "BR5.1", "BR5.2", "BR5.3", "BR5.4", "BR6.1", "BR7.1", "BR8.1"
+  ],
+  "coverage": [
+    { "id": "BR1.1", "status": "OK", "target": "ios/Sources/FutmondoApp/Favorites/FavoritesViewModel.swift" },
+    { "id": "BR1.2", "status": "OK", "target": "ios/Sources/FutmondoApp/Favorites/FavoritesView.swift" },
+    { "id": "BR2.1", "status": "OK", "target": "ios/Sources/FutmondoApp/Favorites/FavoritesView.swift" },
+    { "id": "BR3.1", "status": "OK", "target": "ios/Sources/FutmondoApp/Favorites/FavoritePlayerCard.swift" },
+    { "id": "BR3.2", "status": "OK", "target": "ios/Sources/FutmondoApp/Favorites/FavoritePlayerCard.swift" },
+    { "id": "BR3.3", "status": "OK", "target": "ios/Sources/FutmondoKit/Favorites/FavoritePlayer.swift" },
+    { "id": "BR3.4", "status": "OK", "target": "ios/Sources/FutmondoApp/Favorites/FavoritesView.swift" },
+    { "id": "BR4.1", "status": "OK", "target": "ios/Sources/FutmondoKit/Favorites/FavoritesSorter.swift" },
+    { "id": "BR5.1", "status": "OK", "target": "ios/Sources/FutmondoApp/Favorites/FavoritePlayerCard.swift" },
+    { "id": "BR5.2", "status": "OK", "target": "ios/Sources/FutmondoApp/Favorites/FavoritesViewModel.swift" },
+    { "id": "BR5.3", "status": "OK", "target": "ios/Sources/FutmondoApp/Favorites/FavoritesViewModel.swift" },
+    { "id": "BR5.4", "status": "OK", "target": "ios/Sources/FutmondoApp/Favorites/FavoritesViewModel.swift" },
+    { "id": "BR6.1", "status": "OK", "target": "ios/Sources/FutmondoApp/Favorites/FavoritePlayerCard.swift" },
+    { "id": "BR7.1", "status": "OK", "target": "ios/Sources/FutmondoApp/Budget/RootTabView.swift" },
+    { "id": "BR8.1", "status": "OK", "target": "ios/Sources/FutmondoKit/Favorites/FavoritesService.swift" }
+  ]
+}

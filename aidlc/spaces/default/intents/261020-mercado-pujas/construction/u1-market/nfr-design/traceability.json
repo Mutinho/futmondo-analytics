@@ -1,0 +1,29 @@
+{
+  "stage": "nfr-design",
+  "unit": "u1-market",
+  "upstream_ids": ["NFR1.1", "NFR1.2", "NFR1.3", "NFR1.4", "NFR2.1", "NFR3.1", "NFR3.2", "NFR3.3", "NFR3.4", "NFR3.5", "NFR3.6", "NFR3.7", "NFR3.8", "NFR4.1", "NFR5.1", "NFR5.2", "NFR6.1", "NFR6.2", "NFR6.3", "NFR6.4", "NFR6.5", "NFR6.6"],
+  "coverage": [
+    { "id": "NFR1.1", "status": "N/A", "target": "decisión de stack (SwiftUI, SDK Apple); sin patrón de diseño NFR específico" },
+    { "id": "NFR1.2", "status": "N/A", "target": "sin dependencias nuevas; decisión de stack, no patrón de diseño" },
+    { "id": "NFR1.3", "status": "OK", "target": "security-design: NetworkClient reutilizado (transporte), sin libs externas" },
+    { "id": "NFR1.4", "status": "OK", "target": "performance-design: estado observable @MainActor, trabajo off-main en actores" },
+    { "id": "NFR2.1", "status": "OK", "target": "logical-components: reutiliza DesignSystem F1/F2 (vistas presentacionales)" },
+    { "id": "NFR3.1", "status": "OK", "target": "security-design: Bearer por request vía NetworkClient" },
+    { "id": "NFR3.2", "status": "OK", "target": "security-design: access token en memoria vía TokenHolder" },
+    { "id": "NFR3.3", "status": "OK", "target": "security-design: refresh en Keychain reutilizado (F1)" },
+    { "id": "NFR3.4", "status": "OK", "target": "security-design: validación en dos capas (cliente BidAmountValidator + backend autoridad)" },
+    { "id": "NFR3.5", "status": "OK", "target": "security-design: TLS obligatorio, rechazo no-https en init" },
+    { "id": "NFR3.6", "status": "OK", "target": "security-design: avisos construidos sin material de credencial (mapeo MarketWriteOutcome)" },
+    { "id": "NFR3.7", "status": "OK", "target": "security-design: sin secretos en código/tests; dobles in-memory" },
+    { "id": "NFR3.8", "status": "OK", "target": "security-design: escritura autenticada sin bypass; 401/refresh por AuthService" },
+    { "id": "NFR4.1", "status": "N/A", "target": "idioma es convención de código/UI, no un patrón de diseño NFR; se respeta en los artefactos y el código" },
+    { "id": "NFR5.1", "status": "OK", "target": "logical-components: lógica pura en FutmondoKit, aislada de UI/red (testeable)" },
+    { "id": "NFR5.2", "status": "N/A", "target": "ejecución de XCTest es de tooling/verificación, no un patrón de diseño" },
+    { "id": "NFR6.1", "status": "OK", "target": "performance-design: estado loading síncrono antes del await" },
+    { "id": "NFR6.2", "status": "OK", "target": "performance-design: reemplazo atómico de datos en una actualización de estado" },
+    { "id": "NFR6.3", "status": "OK", "target": "performance-design: LazyVStack + AsyncImage con placeholder" },
+    { "id": "NFR6.4", "status": "OK", "target": "performance-design: ordenado en memoria (MarketSorter), sin red" },
+    { "id": "NFR6.5", "status": "OK", "target": "performance-design: I/O off-main en actores; isWriting no congela scroll" },
+    { "id": "NFR6.6", "status": "OK", "target": "performance-design + logical-components: carga del detalle aislada en estado local" }
+  ]
+}

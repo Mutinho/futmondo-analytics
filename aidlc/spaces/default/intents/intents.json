@@ -169,5 +169,45 @@
     "scope": "feature",
     "status": "complete",
     "request": "c2d42059"
+  },
+  {
+    "uuid": "01a14e9b-d476-7c89-898a-9033ea7c388b",
+    "slug": "design-system-nativo",
+    "dirName": "261018-design-system-nativo",
+    "scope": "feature",
+    "status": "complete",
+    "request": "fca07eee"
+  },
+  {
+    "uuid": "01a153d9-2d23-7e9a-a750-6c07148782fd",
+    "slug": "presupuesto-selector-cam",
+    "dirName": "261019-presupuesto-selector-cam",
+    "scope": "feature",
+    "status": "complete",
+    "request": "6c20284a"
+  },
+  {
+    "uuid": "01a1597a-bfaf-7c10-b53c-7b676dbaf249",
+    "slug": "mercado-pujas",
+    "dirName": "261020-mercado-pujas",
+    "scope": "feature",
+    "status": "complete",
+    "request": "b31a8971"
+  },
+  {
+    "uuid": "01a15f01-0c48-7390-a28e-5f9542434eed",
+    "slug": "calculadora-nativa",
+    "dirName": "261021-calculadora-nativa",
+    "scope": "refactor",
+    "status": "complete",
+    "request": "9e3f83e8"
+  },
+  {
+    "uuid": "01a162ac-1b0c-7963-b1b5-93b750e3b023",
+    "slug": "favoritos-nativa",
+    "dirName": "261022-favoritos-nativa",
+    "scope": "refactor",
+    "status": "complete",
+    "request": "f8579cbb"
   }
 ]

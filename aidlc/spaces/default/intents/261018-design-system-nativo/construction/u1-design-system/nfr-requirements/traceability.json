@@ -1,0 +1,11 @@
+{
+  "stage": "nfr-requirements",
+  "unit": "u1-design-system",
+  "upstream_ids": ["NFR1", "NFR2", "NFR3", "NFR4"],
+  "coverage": [
+    { "id": "NFR1", "status": "OK", "target": "BR1.4 (functional-design rules.md); la verificación de accesibilidad opera en NFR Design/code-generation, no genera NFRx.y de seguridad nueva" },
+    { "id": "NFR2", "status": "OK", "target": "NFR2.1, NFR2.2, NFR2.3" },
+    { "id": "NFR3", "status": "OK", "target": "tech-stack-decisions (Color Assets/Dynamic Type reproducen el tema)" },
+    { "id": "NFR4", "status": "N/A", "target": "Dispositivo/responsive: no es un requisito de seguridad; se trata en NFR Design/code-generation de la UI." }
+  ]
+}

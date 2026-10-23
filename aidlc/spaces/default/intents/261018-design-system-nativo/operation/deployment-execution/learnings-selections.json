@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "stage_slug": "deployment-execution",
+  "phase": "operation",
+  "space": "default",
+  "intent": "261018-design-system-nativo",
+  "selections": []
+}

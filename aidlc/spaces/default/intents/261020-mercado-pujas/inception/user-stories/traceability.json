@@ -1,0 +1,25 @@
+{
+  "intent": "261020-mercado-pujas",
+  "stage": "user-stories",
+  "generated": "2026-10-20",
+  "upstream_artifact": "aidlc/spaces/default/intents/261020-mercado-pujas/inception/requirements-analysis/requirements.md",
+  "elements": [
+    { "id": "US1", "type": "user-story", "traces_to": ["FR1", "FR2"] },
+    { "id": "US2", "type": "user-story", "traces_to": ["FR3"] },
+    { "id": "US3", "type": "user-story", "traces_to": ["FR4"] },
+    { "id": "US4", "type": "user-story", "traces_to": ["FR5"] },
+    { "id": "US5", "type": "user-story", "traces_to": ["FR6"] },
+    { "id": "US6", "type": "user-story", "traces_to": ["FR7"] },
+    { "id": "US7", "type": "user-story", "traces_to": ["FR8"] }
+  ],
+  "upstream_elements": [
+    { "id": "FR1", "covered_by": ["US1"] },
+    { "id": "FR2", "covered_by": ["US1"] },
+    { "id": "FR3", "covered_by": ["US2"] },
+    { "id": "FR4", "covered_by": ["US3"] },
+    { "id": "FR5", "covered_by": ["US4"] },
+    { "id": "FR6", "covered_by": ["US5"] },
+    { "id": "FR7", "covered_by": ["US6"] },
+    { "id": "FR8", "covered_by": ["US7"] }
+  ]
+}

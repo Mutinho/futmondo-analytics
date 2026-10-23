@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "intent": "261019-presupuesto-selector-cam",
+  "stage": "infrastructure-design",
+  "unit": "u1-budget-data",
+  "elements": [
+    { "element": "cicd-pipeline (NO-APLICA, sin cambios)", "requirements": ["NFR6.1"], "note": "La justificacion real es la postura de verificacion de UI/iOS (swift build/test local en WSL, sin runner Swift en CI) y el coste 0 €; no toca el arranque backend. NFR1.1 (JWT_SECRET) no aplica aqui." }
+  ]
+}

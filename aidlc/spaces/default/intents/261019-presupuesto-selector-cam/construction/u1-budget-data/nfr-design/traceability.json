@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "intent": "261019-presupuesto-selector-cam",
+  "stage": "nfr-design",
+  "unit": "u1-budget-data",
+  "elements": [
+    { "element": "security-design SR1", "requirements": ["NFR2.1"] },
+    { "element": "security-design SR2", "requirements": ["NFR2.1"] },
+    { "element": "security-design SR3", "requirements": ["NFR2.1"] },
+    { "element": "security-design SR4", "requirements": ["NFR2.1"] },
+    { "element": "logical-components layout", "requirements": ["NFR1.1", "NFR6.1"] }
+  ]
+}

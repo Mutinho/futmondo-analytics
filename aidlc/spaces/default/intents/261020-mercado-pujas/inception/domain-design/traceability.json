@@ -1,0 +1,34 @@
+{
+  "intent": "261020-mercado-pujas",
+  "stage": "domain-design",
+  "generated": "2026-10-20",
+  "upstream_artifact": "aidlc/spaces/default/intents/261020-mercado-pujas/inception/user-stories/stories.md",
+  "upstream_ids": ["US1", "US2", "US3", "US4", "US5", "US6", "US7"],
+  "coverage": [
+    { "id": "US1", "status": "OK", "target": "RootTabView, MarketView, MarketViewModel, MarketService, MarketTodayResponse" },
+    { "id": "US2", "status": "OK", "target": "MarketUserInfo, MarketView" },
+    { "id": "US3", "status": "OK", "target": "MarketPlayer, MarketView, MarketPlayerCard" },
+    { "id": "US4", "status": "OK", "target": "MarketSorter, MarketView, MarketViewModel" },
+    { "id": "US5", "status": "OK", "target": "BidAmountValidator, MarketWriteOutcome, MarketService, MarketViewModel, MarketPlayerCard, BidSheet" },
+    { "id": "US6", "status": "OK", "target": "MarketWriteOutcome, MarketService, MarketViewModel, MarketPlayerCard, CancelBidConfirmation" },
+    { "id": "US7", "status": "OK", "target": "SofascoreDetail, SofascoreService, SofascoreDetailSheet" }
+  ],
+  "elements": [
+    { "id": "MarketPlayer", "type": "component", "traces_to": ["FR4", "US3"] },
+    { "id": "MarketUserInfo", "type": "component", "traces_to": ["FR3", "US2"] },
+    { "id": "MarketTodayResponse", "type": "component", "traces_to": ["FR2", "US1"] },
+    { "id": "MarketWriteOutcome", "type": "component", "traces_to": ["FR6", "FR7", "US5", "US6"] },
+    { "id": "MarketService", "type": "component", "traces_to": ["FR2", "FR6", "FR7", "US1", "US5", "US6"] },
+    { "id": "MarketSorter", "type": "component", "traces_to": ["FR5", "US4"] },
+    { "id": "BidAmountValidator", "type": "component", "traces_to": ["FR6", "US5"] },
+    { "id": "SofascoreDetail", "type": "component", "traces_to": ["FR8", "US7"] },
+    { "id": "SofascoreService", "type": "component", "traces_to": ["FR8", "US7"] },
+    { "id": "MarketView", "type": "component", "traces_to": ["FR2", "FR3", "FR4", "FR5", "US1", "US2", "US3", "US4"] },
+    { "id": "MarketViewModel", "type": "component", "traces_to": ["FR2", "FR5", "FR6", "FR7", "US1", "US4", "US5", "US6"] },
+    { "id": "MarketPlayerCard", "type": "component", "traces_to": ["FR4", "FR6", "FR7", "US3", "US5", "US6"] },
+    { "id": "BidSheet", "type": "component", "traces_to": ["FR6", "US5"] },
+    { "id": "CancelBidConfirmation", "type": "component", "traces_to": ["FR7", "US6"] },
+    { "id": "SofascoreDetailSheet", "type": "component", "traces_to": ["FR8", "US7"] },
+    { "id": "RootTabView", "type": "component", "traces_to": ["FR1", "US1"] }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "stage": "code-generation",
+  "unit": "u2-login-theming",
+  "version": 1,
+  "writes": [
+    { "path": "ios/Sources/FutmondoApp/LoginView.swift" }
+  ]
+}

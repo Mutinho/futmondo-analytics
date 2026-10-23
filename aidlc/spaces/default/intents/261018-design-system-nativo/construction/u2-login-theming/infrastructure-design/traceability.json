@@ -1,0 +1,12 @@
+{
+  "stage": "infrastructure-design",
+  "unit": "u2-login-theming",
+  "upstream_ids": ["NFR4.1"],
+  "coverage": [
+    { "id": "NFR4.1", "status": "OK", "target": "cicd-pipeline (verificación swift build/test + validación en dispositivo; sin infraestructura)" }
+  ],
+  "reverse": [
+    { "id": "infrastructure-specification", "status": "N/A", "target": "revestimiento de UI: sin recursos de infraestructura" },
+    { "id": "monitoring-design", "status": "N/A", "target": "sin servicio desplegado que monitorizar" }
+  ]
+}
