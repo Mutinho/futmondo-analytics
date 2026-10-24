@@ -217,5 +217,13 @@
     "scope": "refactor",
     "status": "complete",
     "request": "ba6e9957"
+  },
+  {
+    "uuid": "01a16aa0-d6be-799b-96d4-aecbc6c3efc7",
+    "slug": "sync-jugador-completo",
+    "dirName": "261023-sync-jugador-completo",
+    "scope": "refactor",
+    "status": "in-flight",
+    "request": "fee03be0"
   }
 ]

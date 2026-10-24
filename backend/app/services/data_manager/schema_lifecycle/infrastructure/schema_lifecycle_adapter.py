@@ -551,5 +551,6 @@ class SchemaLifecycleAdapter(SchemaLifecycleDataPort):
                     )
                 except Exception:
                     pass  # Column may already exist or table may not exist yet
+
         except Exception as e:
             logger.warning(f"Could not ensure schema updates: {e}")

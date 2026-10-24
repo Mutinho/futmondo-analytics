@@ -60,7 +60,7 @@ def _make_dm(fake_db, with_points_schema=False):
             )
         else:
             cursor.execute(
-                "CREATE TABLE IF NOT EXISTS players (player_id TEXT PRIMARY KEY, name TEXT, role TEXT, role2 TEXT, real_team_id TEXT, real_team_name TEXT, slug TEXT, photo_url TEXT, value INTEGER, last_updated TEXT)"
+                "CREATE TABLE IF NOT EXISTS players (player_id TEXT PRIMARY KEY, name TEXT, role TEXT, role2 TEXT, real_team_id TEXT, real_team_name TEXT, slug TEXT, photo_url TEXT, value INTEGER, points INTEGER DEFAULT 0, change INTEGER DEFAULT 0, home_average REAL, away_average REAL, matches INTEGER DEFAULT 0, status TEXT DEFAULT '', last_updated TEXT)"
             )
         cursor.execute(
             "CREATE TABLE IF NOT EXISTS player_championship_stats (championship_id TEXT, player_id TEXT, owner_team_id TEXT, owner_team_name TEXT, owner_user_id TEXT, clause_price INTEGER, suggested_clause INTEGER, average_last_five REAL, average_overall REAL, clause_date TEXT, updated_at TEXT, PRIMARY KEY (championship_id, player_id))"

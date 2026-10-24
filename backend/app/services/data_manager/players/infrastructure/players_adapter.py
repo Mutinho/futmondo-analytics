@@ -106,7 +106,7 @@ class PlayersAdapter(PlayersDataPort):
                 from psycopg2.extras import execute_values
 
                 sql = """
-                    INSERT INTO players (player_id, name, role, role2, real_team_id, real_team_name, slug, photo_url, value, last_updated)
+                    INSERT INTO players (player_id, name, role, role2, real_team_id, real_team_name, slug, photo_url, value, points, change, home_average, away_average, matches, status, last_updated)
                     VALUES %s
                     ON CONFLICT (player_id) DO UPDATE SET
                         name = EXCLUDED.name,
@@ -117,6 +117,12 @@ class PlayersAdapter(PlayersDataPort):
                         slug = EXCLUDED.slug,
                         photo_url = EXCLUDED.photo_url,
                         value = EXCLUDED.value,
+                        points = EXCLUDED.points,
+                        change = EXCLUDED.change,
+                        home_average = EXCLUDED.home_average,
+                        away_average = EXCLUDED.away_average,
+                        matches = EXCLUDED.matches,
+                        status = EXCLUDED.status,
                         last_updated = EXCLUDED.last_updated
                 """
                 values = []
@@ -135,6 +141,12 @@ class PlayersAdapter(PlayersDataPort):
                             p.get("slug", ""),
                             p.get("photo", p.get("photo_url", "")),
                             p.get("value", 0) or 0,
+                            p.get("points", 0) or 0,
+                            p.get("change", 0) or 0,
+                            p.get("home_average"),
+                            p.get("away_average"),
+                            p.get("matches", 0) or 0,
+                            p.get("status", "") or "",
                             now,
                         )
                     )
@@ -147,8 +159,8 @@ class PlayersAdapter(PlayersDataPort):
                 # SQLite/Turso: use executemany
                 sql = """
                     INSERT OR REPLACE INTO players 
-                    (player_id, name, role, role2, real_team_id, real_team_name, slug, photo_url, last_updated)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (player_id, name, role, role2, real_team_id, real_team_name, slug, photo_url, value, points, change, home_average, away_average, matches, status, last_updated)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """
                 values = []
                 for p in players:
@@ -165,6 +177,13 @@ class PlayersAdapter(PlayersDataPort):
                             p.get("team", p.get("real_team_name", "")),
                             p.get("slug", ""),
                             p.get("photo", p.get("photo_url", "")),
+                            p.get("value", 0) or 0,
+                            p.get("points", 0) or 0,
+                            p.get("change", 0) or 0,
+                            p.get("home_average"),
+                            p.get("away_average"),
+                            p.get("matches", 0) or 0,
+                            p.get("status", "") or "",
                             now,
                         )
                     )
