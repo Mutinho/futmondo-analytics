@@ -1,6 +1,8 @@
 # Technology Stack — Futmondo Analytics
 
-> Refresco enfocado en latencia; stack sin cambios respecto al store previo.
+> Merge CURRENT; stack **sin cambios** respecto al store previo. El intent
+> `261023-sync-jugador-completo` es un refactor/enriquecimiento del sync de
+> jugadores: no introduce dependencias nuevas (stdlib + capa DDD existente).
 
 | Capa | Tecnología | Versión / notas |
 |---|---|---|
@@ -14,10 +16,15 @@
 | Lint/format | `ruff` (`select E,F,I`, line 100), ESLint (advisory), Prettier | `ruff check` bloqueante en ambos gates |
 | Test | `pytest` + `pytest-cov` (backend, fakes in-memory `conftest.py`); Vitest `ng test` (frontend) | gate de CI bloqueante |
 
-## Relevancia a la latencia
+## Relevancia al intent (sync completo de jugadores)
 
-El coste dominante de `/market/today` y `/favorites/my` está en las llamadas
-HTTP en vivo vía `requests`/`FutmondoClient` (timeout 15 s por llamada), no en
-la capa `psycopg2`/Neon (reads agregados y pool reutilizado). Ninguna
-dependencia de caché/TTL adicional está instalada (coste 0 €: cualquier mejora
-usa stdlib o el camino read-from-sync ya existente).
+- La persistencia usa `psycopg2` (Postgres/Neon) y la rama SQLite en los
+  adapters (`db.db_type`), con UPSERT batch (`execute_values` / `executemany`).
+  Cualquier columna nueva debe respetar ambas ramas y la DDL de
+  `schema_lifecycle`.
+- La ingesta usa `requests` vía `FutmondoClient` (timeout 15 s, errores
+  tipados). Si el enriquecimiento exige una llamada por jugador
+  (`/1/player/summary` o `/1/player/fullprofile`), el coste HTTP del sync crece
+  linealmente — a evaluar en Functional Design (coste 0 €, sin tooling de pago).
+- No se instalan dependencias nuevas: el patrón DDD (puerto + adapter +
+  servicio) y la capa `sync_read` ya existen.

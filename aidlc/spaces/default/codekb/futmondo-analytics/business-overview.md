@@ -1,9 +1,10 @@
 # Business Overview — Futmondo Analytics
 
-> Refresco enfocado en **latencia** (intent `261023-latencia-market-favorito`)
-> sobre store CURRENT (`261020-mercado-pujas`). Prosa previa preservada y
-> extendida con la caracterización de rendimiento de 3 endpoints. Conciso por
-> profundidad Minimal; cada inventario se registra una vez y se cruza-referencia.
+> Merge CURRENT (store `261023-latencia-market-favorito`). Prosa previa
+> **preservada**; refresco enfocado en el **sync completo de jugadores** (intent
+> `261023-sync-jugador-completo`): persistir toda la info por jugador para que
+> Favoritos y Mercado se sirvan desde el sync sin depender de `market_today` ni
+> de llamadas en vivo. Conciso por profundidad Minimal.
 
 ## Dominio
 
@@ -21,19 +22,24 @@ por jugadores, gestionar favoritos y calcular finanzas. En producción en Fly.io
   vivo.
 - **Favoritos** (`/favorites/my`): jugadores marcados como favoritos (agentes
   libres) enriquecidos con valor/stats y Sofascore.
+- **Sincronización** (`sync_players_full` y hermanos): sync en background (11
+  pasos) que pre-sincroniza datos de Futmondo a Neon (jugadores, transacciones,
+  standings, premios, performance, sofascore…).
 - **Presupuesto / Balances** (`/analytics/balances`): saldo por equipo
   (200M − compras + ventas + premios), valor de plantilla y rendimiento.
-- **Sincronización**: sync en background (11 pasos) que pre-sincroniza datos de
-  Futmondo a Neon (jugadores, transacciones, standings, premios, sofascore…).
 
 ## Problema de negocio que motiva el intent
 
-El usuario percibe lentitud al abrir **Mercado** (~1.6 s) y **Favoritos**
-(~3.4 s), mientras **Presupuesto** carga rápido (~0.4 s). El objetivo es entender
-y reducir esa latencia preservando el contrato de datos de cada pantalla. La
-causa raíz es el número de **llamadas HTTP en vivo a la API de Futmondo por
-petición** (ver `architecture.md` → Interaction Diagrams y
-`code-quality-assessment.md`).
+Favoritos y Mercado deben mostrar por cada jugador **todos** los campos del
+contrato (puntos totales, `change`/tendencia, logo de equipo, medias
+casa/fuera, partidos), pero hoy esos campos solo existen para una minoría de
+jugadores: `points` vive en `player_performance` (vacío para agentes libres) y
+`change`/medias-detalle/`team_logo` solo en `market_today` (~30 jugadores del
+día). En producción, 32 de 33 favoritos agentes libres salen con esos campos
+vacíos. El objetivo del intent es **enriquecer el sync de jugadores**
+(`sync_players_full`) para que persista la info completa por jugador en las
+tablas sincronizadas, de modo que Favoritos y Mercado sirvan cada campo desde el
+sync, sin `market_today` ni llamadas en vivo.
 
 ## Usuarios
 
@@ -48,3 +54,6 @@ pujas y favoritos son por usuario.
   free). Excepción acotada: publicación de distribución nativa.
 - Gate de CI bloqueante antes de fusionar a `main`.
 - Nunca almacenar la contraseña Futmondo en claro.
+- Characterization-first antes de refactorizar `sync_players_full`; no ampliar
+  los god-files ni el SQL-en-router; contrato de respuesta de los endpoints
+  intacto.
