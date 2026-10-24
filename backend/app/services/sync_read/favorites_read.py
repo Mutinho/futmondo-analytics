@@ -32,6 +32,7 @@ from app.api.v1.endpoints._sofascore_helpers import (
     build_sofascore_map,
     lookup_sofascore,
 )
+from app.core.constants import LALIGA_TEAMS
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +93,8 @@ def read_favorites(
         sql_players = db.adapt_params(
             f"""
             SELECT p.player_id, p.name, p.role, p.role2, p.slug, p.real_team_name,
-                   p.value, pcs.average_overall
+                   p.value, pcs.average_overall, p.points, p.change, p.home_average,
+                   p.away_average, p.matches, p.status, p.real_team_id
             FROM player_championship_stats pcs
             JOIN players p ON p.player_id = pcs.player_id
             WHERE pcs.championship_id = ?
@@ -137,64 +139,50 @@ def read_favorites(
                 "points": mr[13],
             }
 
-    # 3b) Points per player from player_performance (always-synced, aggregated),
-    #     covering players not present in today's market_today.
-    points_by_id: Dict[str, int] = {}
-    with db.get_connection() as conn:
-        cursor = db.get_cursor(conn)
-        sql_points = db.adapt_params(
-            f"""
-            SELECT player_id, COALESCE(SUM(points), 0)
-            FROM player_performance
-            WHERE championship_id = ? AND player_id IN ({placeholders})
-            GROUP BY player_id
-            """
-        )
-        try:
-            cursor.execute(sql_points, (championship_id, *fav_ids))
-            for pr in cursor.fetchall():
-                points_by_id[pr[0]] = pr[1] or 0
-        except Exception:
-            # player_performance missing/empty is non-fatal: points default to 0
-            # (same as the live route when performance data is absent).
-            points_by_id = {}
+    # Points source change (BR4.1): points is now served from the synced
+    # `players.points` column (authoritative). The former
+    # SUM(player_performance.points) aggregation returned 0 for free agents (they
+    # have no per-matchday rows under their own id), which is exactly why the
+    # switch is intentional and frozen by a characterization test — not a silent
+    # regression.
 
     # 4) Sofascore enrichment via the existing helper (reads sofascore_cache).
     sofascore_map = build_sofascore_map(db, championship_id)
 
     players: List[Dict] = []
     for prow in player_rows:
-        player_id, name, role, role2, slug, real_team_name, pval, avg_overall = prow
+        (
+            player_id, name, role, role2, slug, real_team_name, pval, avg_overall,
+            p_points, p_change, p_home_avg, p_away_avg, p_matches, p_status,
+            real_team_id,
+        ) = prow
         role = role or ""
         mt = market_by_id.get(player_id, {})
 
-        # Team: prefer market_today; fall back to players.real_team_name (synced
-        # for every player). team_logo only exists in market_today.
-        team = mt.get("team") or real_team_name or ""
-        team_logo = mt.get("team_logo") or ""
+        # Team/logo: resolve from real_team_id via the static LALIGA_TEAMS map;
+        # fall back to players.real_team_name for the name, worst case ''/''
+        # (BR3.1). market_today is no longer required for this.
+        team_info = LALIGA_TEAMS.get(real_team_id) or {}
+        team = team_info.get("name") or real_team_name or ""
+        team_logo = team_info.get("logo") or ""
         sf = lookup_sofascore(sofascore_map, name, team)
 
-        # value/average/points from the ALWAYS-synced tables (cover every player);
-        # change/home/away/matches only exist in market_today, so they supplement
-        # when the favorite is in today's market, else default (as the live route
-        # does when absent). BR6.1.
+        # value/average from the ALWAYS-synced tables (players,
+        # player_championship_stats); market_today only supplements value when
+        # present. BR4.1/BR5.2.
         value = (mt.get("value") if mt.get("value") not in (None, 0) else pval) or 0
-        average = clean_float(mt.get("average") if mt else None, None)
-        if average is None:
-            average = clean_float(avg_overall, 0)
-        points = points_by_id.get(player_id)
-        if points is None:
-            points = mt.get("points", 0) if mt else 0
-        if points is None:
-            points = 0
-        change = mt.get("change", 0) if mt else 0
-        if change is None:
-            change = 0
-        home_average = clean_float(mt.get("home_average"), None) if mt else None
-        away_average = clean_float(mt.get("away_average"), None) if mt else None
-        matches = mt.get("matches", 0) if mt else 0
-        if matches is None:
-            matches = 0
+        average = clean_float(avg_overall, 0)
+
+        # change/points/matches/status now come from the synced `players` row
+        # (authoritative; BR4.1). Defaults when the column is still NULL (before
+        # the first enriched sync): 0/0/0/'' (BR5.2).
+        points = p_points or 0
+        change = p_change or 0
+        matches = p_matches or 0
+        status = p_status or ""
+        # home/away averages from players (REAL, nullable); clean_float -> None.
+        home_average = clean_float(p_home_avg, None)
+        away_average = clean_float(p_away_avg, None)
 
         players.append({
             "player_id": player_id,
@@ -211,13 +199,13 @@ def read_favorites(
             "home_average": home_average,
             "away_average": away_average,
             "matches": matches,
-            # `rating` (flat) and `status` have no synced source; the front does
-            # not render them. Freeze the live route's defaults (BR6.1).
+            # `rating` (flat) stays 0; sofascore_* / starter_pct from the cache,
+            # as today (BR4.2).
             "rating": 0,
             "sofascore_rating": sf.get("rating"),
             "sofascore_url": sf.get("url"),
             "starter_pct": sf.get("starter_pct"),
-            "status": "",
+            "status": status,
             "position_order": POSITION_ORDER.get(role.lower(), 9),
         })
 

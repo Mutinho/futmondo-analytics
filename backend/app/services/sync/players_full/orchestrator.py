@@ -22,6 +22,7 @@ import time
 from datetime import datetime
 from typing import Dict, List, Optional
 
+from app.api.v1.endpoints._helpers import clean_float
 from app.services.futmondo_client import FutmondoClient
 from app.services.sync.players_full.domain.ports import PlayersFullSyncDataPort
 from app.services.sync.players_full.infrastructure.players_full_adapter import (
@@ -78,7 +79,14 @@ class PlayersFullSyncOrchestrator:
                 if not player_id:
                     continue
 
-                # Collect player data for batch insert
+                average_data = player.get("average") or {}
+
+                # Collect player data for batch insert, now enriched with the
+                # six fields the live catalog provides and the sync used to
+                # discard (BR1.1): points/change/matches/status default to 0/''
+                # when absent; home/away averages are normalized with
+                # clean_float (the verified Futmondo strings — incl. "NaN" — map
+                # to None, never persisted as text; BR1.2).
                 player_records.append({
                     "id": player_id,
                     "name": player.get("name", ""),
@@ -89,10 +97,15 @@ class PlayersFullSyncOrchestrator:
                     "slug": player.get("slug", ""),
                     "photo": player.get("photo", ""),
                     "value": player.get("value", 0),
+                    "points": player.get("points", 0) or 0,
+                    "change": player.get("change", 0) or 0,
+                    "matches": average_data.get("matches", 0) or 0,
+                    "status": player.get("status", "") or "",
+                    "home_average": clean_float(average_data.get("homeAverage"), None),
+                    "away_average": clean_float(average_data.get("awayAverage"), None),
                 })
 
                 clause_data = player.get("clause") or {}
-                average_data = player.get("average") or {}
                 owner_team_id = player.get("userteamId")
                 owner_team_name = player.get("userteam")
                 owner_user_id = (

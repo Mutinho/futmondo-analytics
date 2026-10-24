@@ -86,7 +86,8 @@ def _seed_favorites(db, fav_ids):
         # the handler falls back to the live route (the behavior frozen here).
         cur.execute(
             "CREATE TABLE players (player_id TEXT, name TEXT, role TEXT, role2 TEXT,"
-            " slug TEXT, real_team_name TEXT, value INTEGER)"
+            " slug TEXT, real_team_name TEXT, value INTEGER, points INTEGER, change INTEGER,"
+            " home_average REAL, away_average REAL, matches INTEGER, status TEXT, real_team_id TEXT)"
         )
         cur.execute(
             "CREATE TABLE player_championship_stats (championship_id TEXT, player_id TEXT,"

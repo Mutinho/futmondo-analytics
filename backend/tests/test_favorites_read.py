@@ -37,7 +37,8 @@ def _schema(cur):
     )
     cur.execute(
         "CREATE TABLE players (player_id TEXT, name TEXT, role TEXT, role2 TEXT,"
-        " slug TEXT, real_team_name TEXT, value INTEGER)"
+        " slug TEXT, real_team_name TEXT, value INTEGER, points INTEGER, change INTEGER,"
+        " home_average REAL, away_average REAL, matches INTEGER, status TEXT, real_team_id TEXT)"
     )
     cur.execute(
         "CREATE TABLE player_championship_stats (championship_id TEXT, player_id TEXT,"
@@ -66,10 +67,13 @@ def _fav(cur, pid):
     cur.execute("INSERT INTO player_favorites VALUES (?, ?, ?)", (CHAMP, USER, pid))
 
 
-def _player(cur, pid, name, role, role2="", slug="", real_team="", value=0):
+def _player(cur, pid, name, role, role2="", slug="", real_team="", value=0,
+            points=None, change=None, home_average=None, away_average=None,
+            matches=None, status=None, real_team_id=None):
     cur.execute(
-        "INSERT INTO players VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (pid, name, role, role2, slug, real_team, value),
+        "INSERT INTO players VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (pid, name, role, role2, slug, real_team, value, points, change,
+         home_average, away_average, matches, status, real_team_id),
     )
 
 
@@ -105,11 +109,15 @@ def test_free_agent_favorites_mapped_with_contract_keys_and_market_stats(fake_db
         cur = fake_db.get_cursor(conn)
         _schema(cur)
         _fav(cur, "p1")
-        _player(cur, "p1", "Striker", "delantero", slug="striker")
-        _stats(cur, "p1", owner=None)  # free agent
-        _market(cur, "p1", "Striker", value=5000000, change=10, average=6.5,
-                home_average=6.0, away_average=7.0, matches_played=8, points=7,
-                team="Team A", team_logo="logoA", slug="striker", position2="")
+        # Enrichment is now authoritative from the synced players row.
+        _player(cur, "p1", "Striker", "delantero", slug="striker",
+                real_team="Team A", value=5000000, points=7, change=10,
+                home_average=6.0, away_average=7.0, matches=8, status="ok")
+        _stats(cur, "p1", owner=None, average_overall=6.5)  # free agent
+        # market_today still present but no longer the source for enrichment.
+        _market(cur, "p1", "Striker", value=5000000, change=999, average=9.9,
+                home_average=9.9, away_average=9.9, matches_played=99, points=99,
+                team="Ignored", team_logo="ignored", slug="striker", position2="")
 
     players, has_synced = favorites_read.read_favorites(fake_db, CHAMP, USER)
 
@@ -119,23 +127,25 @@ def test_free_agent_favorites_mapped_with_contract_keys_and_market_stats(fake_db
     assert set(p.keys()) == FAVORITE_KEYS
     assert p["player_id"] == "p1"
     assert p["value"] == 5000000
+    # Enrichment from players (authoritative), NOT market_today.
     assert p["change"] == 10
     assert p["average"] == 6.5
     assert p["home_average"] == 6.0
     assert p["away_average"] == 7.0
     assert p["matches"] == 8
     assert p["points"] == 7
+    # No real_team_id and no LALIGA_TEAMS entry → fall back to real_team_name.
     assert p["team"] == "Team A"
-    assert p["team_logo"] == "logoA"
+    assert p["team_logo"] == ""
     assert p["position"] == "delantero"
     assert p["position_order"] == 3
     # No sofascore cache row → defaults.
     assert p["sofascore_rating"] is None
     assert p["sofascore_url"] is None
     assert p["starter_pct"] is None
-    # Flat rating / status frozen defaults.
+    # Flat rating; status now served from players.status.
     assert p["rating"] == 0
-    assert p["status"] == ""
+    assert p["status"] == "ok"
 
 
 def test_order_preserved_position_asc_then_value_desc(fake_db):
@@ -178,21 +188,24 @@ def test_synced_fields_served_when_favorite_absent_from_market_today(fake_db):
         cur = fake_db.get_cursor(conn)
         _schema(cur)
         _fav(cur, "p1")
+        # Enrichment seeded on the synced players row (authoritative source).
         _player(cur, "p1", "Keeper", "portero", role2="", slug="keeper",
-                real_team="Team B", value=3200000)
+                real_team="Team B", value=3200000, points=20, change=0,
+                home_average=None, away_average=None, matches=0, status="")
         _stats(cur, "p1", owner=None, average_overall=6.3)
+        # player_performance rows exist but are NO LONGER the points source.
         _perf(cur, "p1", 12)
-        _perf(cur, "p1", 8)  # aggregates to 20
+        _perf(cur, "p1", 8)
         # No market_today row for p1.
 
     players, has_synced = favorites_read.read_favorites(fake_db, CHAMP, USER)
     assert has_synced is True
     p = players[0]
-    # value / average / points come from the synced tables (the fix).
+    # value / average from the always-synced tables; points from players.points.
     assert p["value"] == 3200000
     assert p["average"] == 6.3
     assert p["points"] == 20
-    # change / home / away / matches only live in market_today → defaults.
+    # change / home / away / matches default when the players columns are empty.
     assert p["change"] == 0
     assert p["home_average"] is None
     assert p["away_average"] is None

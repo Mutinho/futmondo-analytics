@@ -89,7 +89,9 @@ def _fav_sync_schema(cur, with_synced_row):
     cur.execute("CREATE TABLE player_favorites (championship_id TEXT, user_id TEXT, player_id TEXT)")
     cur.execute("INSERT INTO player_favorites VALUES (?, ?, ?)", (CHAMP, USER, "p1"))
     cur.execute(
-        "CREATE TABLE players (player_id TEXT, name TEXT, role TEXT, role2 TEXT, slug TEXT, real_team_name TEXT, value INTEGER)"
+        "CREATE TABLE players (player_id TEXT, name TEXT, role TEXT, role2 TEXT, slug TEXT,"
+        " real_team_name TEXT, value INTEGER, points INTEGER, change INTEGER, home_average REAL,"
+        " away_average REAL, matches INTEGER, status TEXT, real_team_id TEXT)"
     )
     cur.execute(
         "CREATE TABLE player_championship_stats (championship_id TEXT, player_id TEXT, owner_team_id TEXT, average_overall REAL)"
@@ -112,7 +114,8 @@ def _fav_sync_schema(cur, with_synced_row):
     )
     if with_synced_row:
         cur.execute(
-            "INSERT INTO players VALUES ('p1', 'Synced Striker', 'delantero', '', 'synced-striker', 'Team A', 5000000)"
+            "INSERT INTO players VALUES ('p1', 'Synced Striker', 'delantero', '', 'synced-striker',"
+            " 'Team A', 5000000, 4, 3, 5.5, 6.5, 5, '', NULL)"
         )
         cur.execute(
             "INSERT INTO player_championship_stats VALUES (?, 'p1', NULL, 6.5)", (CHAMP,)
