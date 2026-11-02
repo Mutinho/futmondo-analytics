@@ -1,0 +1,27 @@
+# Cloudflare Pages — cabeceras HTTP
+# Replica las cabeceras de seguridad y la política de caché que aplicaba
+# nginx.prod.conf cuando el frontend se servía desde Fly.
+
+# Cabeceras de seguridad para todo el sitio
+/*
+  X-Frame-Options: SAMEORIGIN
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+
+# Service worker — nunca cachear (debe detectar nuevas versiones al instante)
+/ngsw-worker.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# Config del service worker y manifest — caché corta
+/ngsw.json
+  Cache-Control: public, max-age=3600
+/site.webmanifest
+  Cache-Control: public, max-age=3600
+
+# Estáticos con hash en el nombre — caché agresiva e inmutable
+/*.js
+  Cache-Control: public, max-age=31536000, immutable
+/*.css
+  Cache-Control: public, max-age=31536000, immutable
+/*.woff2
+  Cache-Control: public, max-age=31536000, immutable

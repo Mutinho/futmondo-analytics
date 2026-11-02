@@ -13,9 +13,12 @@ primary_region = "cdg"
 [http_service]
   internal_port = 8000
   force_https = true
-  auto_stop_machines = "off"
+  # Coste ~0€: la máquina se detiene sin tráfico y arranca bajo demanda.
+  # Antes: auto_stop_machines="off" + min_machines_running=1 → máquina 24/7
+  # (la causa del cargo de segundos-core en la factura de Fly).
+  auto_stop_machines = "stop"
   auto_start_machines = true
-  min_machines_running = 1
+  min_machines_running = 0
   max_machines_running = 1
 
 [[vm]]
