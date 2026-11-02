@@ -1,0 +1,15 @@
+# Cloudflare Pages — reglas de redirección/proxy
+# Reemplaza el proxy inverso que hacía nginx (nginx.prod.conf) al servir el
+# frontend desde Fly. El código 200 = "rewrite" (proxy transparente): la URL
+# del navegador NO cambia, por lo que el navegador ve las peticiones como
+# same-origin y NO se dispara CORS.
+#
+# El orden importa: las reglas más específicas van primero; el fallback SPA
+# (/* -> /index.html) va al final.
+
+# --- Proxy al backend FastAPI en Fly.io ---
+/api/*   https://futmondo-api.fly.dev/api/:splat   200
+/auth/*  https://futmondo-api.fly.dev/auth/:splat  200
+
+# --- SPA fallback: cualquier otra ruta la resuelve Angular Router ---
+/*       /index.html                               200
